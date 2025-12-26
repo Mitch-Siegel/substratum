@@ -62,14 +62,13 @@ impl Display for StructDefinitionTree {
 }
 
 impl midend::treewalk::Treewalk<midend::symtab::StructRepr> for StructDefinitionTree {
-    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
-        unimplemented!();
-        /*
-        ctx.declare(midend::symtab::DefPathComponent::Type(
-            midend::types::Syntactic::Named(self.name.clone()),
-        ))
-        .unwrap();
-        */
+    fn collect_symbols(
+        &self,
+        mut ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
+        ctx.declare_type(self.name.value.clone())?;
+
+        Ok(ctx.take())
     }
 
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]

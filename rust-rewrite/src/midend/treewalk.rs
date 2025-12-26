@@ -8,67 +8,66 @@ pub use collect_ctx::CollectCtx;
 pub use function_linearize_context::FunctionLinearizeCtx;
 pub use linearize_context::{GenericParamsContext, LinearizeCtx};
 
+#[derive(Debug)]
+pub enum CollectError {
+    Symbol(symtab::SymbolError),
+}
+
+impl From<symtab::SymbolError> for CollectError {
+    fn from(value: symtab::SymbolError) -> Self {
+        Self::Symbol(value)
+    }
+}
+
+pub type CollectResult = Result<Box<symtab::SymbolTable>, CollectError>;
+
 pub trait Treewalk<LinearizeResult> {
-    fn collect_symbols(&self, _ctx: &mut CollectCtx) {
-        unreachable!("collect_symbols() called on AST without implementation")
+    fn collect_symbols(&self, ctx: CollectCtx) -> CollectResult {
+        unreachable!("collect_symbols() called on AST without implementation");
     }
 
     fn linearize(self, ctx: &mut LinearizeCtx) -> LinearizeResult;
 }
 
+pub fn path_from_module(module: &frontend::ast::ModuleTree) -> symtab::DefPath {
+    let segments = module
+        .module_path
+        .iter()
+        .map(|segment| symtab::PathSegment::Type(segment.clone()))
+        .collect::<Vec<_>>();
+    let (last, prefix_segments) = segments.split_last().unwrap();
+
+    symtab::DefPath::new(prefix_segments.into(), last.to_owned())
+}
+
 pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable> {
-    let symtab = Box::new(symtab::SymbolTable::new());
+    let mut symtab = Box::new(symtab::SymbolTable::new());
 
     trace::debug!("collect symbols");
 
     for module in &program {
-        unimplemented!();
-        /*
-        let mut module_def_path = symtab::DefPath::empty();
-        for module_name in module.module_path.as_slice().split_last().unwrap().1 {
-            module_def_path
-                .push(symtab::DefPathComponent::Module(symtab::ModuleName {
-                    name: module_name.clone(),
-                }))
-                .unwrap();
+        let path = path_from_module(module);
+        let mut collect_ctx = CollectCtx::new(symtab, path.clone());
 
-        }
-        let mut collect_ctx = CollectCtx::new(symtab, module_def_path.clone());
-        module.collect_symbols(&mut collect_ctx);
-        let taken = collect_ctx.take();
-        symtab = taken.0;
-        assert_eq!(taken.1, module_def_path);
-        */
+        symtab = module.collect_symbols(collect_ctx).unwrap();
     }
 
-    unimplemented!();
     //symtab.collect_impls();
 
     trace::debug!("linearize");
 
     for module in program {
-        unimplemented!();
-        /*
-        let mut module_def_path = symtab::DefPath::empty();
-        for module_name in module.module_path.as_slice().split_last().unwrap().1 {
-            module_def_path
-                .push(symtab::DefPathComponent::Module(symtab::ModuleName {
-                    name: module_name.clone(),
-                }))
-                .unwrap();
-        }
+        let path = path_from_module(&module);
 
         trace::debug!(
             "walk module \"{}\": {:?} (defpath {})",
             module.name,
             module.module_path,
-            module_def_path
+            path
         );
-        let mut linearize_ctx =
-            LinearizeCtx::new(symtab, module_def_path, GenericParamsContext::new());
+        let mut linearize_ctx = LinearizeCtx::new(symtab, path, GenericParamsContext::new());
         module.linearize(&mut linearize_ctx);
         symtab = linearize_ctx.take().unwrap().0;
-        */
     }
 
     symtab

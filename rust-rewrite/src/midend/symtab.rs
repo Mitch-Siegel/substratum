@@ -16,15 +16,13 @@ pub use def_path::*;
 pub use symbols::*;
 pub use visitor::*;
 
-trait SymtabInternal {
+pub trait Symtab {
     fn insert(
         &mut self,
         path: DefPath,
         maybe_symbol: Option<SymbolDef>,
     ) -> Result<DefPath, SymbolError>;
-}
 
-pub trait Symtab: SymtabInternal {
     // declare 'path' to exist
     fn declare(&mut self, path: DefPath) -> Result<DefPath, SymbolError> {
         trace::debug!("declare {}", path);
@@ -33,23 +31,16 @@ pub trait Symtab: SymtabInternal {
 
     // define 'symbol' as a child of 'path', returning path::symbol or error
     fn define(&mut self, parent_path: DefPath, symbol: SymbolDef) -> Result<DefPath, SymbolError> {
+        match symbol {
+            SymbolDef::Type(_) => assert!(parent_path.is_type()),
+            SymbolDef::Value(_) => assert!(parent_path.is_value()),
+        }
+
         trace::debug!("define {} at {}", symbol.name(), parent_path);
         self.insert(
             parent_path.with_segment(symbol.path_segment())?,
             Some(symbol),
         )
-    }
-
-    fn define_type(&mut self, parent_path: DefPath, symbol: Type) -> Result<DefPath, SymbolError> {
-        self.define(parent_path, SymbolDef::Type(symbol))
-    }
-
-    fn define_value(
-        &mut self,
-        parent_path: DefPath,
-        symbol: Value,
-    ) -> Result<DefPath, SymbolError> {
-        self.define(parent_path, SymbolDef::Value(symbol))
     }
 
     fn lookup(
@@ -129,9 +120,21 @@ impl SymbolTable {
             })
             .flatten()
     }
+
+    fn define_type(&mut self, parent_path: DefPath, symbol: Type) -> Result<DefPath, SymbolError> {
+        self.define(parent_path, SymbolDef::Type(symbol))
+    }
+
+    fn define_value(
+        &mut self,
+        parent_path: DefPath,
+        symbol: Value,
+    ) -> Result<DefPath, SymbolError> {
+        self.define(parent_path, SymbolDef::Value(symbol))
+    }
 }
 
-impl SymtabInternal for SymbolTable {
+impl Symtab for SymbolTable {
     fn insert(
         &mut self,
         path: DefPath,
@@ -155,9 +158,7 @@ impl SymtabInternal for SymbolTable {
             None => Ok(path),
         }
     }
-}
 
-impl Symtab for SymbolTable {
     fn lookup(
         &self,
         mut search_path: DefPath,

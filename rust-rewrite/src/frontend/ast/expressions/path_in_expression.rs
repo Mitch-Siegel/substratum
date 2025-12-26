@@ -20,8 +20,11 @@ impl Ast for PathInExpressionTree {
 }
 
 impl midend::treewalk::Treewalk<midend::ir::ValueId> for PathInExpressionTree {
-    fn collect_symbols(&self, _ctx: &mut midend::treewalk::CollectCtx) {
-        ()
+    fn collect_symbols(
+        &self,
+        ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
+        Ok(ctx.take())
     }
 
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {

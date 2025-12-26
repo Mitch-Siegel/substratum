@@ -55,18 +55,21 @@ impl Ast for Expression {
 }
 
 impl midend::treewalk::Treewalk<midend::ir::ValueId> for Expression {
-    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
+    fn collect_symbols(
+        &self,
+        mut ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
         match self {
-            Self::If(if_expr) => {
-                if_expr.collect_symbols(ctx);
-            }
+            Self::If(if_expr) => if_expr.collect_symbols(ctx),
             Self::While(while_expr) => while_expr.collect_symbols(ctx),
             Self::Match(match_expr) => match_expr.collect_symbols(ctx),
             Self::PathInExpression(p) => p.collect_symbols(ctx),
             Self::Arithmetic(a) => a.collect_symbols(ctx),
             Self::Comparison(c) => c.collect_symbols(ctx),
             Self::Assignment(a) => a.collect_symbols(ctx),
-            Self::FieldExpression(_) | Self::UnsignedDecimalConstant(_, _) | Self::Call(_) => (),
+            Self::FieldExpression(_) | Self::UnsignedDecimalConstant(_, _) | Self::Call(_) => {
+                Ok(ctx.take())
+            }
         }
     }
 

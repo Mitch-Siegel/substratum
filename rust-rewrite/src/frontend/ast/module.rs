@@ -25,22 +25,26 @@ impl Ast for ModuleTree {
 }
 
 impl midend::treewalk::Treewalk<()> for ModuleTree {
-    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
+    fn collect_symbols(
+        &self,
+        mut ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
         let _span = trace::span_auto_debug!(
             "collect for module ",
             "{} ({:?}",
             self.name,
             self.module_path
         );
-        let module_component = midend::symtab::PathSegment::Type(self.name.value.clone());
-        ctx.declare(module_component.clone()).unwrap();
+        let name = self.name.value.clone();
 
-        ctx.push_def_path(module_component.clone()).unwrap();
+        let module_path = ctx.declare_type(name).unwrap();
 
         for item in &self.items {
-            item.collect_symbols(ctx);
+            let (item_ctx, prev_path) = ctx.with_path(module_path.clone());
+            ctx = (item.collect_symbols(item_ctx)?, prev_path).into();
         }
-        ctx.pop_def_path(module_component).unwrap()
+
+        Ok(ctx.take())
     }
 
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]

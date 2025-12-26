@@ -43,7 +43,10 @@ impl Ast for ItemTree {
 }
 
 impl midend::treewalk::Treewalk<()> for ItemTree {
-    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
+    fn collect_symbols(
+        &self,
+        ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
         match self {
             ItemTree::FunctionDeclaration(function_declaration) => {
                 unimplemented!(
@@ -59,7 +62,7 @@ impl midend::treewalk::Treewalk<()> for ItemTree {
             ItemTree::Implementation(implementation) => implementation.collect_symbols(ctx),
             ItemTree::Module((module, _)) => match module {
                 Ok(m) => m.collect_symbols(ctx),
-                Err(_) => (),
+                Err(_) => Ok(ctx.take()),
             },
         }
     }

@@ -20,7 +20,10 @@ impl Ast for ImplementationTree {
 }
 
 impl midend::treewalk::Treewalk<()> for ImplementationTree {
-    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
+    fn collect_symbols(
+        &self,
+        mut ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
         unimplemented!();
         /*
          let generic_params_as_vec = match &self.generic_params {

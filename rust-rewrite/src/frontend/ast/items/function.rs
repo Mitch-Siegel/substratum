@@ -1,4 +1,4 @@
-use crate::frontend::ast::*;
+use crate::{frontend::ast::*, midend::symtab::Symtab};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ArgumentDeclarationTree {
@@ -58,16 +58,15 @@ impl Ast for FunctionDeclarationTree {
 impl midend::treewalk::Treewalk<midend::symtab::values::function::FunctionPrototype>
     for FunctionDeclarationTree
 {
-    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
+    fn collect_symbols(
+        &self,
+        mut ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
         for arg in &self.arguments {
-            unimplemented!();
-            /*
-            ctx.declare(midend::symtab::DefPathComponent::Variable(
-                arg.name.value.clone(),
-            ))
-            .unwrap();
-            */
+            ctx.declare_value(arg.name.value.clone())?;
         }
+
+        Ok(ctx.take())
     }
 
     fn linearize(
@@ -139,17 +138,16 @@ impl Display for FunctionDefinitionTree {
 }
 
 impl midend::treewalk::Treewalk<()> for FunctionDefinitionTree {
-    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
-        let function_component =
-            midend::symtab::PathSegment::Value(self.prototype.name.value.clone());
+    fn collect_symbols(
+        &self,
+        mut ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
+        let function_path = ctx.declare_value(self.prototype.name.value.clone())?;
 
-        ctx.declare(function_component.clone()).unwrap();
-        ctx.push_def_path(function_component.clone()).unwrap();
+        (ctx, _) = ctx.with_path(function_path.clone());
 
-        self.prototype.collect_symbols(ctx);
-        self.body.collect_symbols(ctx);
-
-        ctx.pop_def_path(function_component).unwrap();
+        ctx = (self.prototype.collect_symbols(ctx)?, function_path.clone()).into();
+        self.body.collect_symbols(ctx)
     }
 
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]

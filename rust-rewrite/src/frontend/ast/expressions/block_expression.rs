@@ -27,10 +27,16 @@ impl Display for BlockExpressionTree {
 }
 
 impl midend::treewalk::Treewalk<midend::ir::ValueId> for BlockExpressionTree {
-    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
+    fn collect_symbols(
+        &self,
+        mut ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
+        let path = ctx.def_path().clone();
         for stmt in &self.statements {
-            stmt.collect_symbols(ctx);
+            ctx = (stmt.collect_symbols(ctx)?, path.clone()).into();
         }
+
+        Ok(ctx.take())
     }
 
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]

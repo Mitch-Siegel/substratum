@@ -180,6 +180,14 @@ impl Ast for EnumVariantTree {
 }
 
 impl midend::treewalk::Treewalk<(String, midend::symtab::EnumVariantRepr)> for EnumVariantTree {
+    fn collect_symbols(
+        &self,
+        mut ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
+        ctx.declare_value(self.name.value.clone())?;
+        Ok(ctx.take())
+    }
+
     fn linearize(
         self,
         ctx: &mut midend::treewalk::LinearizeCtx,
@@ -233,14 +241,17 @@ impl Ast for EnumDefinitionTree {
 }
 
 impl midend::treewalk::Treewalk<midend::symtab::EnumRepr> for EnumDefinitionTree {
-    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
-        unimplemented!();
-        /*
-        ctx.declare(midend::symtab::DefPathComponent::Type(
-            midend::types::Syntactic::Named(self.name.value.clone()),
-        ))
-        .unwrap();
-        */
+    fn collect_symbols(
+        &self,
+        mut ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
+        ctx.declare_type(self.name.value.clone())?;
+
+        let path = ctx.def_path().clone();
+        for variant in &self.variants {
+            ctx = (variant.collect_symbols(ctx)?, path.clone()).into();
+        }
+        Ok(ctx.take())
     }
 
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]

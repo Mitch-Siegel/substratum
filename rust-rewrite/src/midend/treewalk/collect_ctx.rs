@@ -1,76 +1,71 @@
-use crate::midend::{symtab::DefPath, treewalk::*};
+use crate::midend::{symtab::Symtab, treewalk::*};
 
 pub struct CollectCtx {
     symtab: Box<symtab::SymbolTable>,
-    definition_path: symtab::DefPath,
+    cur_path: symtab::DefPath,
 }
 
 impl CollectCtx {
-    pub fn new(symtab: Box<symtab::SymbolTable>, definition_path: symtab::DefPath) -> Self {
-        Self {
-            symtab,
-            definition_path,
-        }
+    pub fn new(symtab: Box<symtab::SymbolTable>, cur_path: symtab::DefPath) -> Self {
+        Self { symtab, cur_path }
     }
 
-    pub fn take(self) -> (Box<symtab::SymbolTable>, symtab::DefPath) {
-        (self.symtab, self.definition_path)
+    pub fn take(self) -> Box<symtab::SymbolTable> {
+        self.symtab
     }
 
-    pub fn def_path(&self) -> &DefPath {
-        &self.definition_path
+    pub fn def_path(&self) -> &symtab::DefPath {
+        &self.cur_path
     }
 
-    pub fn declare(
-        &mut self,
-        symbol_component: symtab::PathSegment,
-    ) -> Result<symtab::DefPath, symtab::SymbolError> {
-        unimplemented!();
-        /*
-        self.symtab.declare(
-            self.definition_path
+    pub fn with_path(self, path: symtab::DefPath) -> (Self, symtab::DefPath) {
+        let new_self = Self {
+            symtab: self.symtab,
+            cur_path: path,
+        };
+
+        (new_self, self.cur_path)
+    }
+
+    pub fn declare_value(&mut self, name: String) -> Result<symtab::DefPath, symtab::SymbolError> {
+        self.declare(
+            self.cur_path
                 .clone()
-                .with_component(symbol_component)?,
-        )
-        */
-    }
-
-    pub fn push_def_path(
-        &mut self,
-        component: symtab::PathSegment,
-    ) -> Result<(), symtab::SymbolError> {
-        unimplemented!();
-        //self.definition_path.push(component)
-    }
-
-    pub fn pop_def_path(
-        &mut self,
-        expect: symtab::PathSegment,
-    ) -> Result<(), (symtab::PathSegment, symtab::PathSegment)> {
-        unimplemented!();
-        /*
-        let popped = self.definition_path.pop().unwrap();
-
-        if popped == expect {
-            Ok(())
-        } else {
-            Err((popped, expect))
-        }
-        */
-    }
-
-    pub fn declare_variable(
-        &mut self,
-        name: String,
-    ) -> Result<symtab::DefPath, symtab::SymbolError> {
-        unimplemented!();
-        /*
-        self.symtab.declare(
-            self.definition_path
-                .clone()
-                .with_component(symtab::DefPathComponent::Variable(name))
+                .with_segment(symtab::PathSegment::Value(name))
                 .unwrap(),
         )
-        */
+    }
+
+    pub fn declare_type(&mut self, name: String) -> Result<symtab::DefPath, symtab::SymbolError> {
+        self.declare(
+            self.cur_path
+                .clone()
+                .with_segment(symtab::PathSegment::Type(name))
+                .unwrap(),
+        )
+    }
+}
+
+impl From<(Box<symtab::SymbolTable>, symtab::DefPath)> for CollectCtx {
+    fn from(value: (Box<symtab::SymbolTable>, symtab::DefPath)) -> Self {
+        Self::new(value.0, value.1)
+    }
+}
+
+impl Symtab for CollectCtx {
+    fn insert(
+        &mut self,
+        path: symtab::DefPath,
+        maybe_symbol: Option<symtab::SymbolDef>,
+    ) -> Result<symtab::DefPath, symtab::SymbolError> {
+        self.symtab.insert(path, maybe_symbol)
+    }
+
+    fn lookup(
+        &self,
+        search_path: symtab::DefPath,
+        lookup_path: symtab::DefPath,
+    ) -> Result<(&symtab::SymbolDef, symtab::DefPath), symtab::SymbolError> {
+        self.symtab.lookup(search_path, lookup_path)
     }
 }

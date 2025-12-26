@@ -22,7 +22,10 @@ impl Ast for StatementTree {
 }
 
 impl midend::treewalk::Treewalk<Option<midend::ir::ValueId>> for StatementTree {
-    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
+    fn collect_symbols(
+        &self,
+        ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
         match self {
             StatementTree::Let(let_stmt) => let_stmt.collect_symbols(ctx),
             StatementTree::Item(item) => item.collect_symbols(ctx),

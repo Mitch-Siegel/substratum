@@ -17,9 +17,13 @@ impl Ast for WhileExpressionTree {
 }
 
 impl midend::treewalk::Treewalk<midend::ir::ValueId> for WhileExpressionTree {
-    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
-        self.condition.collect_symbols(ctx);
-        self.body.collect_symbols(ctx);
+    fn collect_symbols(
+        &self,
+        mut ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
+        let path = ctx.def_path().clone();
+        ctx = (self.condition.collect_symbols(ctx)?, path).into();
+        self.body.collect_symbols(ctx)
     }
 
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
@@ -80,4 +84,3 @@ impl Display for WhileExpressionTree {
         write!(f, "while ({}) {}", self.condition, self.body)
     }
 }
-

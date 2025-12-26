@@ -70,16 +70,25 @@ impl std::fmt::Display for PatternTree {
 }
 
 impl midend::treewalk::Treewalk<PatternTree> for PatternTree {
-    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
+    fn collect_symbols(
+        &self,
+        mut ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
         match self {
             Self::Literal(expr) => expr.collect_symbols(ctx),
             Self::Identifier(ident) => {
-                ctx.declare_variable(ident.value.clone()).unwrap();
+                ctx.declare_value(ident.value.clone())?;
+                Ok(ctx.take())
             }
             Self::TupleStruct(t) => {
+                let path = ctx.def_path().clone();
                 for pattern in &t.subpatterns {
-                    pattern.collect_symbols(ctx);
+                    ctx = midend::treewalk::CollectCtx::new(
+                        pattern.collect_symbols(ctx)?,
+                        path.clone(),
+                    );
                 }
+                Ok(ctx.take())
             }
         }
     }
@@ -119,7 +128,10 @@ impl Display for MatchArmTree {
 }
 
 impl midend::treewalk::Treewalk<(PatternTree, midend::ir::ValueId)> for MatchArmTree {
-    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
+    fn collect_symbols(
+        &self,
+        mut ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
         unimplemented!();
         /*
         let arm_subscope_idx = ctx.new_subscope().unwrap();
@@ -164,11 +176,21 @@ impl Ast for MatchExpressionTree {
 }
 
 impl midend::treewalk::Treewalk<midend::ir::ValueId> for MatchExpressionTree {
-    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
-        self.scrutinee_expression.collect_symbols(ctx);
+    fn collect_symbols(
+        &self,
+        mut ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
+        let path = ctx.def_path().clone();
+        ctx = (
+            self.scrutinee_expression.collect_symbols(ctx)?,
+            path.clone(),
+        )
+            .into();
         for arm in &self.arms {
-            arm.collect_symbols(ctx);
+            ctx = (arm.collect_symbols(ctx)?, path.clone()).into();
         }
+
+        Ok(ctx.take())
     }
 
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
