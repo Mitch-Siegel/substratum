@@ -1,9 +1,5 @@
-use serde::Serialize;
 
-use crate::midend::{
-    symtab::{Symbol, *},
-    *,
-};
+use crate::midend::symtab::{Symbol, *};
 
 #[derive(Debug, Clone)]
 pub struct Function {

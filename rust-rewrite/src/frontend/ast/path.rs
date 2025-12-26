@@ -1,8 +1,7 @@
-use std::collections::HashMap;
 
 use crate::{
     frontend::ast::*,
-    midend::{self, symtab::Path, treewalk::Treewalk},
+    midend::{self, treewalk::Treewalk},
 };
 use serde::{Deserialize, Serialize};
 
@@ -139,7 +138,7 @@ impl<T> LinearizedPathTree<T> {
         self
     }
 
-    pub fn map_data<OnData>(mut self, mut on_data: OnData) -> ()
+    pub fn map_data<OnData>(self, on_data: OnData) -> ()
 //Result<midend::symtab::RawPath, String>
     //where
     //    OnData: FnMut(&midend::symtab::RawPath, Option<T>),
@@ -217,7 +216,7 @@ where
 pub fn walk_middle_ident_segment(
     segment_loc: &sourceloc::SourceSpan,
     ident: String,
-    mut expr_path: midend::symtab::DefPath,
+    expr_path: midend::symtab::DefPath,
 ) -> Result<midend::symtab::DefPath, String> {
     unimplemented!();
     /*
@@ -233,7 +232,7 @@ pub fn walk_ident_segment(
     segment_loc: &sourceloc::SourceSpan,
     ident: midend::symtab::PathSegment,
     size_hint: usize,
-    mut expr_path: midend::symtab::DefPath,
+    expr_path: midend::symtab::DefPath,
     ctx: &mut midend::treewalk::LinearizeCtx,
 ) -> Result<midend::symtab::DefPath, String> {
     unimplemented!();

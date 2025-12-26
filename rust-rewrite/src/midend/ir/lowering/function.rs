@@ -1,7 +1,6 @@
 use crate::midend::{
-    ir::{unlowered::Lowerable, *},
+    ir::*,
     symtab::Path,
-    treewalk::GenericParamsContext,
     *,
 };
 use std::collections::{HashMap, HashSet};
@@ -23,7 +22,7 @@ pub fn find_unlowered_irs(cf: &ControlFlow) -> HashMap<usize, HashSet<usize>> {
 
 pub fn lower_function(
     def_path: symtab::DefPath,
-    mut symtab: Box<symtab::SymbolTable>,
+    symtab: Box<symtab::SymbolTable>,
 ) -> Box<symtab::SymbolTable> {
     let _span = trace::span_auto_debug!("Lower function ", "{}", def_path.last());
 

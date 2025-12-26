@@ -5,8 +5,7 @@ use crate::{
         ast::{self, Ast},
         sourceloc,
     },
-    midend::{self, treewalk::Treewalk},
-    trace,
+    midend::{self},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

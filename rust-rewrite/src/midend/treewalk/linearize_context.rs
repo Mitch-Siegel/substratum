@@ -1,7 +1,4 @@
-use crate::{
-    midend::{symtab::*, treewalk::*},
-    trace,
-};
+use crate::midend::{symtab::*, treewalk::*};
 
 use std::collections::{BTreeSet, HashMap};
 

@@ -17,7 +17,7 @@ pub trait Treewalk<LinearizeResult> {
 }
 
 pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable> {
-    let mut symtab = Box::new(symtab::SymbolTable::new());
+    let symtab = Box::new(symtab::SymbolTable::new());
 
     trace::debug!("collect symbols");
 

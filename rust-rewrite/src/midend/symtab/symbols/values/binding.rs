@@ -1,8 +1,5 @@
-use crate::midend::{
-    symtab::{Symbol, *},
-    *,
-};
-use serde::{Deserialize, Serialize};
+use crate::midend::symtab::{Symbol, *};
+use serde::Serialize;
 use std::fmt::Display;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]

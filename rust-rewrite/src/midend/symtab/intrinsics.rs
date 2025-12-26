@@ -1,59 +1,23 @@
-use crate::midend::{symtab::*, types};
+use crate::midend::symtab::*;
 
 fn create_core_types(symtab: &mut SymbolTable) {
-    unimplemented!();
-    /*
-    let core_def_path = DefPath::empty()
-        .with_component(DefPathComponent::Module(ModuleName {
-            name: "core".into(),
-        }))
-        .unwrap();
+    let core_def_path = DefPath::new_type(Vec::new(), "core".into());
 
-    {
-        let unit_definition = TypeDefinition::new(
-            types::Syntactic::Unit,
-            types::GenericParamsList::new(),
-            TypeRepr::Unit,
-        );
-        symtab
-            .define(core_def_path.clone(), unit_definition)
-            .unwrap();
-    }
-
-    for (type_, size) in [
-        (types::Syntactic::U8, 1),
-        (types::Syntactic::U16, 2),
-        (types::Syntactic::U32, 4),
-        (types::Syntactic::U64, 8),
+    for type_ in [
+        BuiltinType::Unit,
+        BuiltinType::U8,
+        BuiltinType::U16,
+        BuiltinType::U32,
+        BuiltinType::U64,
+        BuiltinType::I8,
+        BuiltinType::I16,
+        BuiltinType::I32,
+        BuiltinType::I64,
     ] {
-        let unsigned_definition = TypeDefinition::new(
-            type_.clone(),
-            types::GenericParamsList::new(),
-            TypeRepr::UnsignedInteger(PrimitiveIntegerRepr::new(size)),
-        );
-
         symtab
-            .define(core_def_path.clone(), unsigned_definition)
+            .define_type(core_def_path.clone(), type_.into())
             .unwrap();
     }
-
-    for (type_, size) in [
-        (types::Syntactic::I8, 1),
-        (types::Syntactic::I16, 2),
-        (types::Syntactic::I32, 4),
-        (types::Syntactic::I64, 8),
-    ] {
-        let signed_definition = TypeDefinition::new(
-            type_.clone(),
-            types::GenericParamsList::new(),
-            TypeRepr::SignedInteger(PrimitiveIntegerRepr::new(size)),
-        );
-
-        symtab
-            .define(core_def_path.clone(), signed_definition)
-            .unwrap();
-    }
-    */
 }
 
 pub fn create_core(symtab: &mut SymbolTable) {

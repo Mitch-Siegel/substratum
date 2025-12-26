@@ -1,7 +1,4 @@
-use crate::midend::{
-    symtab::{Symbol, *},
-    *,
-};
+use crate::midend::symtab::{Symbol, *};
 
 pub mod enumeration;
 pub mod structure;

@@ -1,5 +1,3 @@
-use crate::midend::symtab::*;
-
 #[derive(Clone, PartialEq, Eq)]
 pub enum PathError {
     CantOwn(PathSegment, PathSegment),
@@ -140,6 +138,44 @@ pub struct DefPath {
 }
 
 impl DefPath {
+    pub fn new(prefix_segments: Vec<PathSegment>, last: PathSegment) -> Self {
+        Self {
+            prefix_segments,
+            last,
+        }
+    }
+
+    pub fn new_type(prefix_segments: Vec<PathSegment>, name: String) -> Self {
+        Self {
+            prefix_segments,
+            last: PathSegment::Type(name),
+        }
+    }
+
+    pub fn new_value(prefix_segments: Vec<PathSegment>, name: String) -> Self {
+        Self {
+            prefix_segments,
+            last: PathSegment::Value(name),
+        }
+    }
+
+    pub fn new_macro(prefix_segments: Vec<PathSegment>, name: String) -> Self {
+        Self {
+            prefix_segments,
+            last: PathSegment::Macro(name),
+        }
+    }
+
+    pub fn with_segment(mut self, segment: PathSegment) -> Result<Self, PathError> {
+        if self.last.can_own(&segment) {
+            let old_last = std::mem::replace(&mut self.last, segment);
+            self.prefix_segments.push(old_last);
+            Ok(self)
+        } else {
+            Err(PathError::CantOwn(self.last.clone(), segment))
+        }
+    }
+
     pub fn is_type(&self) -> bool {
         match self.last {
             PathSegment::Type(_) => true,

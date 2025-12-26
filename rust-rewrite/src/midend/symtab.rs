@@ -25,12 +25,31 @@ trait SymtabInternal {
 }
 
 pub trait Symtab: SymtabInternal {
+    // declare 'path' to exist
     fn declare(&mut self, path: DefPath) -> Result<DefPath, SymbolError> {
+        trace::debug!("declare {}", path);
         self.insert(path, None)
     }
 
-    fn define(&mut self, path: DefPath, symbol: SymbolDef) -> Result<DefPath, SymbolError> {
-        self.insert(path, Some(symbol))
+    // define 'symbol' as a child of 'path', returning path::symbol or error
+    fn define(&mut self, parent_path: DefPath, symbol: SymbolDef) -> Result<DefPath, SymbolError> {
+        trace::debug!("define {} at {}", symbol.name(), parent_path);
+        self.insert(
+            parent_path.with_segment(symbol.path_segment())?,
+            Some(symbol),
+        )
+    }
+
+    fn define_type(&mut self, parent_path: DefPath, symbol: Type) -> Result<DefPath, SymbolError> {
+        self.define(parent_path, SymbolDef::Type(symbol))
+    }
+
+    fn define_value(
+        &mut self,
+        parent_path: DefPath,
+        symbol: Value,
+    ) -> Result<DefPath, SymbolError> {
+        self.define(parent_path, SymbolDef::Value(symbol))
     }
 
     fn lookup(
@@ -118,12 +137,6 @@ impl SymtabInternal for SymbolTable {
         path: DefPath,
         maybe_symbol: Option<SymbolDef>,
     ) -> Result<DefPath, SymbolError> {
-        match self.symbols.insert(path.clone(), None) {
-            Some(Some(_)) => return Err(SymbolError::AlreadyDefined(path)),
-            Some(None) => return Err(SymbolError::AlreadyDeclared(path)),
-            None => (),
-        }
-
         if path.len() > 1 {
             let (parent_path, _) = path.clone().without_last().unwrap();
             if !self
@@ -137,7 +150,7 @@ impl SymtabInternal for SymbolTable {
         }
 
         match self.symbols.insert(path.clone(), maybe_symbol) {
-            Some(Some(_already_defined)) => Err(SymbolError::AlreadyDefined(path)),
+            Some(Some(_)) => Err(SymbolError::AlreadyDefined(path)),
             Some(None) => Err(SymbolError::AlreadyDeclared(path)),
             None => Ok(path),
         }
