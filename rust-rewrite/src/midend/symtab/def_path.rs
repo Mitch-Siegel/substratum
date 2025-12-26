@@ -3,6 +3,8 @@ use crate::midend::symtab::*;
 #[derive(Clone, PartialEq, Eq)]
 pub enum PathError {
     CantOwn(PathSegment, PathSegment),
+    PopEmpty,
+    WithoutLastSingleSegment(DefPath),
 }
 
 impl std::fmt::Display for PathError {
@@ -19,9 +21,22 @@ impl std::fmt::Debug for PathError {
                 "def path component {:?} can't own component {:?}",
                 owner, owned
             ),
+            Self::PopEmpty => write!(f, "pop from empty defpath"),
+            Self::WithoutLastSingleSegment(p) => {
+                write!(f, ".without_last() call would leave path {} empty", p)
+            }
         }
     }
 }
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TypeSegment(String);
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ValueSegment(String);
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MacroSegment(String);
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PathSegment {
@@ -45,6 +60,30 @@ impl PathSegment {
     }
 }
 
+impl Into<String> for PathSegment {
+    fn into(self) -> String {
+        match self {
+            Self::Type(s) | Self::Value(s) | Self::Macro(s) => s,
+        }
+    }
+}
+
+impl From<TypeSegment> for PathSegment {
+    fn from(value: TypeSegment) -> Self {
+        Self::Type(value.0)
+    }
+}
+impl From<ValueSegment> for PathSegment {
+    fn from(value: ValueSegment) -> Self {
+        Self::Value(value.0)
+    }
+}
+impl From<MacroSegment> for PathSegment {
+    fn from(value: MacroSegment) -> Self {
+        Self::Macro(value.0)
+    }
+}
+
 impl<'a> std::fmt::Display for PathSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.raw())
@@ -63,8 +102,14 @@ impl<'a> std::fmt::Debug for PathSegment {
     }
 }
 
-pub trait Path: std::ops::Index<usize, Output = PathSegment> {
+pub trait Path:
+    std::ops::Index<usize, Output = PathSegment> + IntoIterator<Item = PathSegment> + Sized
+{
     fn len(&self) -> usize;
+
+    fn join(self, other: Self) -> Result<Self, PathError>;
+
+    fn without_last(self) -> Result<(Self, PathSegment), PathError>;
 
     fn first(&self) -> &PathSegment {
         &self[0]
@@ -74,41 +119,7 @@ pub trait Path: std::ops::Index<usize, Output = PathSegment> {
         &self[self.len() - 1]
     }
 
-    fn is_type(&self) -> bool {
-        match self.last() {
-            PathSegment::Type(_) => true,
-            _ => false,
-        }
-    }
-
-    fn is_value(&self) -> bool {
-        match self.last() {
-            PathSegment::Value(_) => true,
-            _ => false,
-        }
-    }
-
-    fn is_macro(&self) -> bool {
-        match self.last() {
-            PathSegment::Macro(_) => true,
-            _ => false,
-        }
-    }
-}
-
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct RawPath {
-    components: Vec<PathSegment>,
-}
-
-impl RawPath {
-    pub fn empty() -> Self {
-        Self {
-            components: Vec::new(),
-        }
-    }
-
-    pub fn is_prefix_of(&self, other: &DefPath) -> bool {
+    fn is_prefix_of(&self, other: Self) -> bool {
         if self.len() >= other.len() {
             return false;
         }
@@ -120,103 +131,93 @@ impl RawPath {
         }
         true
     }
-
-    pub fn pop(&mut self) -> Option<PathSegment> {
-        self.components.pop()
-    }
-
-    pub fn push(&mut self, component: PathSegment) -> Result<(), PathError> {
-        if self.can_own(&component) {
-            self.components.push(component);
-            Ok(())
-        } else {
-            Err(PathError::CantOwn(self.last().clone(), component))
-        }
-    }
-
-    pub fn join(mut self, other: RawPath) -> Result<Self, PathError> {
-        for component in other.components.into_iter().rev() {
-            self.push(component)?;
-        }
-        Ok(self)
-    }
-
-    pub fn can_own(&self, component: &PathSegment) -> bool {
-        match self.components.last() {
-            Some(last_component) => last_component.can_own(&component),
-            None => true,
-        }
-    }
-}
-
-impl Path for RawPath {
-    fn len(&self) -> usize {
-        self.components.len()
-    }
-}
-
-impl std::fmt::Display for RawPath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (index, component) in self.components.iter().enumerate() {
-            write!(f, "{}", component)?;
-            if index < (self.components.len() - 1) {
-                write!(f, "::")?;
-            }
-        }
-        Ok(())
-    }
-}
-
-impl std::fmt::Debug for RawPath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (index, component) in self.components.iter().enumerate() {
-            write!(f, "{:?}", component)?;
-            if index < (self.components.len() - 1) {
-                write!(f, "::")?;
-            }
-        }
-        Ok(())
-    }
-}
-
-impl std::ops::Index<usize> for RawPath {
-    type Output = PathSegment;
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.components[index]
-    }
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DefPath {
-    prefix_components: Vec<PathSegment>,
+    prefix_segments: Vec<PathSegment>,
     last: PathSegment,
+}
+
+impl DefPath {
+    pub fn is_type(&self) -> bool {
+        match self.last {
+            PathSegment::Type(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_value(&self) -> bool {
+        match self.last {
+            PathSegment::Value(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_macro(&self) -> bool {
+        match self.last {
+            PathSegment::Macro(_) => true,
+            _ => false,
+        }
+    }
 }
 
 impl Path for DefPath {
     fn len(&self) -> usize {
-        self.prefix_components.len() + 1
+        self.prefix_segments.len() + 1
+    }
+
+    fn join(mut self, other: Self) -> Result<Self, PathError> {
+        for segment in other.into_iter() {
+            let prev_last: PathSegment = std::mem::replace(&mut self.last, segment.clone());
+            if prev_last.can_own(&segment) {
+                self.prefix_segments.push(prev_last);
+            } else {
+                return Err(PathError::CantOwn(self.last.into(), segment));
+            }
+        }
+        Ok(self)
+    }
+
+    fn without_last(mut self) -> Result<(DefPath, PathSegment), PathError> {
+        if self.prefix_segments.len() < 1 {
+            return Err(PathError::WithoutLastSingleSegment(self));
+        }
+
+        let last = std::mem::replace(&mut self.last, self.prefix_segments.pop().unwrap().into());
+        Ok((self, last.into()))
     }
 }
 
 impl std::ops::Index<usize> for DefPath {
     type Output = PathSegment;
     fn index(&self, index: usize) -> &Self::Output {
-        let prefix_len = self.prefix_components.len();
+        let prefix_len = self.prefix_segments.len();
         if index > (prefix_len + 1) {
             panic!("out-of-bounds index on defpath");
         } else if index == prefix_len {
             &self.last
         } else {
-            &self.prefix_components[index]
+            &self.prefix_segments[index]
         }
+    }
+}
+
+impl IntoIterator for DefPath {
+    type Item = PathSegment;
+    type IntoIter = std::iter::Chain<std::vec::IntoIter<Self::Item>, std::iter::Once<Self::Item>>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.prefix_segments
+            .into_iter()
+            .chain(std::iter::once(self.last.into()))
     }
 }
 
 impl std::fmt::Display for DefPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (index, component) in self.prefix_components.iter().enumerate() {
+        for (index, component) in self.prefix_segments.iter().enumerate() {
             write!(f, "{}", component)?;
-            if index < (self.prefix_components.len()) {
+            if index < (self.prefix_segments.len()) {
                 write!(f, "::")?;
             }
         }
@@ -227,9 +228,9 @@ impl std::fmt::Display for DefPath {
 
 impl std::fmt::Debug for DefPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (index, component) in self.prefix_components.iter().enumerate() {
+        for (index, component) in self.prefix_segments.iter().enumerate() {
             write!(f, "{:?}", component)?;
-            if index < (self.prefix_components.len()) {
+            if index < (self.prefix_segments.len()) {
                 write!(f, "::")?;
             }
         }

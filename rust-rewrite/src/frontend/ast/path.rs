@@ -123,67 +123,29 @@ where
 }
 
 pub struct LinearizedPathTree<T> {
-    pub path: midend::symtab::RawPath,
-    pub segment_data: HashMap<midend::symtab::RawPath, T>,
+    pub segments: Vec<(String, Option<T>)>,
 }
 
 impl<T> LinearizedPathTree<T> {
     fn new() -> Self {
         Self {
-            path: midend::symtab::RawPath::empty(),
-            segment_data: HashMap::new(),
+            segments: Vec::new(),
         }
     }
 
-    fn with_component(
-        mut self,
-        component: midend::symtab::PathSegment,
-        maybe_data: Option<T>,
-    ) -> Result<Self, midend::symtab::SymbolError> {
-        self.path.push(component)?;
+    fn with_component(mut self, component: String, maybe_data: Option<T>) -> Self {
+        self.segments.push((component, maybe_data));
 
-        if let Some(data) = maybe_data {
-            assert!(
-                self.segment_data.insert(self.path.clone(), data).is_none(),
-                "duplicate insertion of path {} in segment",
-                self.path
-            );
-        }
-
-        Ok(self)
+        self
     }
 
-    fn into_super(
-        mut self,
-        maybe_data: Option<T>,
-        segment_loc: sourceloc::SourceSpan,
-    ) -> Result<Self, String>
-    where
-        T: std::fmt::Display,
+    pub fn map_data<OnData>(mut self, mut on_data: OnData) -> ()
+//Result<midend::symtab::RawPath, String>
+    //where
+    //    OnData: FnMut(&midend::symtab::RawPath, Option<T>),
     {
-        self.path.pop().ok_or(format!(
-            "no more \"super\"s available in path at {}",
-            segment_loc
-        ))?;
-
-        if let Some(data) = maybe_data {
-            if let Some(existing) = self.segment_data.insert(self.path.clone(), data) {
-                Err(format!(
-                    "path {} already has {} specified",
-                    self.path, existing
-                ))?;
-            }
-        }
-        Ok(self)
-    }
-
-    pub fn map_data<OnData>(
-        mut self,
-        mut on_data: OnData,
-    ) -> Result<midend::symtab::RawPath, String>
-    where
-        OnData: FnMut(&midend::symtab::RawPath, Option<T>),
-    {
+        unimplemented!();
+        /*
         let mut search_path = self.path.clone();
         while search_path.len() > 0 {
             on_data(&search_path, self.segment_data.remove(&search_path));
@@ -197,6 +159,7 @@ impl<T> LinearizedPathTree<T> {
                 other, self.path
             )),
         }
+        */
     }
 }
 

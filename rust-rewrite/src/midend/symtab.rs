@@ -15,7 +15,30 @@ pub mod visitor;
 pub use def_path::*;
 pub use symbols::*;
 pub use visitor::*;
-//pub use symtab_visitor::{MutSymtabVisitor, SymtabVisitor};
+
+trait SymtabInternal {
+    fn insert(
+        &mut self,
+        path: DefPath,
+        maybe_symbol: Option<SymbolDef>,
+    ) -> Result<DefPath, SymbolError>;
+}
+
+pub trait Symtab: SymtabInternal {
+    fn declare(&mut self, path: DefPath) -> Result<DefPath, SymbolError> {
+        self.insert(path, None)
+    }
+
+    fn define(&mut self, path: DefPath, symbol: SymbolDef) -> Result<DefPath, SymbolError> {
+        self.insert(path, Some(symbol))
+    }
+
+    fn lookup(
+        &self,
+        search_path: DefPath,
+        lookup_path: DefPath,
+    ) -> Result<(&SymbolDef, DefPath), SymbolError>;
+}
 
 pub struct SymbolTable {
     pub types: midend::types::Interner,
@@ -57,25 +80,6 @@ impl SymbolTable {
         symtab
     }
 
-    pub fn declare(&mut self, def_path: DefPath) -> Result<DefPath, SymbolError> {
-        unimplemented!();
-        /*
-        let mut parent_def_path = def_path.clone();
-        parent_def_path.pop();
-
-        self.children
-            .entry(parent_def_path)
-            .or_default()
-            .insert(def_path.clone());
-
-        match self.symbols.insert(def_path.clone(), None) {
-            Some(Some(_already_defined)) => Err(SymbolError::AlreadyDefined(def_path)),
-            Some(None) => Err(SymbolError::AlreadyDeclared(def_path)),
-            None => Ok(def_path),
-        }
-        */
-    }
-
     pub fn children(&self, def_path: &DefPath) -> HashSet<&DefPath> {
         match self.children.get(def_path) {
             Some(paths) => paths.iter().map(|path_ref| path_ref).collect(),
@@ -106,96 +110,58 @@ impl SymbolTable {
             })
             .flatten()
     }
+}
 
-    /*
-    fn lookup_with_path(
-        &self,
-        def_path: &DefPath,
-        subpath: DefPath,
-        key: PathSegment,
-    ) -> Result<(&SymbolDef, DefPath), SymbolError> {
-        let mut search_def_path = def_path.clone();
-        let subpath_with_component = subpath.with_component(key.clone())?;
-
-        while !search_def_path.is_empty() {
-            let full_path = search_def_path
-                .clone()
-                .join(subpath_with_component.clone())?;
-
-            match self.symbols.get(&full_path) {
-                Some(Some(def)) => {
-                    trace::debug!("found key {:?} at defpath {:?}", key, full_path);
-                    return Ok((def, full_path));
-                }
-                Some(None) | None => (),
-            }
-
-            search_def_path.pop().unwrap();
-        }
-
-        trace::debug!(
-            "unable to find key {:?} at defpath {:?} or any of its parents",
-            key,
-            def_path
-        );
-        Err(SymbolError::Undefined(def_path.clone(), key))
-    }
-
-    fn lookup_mut_with_path(
+impl SymtabInternal for SymbolTable {
+    fn insert(
         &mut self,
-        def_path: &DefPath,
-        subpath: DefPath,
-        key: PathSegment,
-    ) -> Result<(&mut SymbolDef, DefPath), SymbolError> {
-        let mut search_def_path = def_path.clone();
-        let subpath_with_component = subpath.with_component(key.clone())?;
-
-        while !search_def_path.is_empty() {
-            let full_path = search_def_path
-                .clone()
-                .join(subpath_with_component.clone())?;
-
-            match self.symbols.get_mut(&full_path) {
-                Some(Some(def)) => {
-                    trace::debug!("found key {:?} at defpath {:?}", key, full_path);
-                    return Ok((def, full_path));
-                }
-                Some(None) | None => (),
-            }
-
-            search_def_path.pop().unwrap();
+        path: DefPath,
+        maybe_symbol: Option<SymbolDef>,
+    ) -> Result<DefPath, SymbolError> {
+        match self.symbols.insert(path.clone(), None) {
+            Some(Some(_)) => return Err(SymbolError::AlreadyDefined(path)),
+            Some(None) => return Err(SymbolError::AlreadyDeclared(path)),
+            None => (),
         }
 
-        trace::debug!(
-            "unable to find key {:?} at defpath {:?} or any of its parents",
-            key,
-            def_path
-        );
-        Err(SymbolError::Undefined(def_path.clone(), key))
-    }
+        if path.len() > 1 {
+            let (parent_path, _) = path.clone().without_last().unwrap();
+            if !self
+                .children
+                .entry(parent_path.into())
+                .or_default()
+                .insert(path.clone())
+            {
+                panic!("untracked child path {}", path)
+            }
+        }
 
-    pub fn lookup_type(
-        &self,
-        def_path: &DefPath,
-        subpath: DefPath,
-        name: String,
-    ) -> Result<(&SymbolDef, DefPath), SymbolError> {
-        let (repr, path) = self.lookup_with_path(def_path, subpath, PathSegment::Type(name))?;
-        assert!(matches!(repr, SymbolDef::Type(_)));
-        Ok((repr, path))
+        match self.symbols.insert(path.clone(), maybe_symbol) {
+            Some(Some(_already_defined)) => Err(SymbolError::AlreadyDefined(path)),
+            Some(None) => Err(SymbolError::AlreadyDeclared(path)),
+            None => Ok(path),
+        }
     }
+}
 
-    pub fn lookup_value(
+impl Symtab for SymbolTable {
+    fn lookup(
         &self,
-        def_path: &DefPath,
-        subpath: DefPath,
-        name: String,
+        mut search_path: DefPath,
+        lookup_path: DefPath,
     ) -> Result<(&SymbolDef, DefPath), SymbolError> {
-        let (repr, path) = self.lookup_with_path(def_path, subpath, PathSegment::Value(name))?;
-        assert!(matches!(repr, SymbolDef::Value(_)));
-        Ok((repr, path))
+        while search_path.len() > 0 {
+            match search_path.clone().join(lookup_path.clone()) {
+                Ok(full_path) => match self.symbols.get(&full_path) {
+                    Some(Some(symbol)) => return Ok((symbol, full_path)),
+                    _ => (),
+                },
+                Err(_) => (),
+            }
+            search_path = search_path.without_last().unwrap().0;
+        }
+        Err(SymbolError::Undefined(lookup_path))
     }
-    */
 }
 
 /// Type handling helper functions
