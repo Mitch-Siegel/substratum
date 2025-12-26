@@ -27,15 +27,20 @@ impl midend::treewalk::Collect for AssignmentTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::ir::ValueId> for AssignmentTree {
+impl midend::treewalk::Linearize for AssignmentTree {
+    type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
+    fn linearize(
+        self,
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let assignment_start = self.loc().start();
 
-        let assignment_ir = match *self.assignee {
+        let (assignment_ir, mut ctx) = match *self.assignee {
             Expression::FieldExpression(field_expression_tree) => {
                 let field_loc = field_expression_tree.loc();
-                let (receiver, field) = field_expression_tree.linearize(ctx);
+                let (receiver, field);
+                ((receiver, field), ctx) = field_expression_tree.linearize_same_path(ctx)?;
                 let field_pointer_temp = ctx.function_mut().values_mut().next_temp();
 
                 let field_pointer_line = midend::ir::IrLine::new_get_field_pointer(
@@ -48,23 +53,32 @@ impl midend::treewalk::Linearize<midend::ir::ValueId> for AssignmentTree {
                     .append_statement_to_current_block(field_pointer_line)
                     .unwrap();
 
-                midend::ir::IrLine::new_store(
-                    assignment_start,
-                    self.value.linearize(ctx).into(),
-                    field_pointer_temp,
+                let (stored_value, ctx) = self.value.linearize(ctx)?;
+
+                (
+                    midend::ir::IrLine::new_store(
+                        assignment_start,
+                        stored_value,
+                        field_pointer_temp,
+                    ),
+                    ctx,
                 )
             }
-            _ => midend::ir::IrLine::new_assignment(
-                self.assignee.loc().start(),
-                self.assignee.linearize(ctx).into(),
-                self.value.linearize(ctx).into(),
-            ),
+            _ => {
+                let assignee_start = self.assignee.loc().start();
+                let (assignee, ctx) = self.assignee.linearize_same_path(ctx)?;
+                let (stored_value, ctx) = self.value.linearize(ctx)?;
+                (
+                    midend::ir::IrLine::new_assignment(assignee_start, assignee, stored_value),
+                    ctx,
+                )
+            }
         };
 
         ctx.function_mut()
             .append_statement_to_current_block(assignment_ir)
             .unwrap();
 
-        midend::ir::ValueInterner::unit_value_id()
+        ctx.into_result(midend::ir::ValueInterner::unit_value_id())
     }
 }

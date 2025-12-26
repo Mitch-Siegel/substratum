@@ -1,7 +1,7 @@
 use crate::midend::{ir::unlowered::*, treewalk::Linearize};
 
-struct MatchArmContext<'a> {
-    pub ctx: &'a mut treewalk::LinearizeCtx,
+struct MatchArmContext {
+    pub ctx: treewalk::LinearizeCtx,
     pub scrutinee: ValueId,
 }
 
@@ -12,15 +12,17 @@ pub struct MatchArm {
     pub result_value: ValueId,
 }
 
-fn lower_pattern<'a>(
+fn lower_pattern(
     pattern: frontend::ast::expressions::match_expression::PatternTree,
-    arm_ctx: &mut MatchArmContext<'a>,
-) -> LoweredPattern {
+    mut arm_ctx: MatchArmContext,
+) -> Result<(LoweredPattern, treewalk::UnpathedLinearizeCtx), treewalk::LinearizeError> {
     use frontend::ast::expressions::match_expression::PatternTree;
-    match pattern {
+    let lowered_pattern;
+    let ctx;
+    (lowered_pattern, ctx) = match pattern {
         PatternTree::Literal(expr) => {
-            expr.linearize(arm_ctx.ctx);
-            LoweredPattern::Constructor(
+            let (expr_value, ctx) = expr.linearize(arm_ctx.ctx)?;
+            let pattern = LoweredPattern::Constructor(
                 PatternConstructor::Constant(
                     123, /*arm_ctx
                         .ctx
@@ -30,9 +32,13 @@ fn lower_pattern<'a>(
                         .unwrap(),*/
                 ),
                 Vec::new(),
-            )
+            );
+            (pattern, ctx)
         }
-        PatternTree::Identifier(name) => LoweredPattern::Identifier(name.linearize(arm_ctx.ctx)),
+        PatternTree::Identifier(name) => {
+            let (name, ctx) = name.linearize(arm_ctx.ctx)?;
+            (LoweredPattern::Identifier(name), ctx)
+        }
         PatternTree::TupleStruct(tuple_struct) => {
             let _scrutinee_type = arm_ctx
                 .ctx
@@ -84,7 +90,9 @@ fn lower_pattern<'a>(
             }
             */
         }
-    }
+    };
+
+    Ok((lowered_pattern, ctx))
 }
 
 #[derive(Debug)]

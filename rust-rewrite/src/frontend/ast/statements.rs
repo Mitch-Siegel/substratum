@@ -34,17 +34,26 @@ impl midend::treewalk::Collect for StatementTree {
     }
 }
 
-impl midend::treewalk::Linearize<Option<midend::ir::ValueId>> for StatementTree {
+impl midend::treewalk::Linearize for StatementTree {
+    type Data = Option<midend::ir::ValueId>;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> Option<midend::ir::ValueId> {
-        match self {
+    fn linearize(
+        self,
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        let (maybe_value, ctx) = match self {
             Self::Item(_) => unimplemented!(),
             Self::Let(let_tree) => {
-                let_tree.linearize(ctx);
-                None
+                let (_, ctx) = let_tree.linearize(ctx)?;
+                (None, ctx)
             }
-            Self::Expression(expression_tree) => Some(expression_tree.linearize(ctx)),
-        }
+            Self::Expression(expression_tree) => {
+                let (value, ctx) = expression_tree.linearize(ctx)?;
+                (Some(value), ctx)
+            }
+        };
+
+        ctx.into_result(maybe_value)
     }
 }
 

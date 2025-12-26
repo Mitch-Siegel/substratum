@@ -12,8 +12,12 @@ impl Ast for GenericParamTree {
     }
 }
 
-impl midend::treewalk::Linearize<String> for GenericParamTree {
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> String {
+impl midend::treewalk::Linearize for GenericParamTree {
+    type Data = String;
+    fn linearize(
+        self,
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
         self.name.linearize(ctx)
     }
 }
@@ -86,14 +90,18 @@ impl Display for GenericParamsListTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::types::GenericParamsList> for GenericParamsListTree {
+impl midend::treewalk::Linearize for GenericParamsListTree {
+    type Data = midend::types::GenericParamsList;
     #[tracing::instrument(skip(self), level = "trace")]
-    fn linearize(self, _: &mut midend::treewalk::LinearizeCtx) -> midend::types::GenericParamsList {
+    fn linearize(
+        self,
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let mut generic_params_set = BTreeSet::<midend::types::GenericParam>::new();
 
         let ctxless = self.linearize_ctxless();
 
-        ctxless
+        let params_list = ctxless
             .into_iter()
             .map(|(loc, param)| {
                 if !generic_params_set.insert(param.clone()) {
@@ -102,7 +110,9 @@ impl midend::treewalk::Linearize<midend::types::GenericParamsList> for GenericPa
 
                 param
             })
-            .collect::<midend::types::GenericParamsList>()
+            .collect::<midend::types::GenericParamsList>();
+
+        ctx.into_result(params_list)
     }
 }
 
@@ -122,34 +132,37 @@ impl Ast for GenericArgsListTree {
     }
 }
 
-impl midend::treewalk::Linearize<Vec<midend::types::ParamSubst>> for GenericArgsListTree {
+impl midend::treewalk::Linearize for GenericArgsListTree {
+    type Data = Vec<midend::types::ParamSubst>;
     #[tracing::instrument(skip(self), level = "trace")]
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> Vec<midend::types::ParamSubst> {
-        let generic_args: Vec<midend::types::ParamSubst> = self
-            .args
-            .into_iter()
-            .map(|param| {
-                let param_type = param
-                    .linearize(ctx)
-                    .expect("generic params must have a type");
-                match param_type {
-                    midend::types::Syntactic::GenericParam(param_name) => {
-                        midend::types::ParamSubst::Dependent(
-                            midend::types::GenericParam::TypeParam(param_name),
-                        )
-                    }
-                    _ => midend::types::ParamSubst::Concrete(
-                        ctx.semantic_type_for_syntactic(
-                            param_type,
-                            midend::types::ParamSubstMap::empty(),
-                        )
-                        .unwrap(),
-                    ),
-                }
-            })
-            .collect();
+    fn linearize(
+        self,
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        let mut generic_args = Vec::<midend::types::ParamSubst>::new();
+        for arg in self.args {
+            let maybe_type;
+            (maybe_type, ctx) = arg.linearize_same_path(ctx)?;
+            let param_type = maybe_type.expect("generic params must have a type");
 
-        generic_args
+            let param = match param_type {
+                midend::types::Syntactic::GenericParam(param_name) => {
+                    midend::types::ParamSubst::Dependent(midend::types::GenericParam::TypeParam(
+                        param_name,
+                    ))
+                }
+                _ => midend::types::ParamSubst::Concrete(
+                    ctx.semantic_type_for_syntactic(
+                        param_type,
+                        midend::types::ParamSubstMap::empty(),
+                    )
+                    .unwrap(),
+                ),
+            };
+            generic_args.push(param);
+        }
+
+        ctx.into_result(generic_args)
     }
 }
 

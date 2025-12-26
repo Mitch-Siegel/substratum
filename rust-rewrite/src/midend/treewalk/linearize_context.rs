@@ -81,30 +81,24 @@ impl GenericParamsContext {
     }
 }
 
-pub struct LinearizeCtx {
+pub struct UnpathedLinearizeCtx {
     symtab: Box<SymbolTable>,
-    definition_path: DefPath,
     functions: HashMap<DefPath, FunctionLinearizeCtx>,
-    generics: GenericParamsContext,
 }
 
 impl std::fmt::Debug for LinearizeCtx {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "DefContext @ {}", self.definition_path)
+        write!(f, "LinearizeCtx")
     }
 }
 
-impl LinearizeCtx {
-    pub fn new(
-        symtab: Box<SymbolTable>,
-        definition_path: DefPath,
-        generics: GenericParamsContext,
-    ) -> Self {
+impl PathableContext for UnpathedLinearizeCtx {}
+
+impl UnpathedLinearizeCtx {
+    pub fn new(symtab: Box<SymbolTable>) -> Self {
         Self {
             symtab,
-            definition_path,
             functions: HashMap::new(),
-            generics: generics,
         }
     }
 
@@ -121,16 +115,15 @@ impl LinearizeCtx {
         ))
         .collect();
 
-        Self {
-            symtab,
-            definition_path,
-            functions,
-            generics,
-        }
+        Self { symtab, functions }
     }
 
-    pub fn take(self) -> Result<(Box<SymbolTable>, DefPath, GenericParamsContext), ()> {
-        Ok((self.symtab, self.definition_path, self.generics))
+    pub fn into_result<T>(self, data: T) -> LinearizeResult<T> {
+        LinearizeResult::<T>::Ok((data, self))
+    }
+
+    pub fn take(self) -> Box<SymbolTable> {
+        self.symtab
     }
 
     fn symtab(&self) -> &SymbolTable {
@@ -141,23 +134,18 @@ impl LinearizeCtx {
         &mut self.symtab
     }
 
-    pub fn def_path(&self) -> &DefPath {
-        &self.definition_path
-    }
-
     //fn def_path_mut(&mut self) -> &mut DefPath
     //
-    pub fn generics(&self) -> &GenericParamsContext {
-        &self.generics
-    }
 
-    fn generics_mut(&mut self) -> &mut GenericParamsContext {
-        &mut self.generics
-    }
-
-    pub fn define_type(&mut self, symbol: Type) -> Result<DefPath, SymbolError> {
-        self.symtab
-            .define_type(self.definition_path.clone(), symbol)
+    pub fn define_type<S>(
+        &mut self,
+        path: symtab::DefPath,
+        symbol: S,
+    ) -> Result<DefPath, SymbolError>
+    where
+        S: Into<symtab::Type>,
+    {
+        self.symtab.define_type(path, symbol)
     }
 
     pub fn create_function(
@@ -443,5 +431,23 @@ impl LinearizeCtx {
 
         None
         */
+    }
+}
+
+impl symtab::Symtab for UnpathedLinearizeCtx {
+    fn insert(
+        &mut self,
+        path: DefPath,
+        maybe_symbol: Option<SymbolDef>,
+    ) -> Result<DefPath, SymbolError> {
+        self.symtab.insert(path, maybe_symbol)
+    }
+
+    fn lookup(
+        &self,
+        search_path: DefPath,
+        lookup_path: DefPath,
+    ) -> Result<(&SymbolDef, DefPath), SymbolError> {
+        self.symtab.lookup(search_path, lookup_path)
     }
 }

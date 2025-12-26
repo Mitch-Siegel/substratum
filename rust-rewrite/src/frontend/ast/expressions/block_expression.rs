@@ -32,17 +32,21 @@ impl midend::treewalk::Collect for BlockExpressionTree {
         mut ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
         for stmt in &self.statements {
-            ctx = stmt.collect_to_ctx(ctx)?;
+            ctx = stmt.collect_same_path(ctx)?;
         }
 
         Ok(ctx.take())
     }
 }
 
-impl midend::treewalk::Linearize<midend::ir::ValueId> for BlockExpressionTree {
+impl midend::treewalk::Linearize for BlockExpressionTree {
+    type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(mut self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
-        let parent_def_path = ctx.def_path().clone();
+    fn linearize(
+        mut self,
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        let parent_def_path = ctx.path().clone();
         let true_scope_def_path = ctx.reserve_subscope();
         ctx.function_mut()
             .unconditional_branch_from_current(
@@ -54,13 +58,15 @@ impl midend::treewalk::Linearize<midend::ir::ValueId> for BlockExpressionTree {
 
         let last_statement = self.statements.pop();
         for statement in self.statements {
-            statement.linearize(ctx);
+            (_, ctx) = statement.linearize_same_path(ctx)?;
         }
 
         let last_statement_value = match last_statement {
-            Some(statement_tree) => statement_tree
-                .linearize(ctx)
-                .unwrap_or(midend::ir::ValueInterner::unit_value_id()),
+            Some(statement_tree) => {
+                let maybe_value;
+                (maybe_value, ctx) = statement_tree.linearize_same_path(ctx)?;
+                maybe_value.unwrap_or(midend::ir::ValueInterner::unit_value_id())
+            }
             None => midend::ir::ValueInterner::unit_value_id(),
         };
 
@@ -68,6 +74,6 @@ impl midend::treewalk::Linearize<midend::ir::ValueId> for BlockExpressionTree {
             .finish_branch(self.close_brace_loc.end())
             .unwrap();
 
-        last_statement_value
+        ctx.into_result(last_statement_value)
     }
 }

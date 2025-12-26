@@ -14,9 +14,7 @@ fn create_core_types(symtab: &mut SymbolTable) {
         BuiltinType::I32,
         BuiltinType::I64,
     ] {
-        symtab
-            .define_type(core_def_path.clone(), type_.into())
-            .unwrap();
+        symtab.define_type(core_def_path.clone(), type_).unwrap();
     }
 }
 

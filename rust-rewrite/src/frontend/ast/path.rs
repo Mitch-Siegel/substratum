@@ -90,17 +90,26 @@ where
     }
 }
 
-impl<T> midend::treewalk::Linearize<PathSegmentAction<T>> for PathSegmentTree<T>
+impl<T> midend::treewalk::Linearize for PathSegmentTree<T>
 where
     T: Ast,
 {
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> PathSegmentAction<T> {
-        match self.ident {
-            IdentSegment::Super(_) => PathSegmentAction::Super(self.data),
-            IdentSegment::Ident(ident) => PathSegmentAction::Ident(ident.linearize(ctx), self.data),
-            IdentSegment::SelfLower(_) => PathSegmentAction::SelfLower(self.data),
-            IdentSegment::SelfUpper(_) => PathSegmentAction::SelfUpper(self.data),
-        }
+    type Data = PathSegmentAction<T>;
+    fn linearize(
+        self,
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<PathSegmentAction<T>> {
+        let (action, ctx) = match self.ident {
+            IdentSegment::Super(_) => (PathSegmentAction::Super(self.data), ctx.take()),
+            IdentSegment::Ident(ident) => {
+                let (name, ctx) = ident.linearize(ctx)?;
+                (PathSegmentAction::Ident(name, self.data), ctx)
+            }
+            IdentSegment::SelfLower(_) => (PathSegmentAction::SelfLower(self.data), ctx.take()),
+            IdentSegment::SelfUpper(_) => (PathSegmentAction::SelfUpper(self.data), ctx.take()),
+        };
+
+        ctx.into_result(action)
     }
 }
 
@@ -407,11 +416,15 @@ where
     }
 }
 
-impl<T> midend::treewalk::Linearize<LinearizedPathTree<T>> for PathTree<T>
+impl<T> midend::treewalk::Linearize for PathTree<T>
 where
     T: Ast + std::fmt::Display,
 {
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> LinearizedPathTree<T> {
+    type Data = LinearizedPathTree<T>;
+    fn linearize(
+        self,
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let mut walk_state = if self.starts_global.is_some() {
             PathWalkState::<T>::StartGlobal
         } else {
@@ -421,7 +434,7 @@ where
         let mut segments = self.segments.into_iter();
         while let Some(segment) = segments.next() {
             walk_state = walk_state
-                .transition(segment, segments.size_hint().0, ctx)
+                .transition(segment, segments.size_hint().0, &mut ctx)
                 .unwrap();
         }
 

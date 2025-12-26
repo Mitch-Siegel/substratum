@@ -46,9 +46,13 @@ impl midend::treewalk::Collect for LetTree {
     }
 }
 
-impl midend::treewalk::Linearize<()> for LetTree {
+impl midend::treewalk::Linearize for LetTree {
+    type Data = ();
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> () {
+    fn linearize(
+        self,
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
         unimplemented!();
         /*
         let variable_type = match self.type_ {

@@ -28,8 +28,12 @@ impl midend::treewalk::Collect for PathInExpressionTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::ir::ValueId> for PathInExpressionTree {
-    fn linearize(self, _ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
+impl midend::treewalk::Linearize for PathInExpressionTree {
+    type Data = midend::ir::ValueId;
+    fn linearize(
+        self,
+        mut _ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
         unimplemented!();
         /*
         let _span = trace::span_auto_debug!(

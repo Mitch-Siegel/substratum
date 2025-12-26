@@ -42,7 +42,7 @@ impl midend::treewalk::Collect for IfExpressionTree {
         &self,
         mut ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
-        ctx = self.true_block.collect_to_ctx(ctx)?;
+        ctx = self.true_block.collect_same_path(ctx)?;
         if let Some(else_block) = &self.false_block {
             else_block.collect_symbols(ctx)
         } else {
@@ -51,22 +51,28 @@ impl midend::treewalk::Collect for IfExpressionTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::ir::ValueId> for IfExpressionTree {
+impl midend::treewalk::Linearize for IfExpressionTree {
+    type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
+    fn linearize(
+        self,
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
         // FUTURE: optimize condition walk to use different jumps
         let condition_loc = self.condition.loc();
         let if_loc = self.loc();
-        let condition_result: midend::ir::ValueId = self.condition.linearize(ctx).into();
+        let condition_value;
+        (condition_value, ctx) = self.condition.linearize_same_path(ctx)?;
+
         let if_condition = midend::ir::lowered::operands::JumpCondition::Conditional(
             midend::ir::lowered::operands::BinaryComparisonOperands::new(
-                condition_result,
+                condition_value,
                 *ctx.function_mut().values_mut().id_for_constant(0),
                 midend::ir::lowered::operands::BinaryComparisonKind::NE,
             ),
         );
 
-        let parent_scope_def_path = ctx.def_path().clone();
+        let parent_scope_def_path = ctx.path().clone();
         let true_scope_def_path = ctx.reserve_subscope();
         let false_scope_def_path = ctx.reserve_subscope();
 
@@ -81,7 +87,8 @@ impl midend::treewalk::Linearize<midend::ir::ValueId> for IfExpressionTree {
             .unwrap();
 
         let true_loc = self.true_block.loc();
-        let if_value_id = self.true_block.linearize(ctx);
+        let if_value_id;
+        (if_value_id, ctx) = self.true_block.linearize_same_path(ctx)?;
 
         // create a separate, mutable value which contains the true result
         let result_value = if_value_id.clone();
@@ -105,7 +112,8 @@ impl midend::treewalk::Linearize<midend::ir::ValueId> for IfExpressionTree {
         match self.false_block {
             Some(else_block) => {
                 let else_loc = else_block.loc();
-                let else_value_id = else_block.linearize(ctx);
+                let else_value_id;
+                (else_value_id, ctx) = else_block.linearize_same_path(ctx)?;
 
                 // if the 'else' value exists (have already passed check to assert types are the same)
                 // copy the 'else' result to the common result_value at the end of the 'else' block
@@ -123,6 +131,6 @@ impl midend::treewalk::Linearize<midend::ir::ValueId> for IfExpressionTree {
 
         ctx.function_mut().finish_branch(if_loc.end()).unwrap();
 
-        result_value
+        ctx.into_result(result_value)
     }
 }

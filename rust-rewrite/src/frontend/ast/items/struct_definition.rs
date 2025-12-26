@@ -12,16 +12,18 @@ impl Ast for StructFieldTree {
     }
 }
 
-impl midend::treewalk::Linearize<(String, midend::types::Syntactic)> for StructFieldTree {
+impl midend::treewalk::Linearize for StructFieldTree {
+    type Data = (String, midend::types::Syntactic);
     fn linearize(
         self,
-        ctx: &mut midend::treewalk::LinearizeCtx,
-    ) -> (String, midend::types::Syntactic) {
-        let field_type = self
-            .type_
-            .linearize(ctx)
-            .expect("struct field types may not be '_'");
-        (self.name.linearize(ctx), field_type)
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        let (maybe_field_type, ctx) = self.type_.linearize_same_path(ctx)?;
+
+        let field_type = maybe_field_type.expect("struct field types may not be '_'");
+
+        let (name, ctx) = self.name.linearize(ctx)?;
+        ctx.into_result((name, field_type))
     }
 }
 
@@ -72,9 +74,13 @@ impl midend::treewalk::Collect for StructDefinitionTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::StructRepr> for StructDefinitionTree {
+impl midend::treewalk::Linearize for StructDefinitionTree {
+    type Data = midend::symtab::StructRepr;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::symtab::StructRepr {
+    fn linearize(
+        self,
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
         unimplemented!();
         /*
         let generic_params: midend::types::GenericParamsList = match self.generic_params {

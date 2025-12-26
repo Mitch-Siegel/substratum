@@ -29,16 +29,22 @@ impl Display for CallParamsTree {
     }
 }
 
-impl midend::treewalk::Linearize<Vec<midend::ir::ValueId>> for CallParamsTree {
+impl midend::treewalk::Linearize for CallParamsTree {
+    type Data = Vec<midend::ir::ValueId>;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> Vec<midend::ir::ValueId> {
+    fn linearize(
+        self,
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let mut param_values = Vec::new();
 
         for param in self.params {
-            param_values.push(param.linearize(ctx));
+            let param_id;
+            (param_id, ctx) = param.linearize_same_path(ctx)?;
+            param_values.push(param_id);
         }
 
-        param_values
+        ctx.into_result(param_values)
     }
 }
 
@@ -57,24 +63,24 @@ impl Ast for CallExpressionTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::ir::ValueId> for CallExpressionTree {
+impl midend::treewalk::Linearize for CallExpressionTree {
+    type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
+    fn linearize(
+        self,
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let call_start = self.loc().start();
 
-        let function_operand = self.function_operand.linearize(ctx);
+        let function_operand;
+        (function_operand, ctx) = self.function_operand.linearize_same_path(ctx)?;
 
         let return_value_to = ctx.function_mut().values_mut().next_temp();
 
         // //TODO: error handling and checking
         // assert!(called_method.arguments.len() == params.len());
 
-        let params: Vec<midend::ir::ValueId> = self
-            .params
-            .linearize(ctx)
-            .into_iter()
-            .map(|value| value.into())
-            .collect();
+        let (params, mut ctx) = self.params.linearize(ctx)?;
 
         let method_call_line = midend::ir::IrLine::new_call(
             call_start,
@@ -87,7 +93,7 @@ impl midend::treewalk::Linearize<midend::ir::ValueId> for CallExpressionTree {
             .append_statement_to_current_block(method_call_line)
             .unwrap();
 
-        return_value_to
+        ctx.into_result(return_value_to)
     }
 }
 

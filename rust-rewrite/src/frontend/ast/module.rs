@@ -38,45 +38,40 @@ impl midend::treewalk::Collect for ModuleTree {
         let name = self.name.value.clone();
 
         let module_path = ctx.declare_type(name).unwrap();
+        let mut module_ctx = ctx.with_path(module_path);
 
         for item in &self.items {
-            let (item_ctx, prev_path) = ctx.with_path(module_path.clone());
-            ctx = midend::treewalk::CollectCtx::new(item.collect_symbols(item_ctx)?, prev_path);
+            module_ctx = item.collect_same_path(module_ctx)?;
         }
 
-        Ok(ctx.take())
+        Ok(module_ctx.take())
     }
 }
 
-impl midend::treewalk::Linearize<()> for ModuleTree {
+impl midend::treewalk::Linearize for ModuleTree {
+    type Data = ();
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> () {
+    fn linearize(
+        self,
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
         tracing::trace!(
             "Create symtab module \"{}\" at \"{}\"",
             self.name,
-            ctx.def_path()
+            ctx.path()
         );
         unimplemented!();
         /*
-
         let module_name = self.name.linearize(ctx);
 
-        ctx.define(midend::symtab::types::Module::new(module_name.clone()))
+        let module_path = ctx
+            .define_type(midend::symtab::Module::new(module_name.clone()).into())
             .unwrap();
-        ctx.push_def_path(
-            midend::symtab::DefPathComponent::Module(midend::symtab::ModuleName {
-                name: module_name.clone(),
-            }),
-            &Vec::new(),
-        );
+        (ctx, _) = ctx.with_path(module_path);
 
         for item in self.items {
             item.linearize(ctx)
-        }
-
-        ctx.pop_def_path(midend::symtab::DefPathComponent::Type(module_name))
-            .unwrap();
-        */
+        }*/
     }
 }
 

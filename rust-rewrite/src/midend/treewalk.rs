@@ -4,9 +4,82 @@ pub mod collect_ctx;
 pub mod function_linearize_context;
 pub mod linearize_context;
 
-pub use collect_ctx::CollectCtx;
+pub use collect_ctx::UnpathedCollectCtx;
 pub use function_linearize_context::FunctionLinearizeCtx;
-pub use linearize_context::{GenericParamsContext, LinearizeCtx};
+pub use linearize_context::{GenericParamsContext, UnpathedLinearizeCtx};
+
+pub struct PathedCtx<T>
+where
+    T: symtab::Symtab,
+{
+    unpathed: T,
+    path: symtab::DefPath,
+}
+
+impl<T> std::ops::Deref for PathedCtx<T>
+where
+    T: symtab::Symtab,
+{
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.unpathed
+    }
+}
+
+impl<T> std::ops::DerefMut for PathedCtx<T>
+where
+    T: symtab::Symtab,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.unpathed
+    }
+}
+
+impl<T> PathedCtx<T>
+where
+    T: symtab::Symtab,
+{
+    pub fn take(self) -> T {
+        self.unpathed
+    }
+
+    pub fn path(&self) -> &symtab::DefPath {
+        &self.path
+    }
+
+    pub fn with_path(mut self, path: symtab::DefPath) -> Self {
+        self.path = path;
+        self
+    }
+
+    pub fn declare_value(&mut self, name: String) -> Result<symtab::DefPath, symtab::SymbolError> {
+        let full_path = self
+            .path
+            .clone()
+            .with_segment(symtab::PathSegment::Value(name))?;
+        self.unpathed.declare(full_path)
+    }
+
+    pub fn declare_type(&mut self, name: String) -> Result<symtab::DefPath, symtab::SymbolError> {
+        let full_path = self
+            .path
+            .clone()
+            .with_segment(symtab::PathSegment::Type(name))?;
+        self.unpathed.declare(full_path)
+    }
+}
+
+pub trait PathableContext
+where
+    Self: Sized + symtab::Symtab,
+{
+    fn with_path(self, path: symtab::DefPath) -> PathedCtx<Self> {
+        PathedCtx {
+            unpathed: self,
+            path,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum CollectError {
@@ -19,19 +92,53 @@ impl From<symtab::SymbolError> for CollectError {
     }
 }
 
-pub type CollectResult = Result<Box<symtab::SymbolTable>, CollectError>;
+pub type CollectCtx = PathedCtx<UnpathedCollectCtx>;
+pub type CollectResult = Result<UnpathedCollectCtx, CollectError>;
 
 pub trait Collect {
     fn collect_symbols(&self, ctx: CollectCtx) -> CollectResult;
 
-    fn collect_to_ctx(&self, ctx: CollectCtx) -> Result<CollectCtx, CollectError> {
-        let old_path = ctx.def_path().clone();
-        Ok(CollectCtx::new(self.collect_symbols(ctx)?, old_path))
+    fn collect_same_path(&self, ctx: CollectCtx) -> Result<CollectCtx, CollectError> {
+        let old_path = ctx.path().clone();
+        Ok(self.collect_symbols(ctx)?.with_path(old_path))
     }
 }
 
-pub trait Linearize<T> {
-    fn linearize(self, ctx: &mut LinearizeCtx) -> T;
+#[derive(Debug)]
+pub enum LinearizeError {
+    Symbol(symtab::SymbolError),
+}
+
+impl From<symtab::SymbolError> for LinearizeError {
+    fn from(value: symtab::SymbolError) -> Self {
+        Self::Symbol(value)
+    }
+}
+
+pub type LinearizeCtx = PathedCtx<UnpathedLinearizeCtx>;
+pub type LinearizeResult<T> = Result<(T, UnpathedLinearizeCtx), LinearizeError>;
+
+impl LinearizeCtx {
+    pub fn into_result<T>(self, result_data: T) -> LinearizeResult<T> {
+        Ok((result_data, self.unpathed))
+    }
+}
+
+pub trait Linearize
+where
+    Self: Sized,
+{
+    type Data;
+    fn linearize(self, ctx: LinearizeCtx) -> LinearizeResult<Self::Data>;
+
+    fn linearize_same_path(
+        self,
+        ctx: LinearizeCtx,
+    ) -> Result<(Self::Data, LinearizeCtx), LinearizeError> {
+        let old_path = ctx.path().clone();
+        let (data, unpathed) = self.linearize(ctx)?;
+        Ok((data, unpathed.with_path(old_path)))
+    }
 }
 
 pub fn path_from_module(module: &frontend::ast::ModuleTree) -> symtab::DefPath {
@@ -52,9 +159,12 @@ pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable>
 
     for module in &program {
         let path = path_from_module(module);
-        let collect_ctx = CollectCtx::new(symtab, path.clone());
+        let collect_ctx = UnpathedCollectCtx::new(symtab);
 
-        symtab = module.collect_symbols(collect_ctx).unwrap();
+        symtab = module
+            .collect_symbols(collect_ctx.with_path(path))
+            .unwrap()
+            .take();
     }
 
     //symtab.collect_impls();
@@ -70,9 +180,9 @@ pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable>
             module.module_path,
             path
         );
-        let mut linearize_ctx = LinearizeCtx::new(symtab, path, GenericParamsContext::new());
-        module.linearize(&mut linearize_ctx);
-        symtab = linearize_ctx.take().unwrap().0;
+        let mut linearize_ctx = UnpathedLinearizeCtx::new(symtab);
+        let (_, ctx) = module.linearize(linearize_ctx.with_path(path)).unwrap();
+        symtab = ctx.take();
     }
 
     symtab

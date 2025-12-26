@@ -24,7 +24,7 @@ impl midend::treewalk::Collect for ArithmeticDualOperands {
         &self,
         mut ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
-        ctx = self.e1.collect_to_ctx(ctx)?;
+        ctx = self.e1.collect_same_path(ctx)?;
         self.e2.collect_symbols(ctx)
     }
 }
@@ -68,67 +68,78 @@ impl midend::treewalk::Collect for ComparisonExpressionTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::ir::lowered::operands::BinaryComparisonOperands>
-    for ComparisonExpressionTree
-{
+impl midend::treewalk::Linearize for ComparisonExpressionTree {
+    type Data = midend::ir::lowered::operands::BinaryComparisonOperands;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        ctx: &mut midend::treewalk::LinearizeCtx,
-    ) -> midend::ir::lowered::operands::BinaryComparisonOperands {
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
         match self {
             ComparisonExpressionTree::LThan(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.linearize(ctx).into();
-                let rhs: midend::ir::ValueId = operands.e2.linearize(ctx).into();
-                midend::ir::lowered::operands::BinaryComparisonOperands::new(
-                    lhs,
-                    rhs,
-                    midend::ir::lowered::operands::BinaryComparisonKind::LT,
+                let (lhs, ctx) = operands.e1.linearize_same_path(ctx)?;
+                let (rhs, unpathed) = operands.e2.linearize(ctx)?;
+                unpathed.into_result(
+                    midend::ir::lowered::operands::BinaryComparisonOperands::new(
+                        lhs,
+                        rhs,
+                        midend::ir::lowered::operands::BinaryComparisonKind::LT,
+                    ),
                 )
             }
             ComparisonExpressionTree::GThan(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.linearize(ctx).into();
-                let rhs: midend::ir::ValueId = operands.e2.linearize(ctx).into();
-                midend::ir::lowered::operands::BinaryComparisonOperands::new(
-                    lhs,
-                    rhs,
-                    midend::ir::lowered::operands::BinaryComparisonKind::GT,
+                let (lhs, ctx) = operands.e1.linearize_same_path(ctx)?;
+                let (rhs, unpathed) = operands.e2.linearize(ctx)?;
+                unpathed.into_result(
+                    midend::ir::lowered::operands::BinaryComparisonOperands::new(
+                        lhs,
+                        rhs,
+                        midend::ir::lowered::operands::BinaryComparisonKind::GT,
+                    ),
                 )
             }
             ComparisonExpressionTree::LThanE(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.linearize(ctx).into();
-                let rhs: midend::ir::ValueId = operands.e2.linearize(ctx).into();
-                midend::ir::lowered::operands::BinaryComparisonOperands::new(
-                    lhs,
-                    rhs,
-                    midend::ir::lowered::operands::BinaryComparisonKind::LE,
+                let (lhs, ctx) = operands.e1.linearize_same_path(ctx)?;
+                let (rhs, unpathed) = operands.e2.linearize(ctx)?;
+                unpathed.into_result(
+                    midend::ir::lowered::operands::BinaryComparisonOperands::new(
+                        lhs,
+                        rhs,
+                        midend::ir::lowered::operands::BinaryComparisonKind::LE,
+                    ),
                 )
             }
             ComparisonExpressionTree::GThanE(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.linearize(ctx).into();
-                let rhs: midend::ir::ValueId = operands.e2.linearize(ctx).into();
-                midend::ir::lowered::operands::BinaryComparisonOperands::new(
-                    lhs,
-                    rhs,
-                    midend::ir::lowered::operands::BinaryComparisonKind::GE,
+                let (lhs, ctx) = operands.e1.linearize_same_path(ctx)?;
+                let (rhs, unpathed) = operands.e2.linearize(ctx)?;
+                unpathed.into_result(
+                    midend::ir::lowered::operands::BinaryComparisonOperands::new(
+                        lhs,
+                        rhs,
+                        midend::ir::lowered::operands::BinaryComparisonKind::GE,
+                    ),
                 )
             }
             ComparisonExpressionTree::Equals(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.linearize(ctx).into();
-                let rhs: midend::ir::ValueId = operands.e2.linearize(ctx).into();
-                midend::ir::lowered::operands::BinaryComparisonOperands::new(
-                    lhs,
-                    rhs,
-                    midend::ir::lowered::operands::BinaryComparisonKind::EQ,
+                let (lhs, ctx) = operands.e1.linearize_same_path(ctx)?;
+                let (rhs, unpathed) = operands.e2.linearize(ctx)?;
+                unpathed.into_result(
+                    midend::ir::lowered::operands::BinaryComparisonOperands::new(
+                        lhs,
+                        rhs,
+                        midend::ir::lowered::operands::BinaryComparisonKind::EQ,
+                    ),
                 )
             }
             ComparisonExpressionTree::NotEquals(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.linearize(ctx).into();
-                let rhs: midend::ir::ValueId = operands.e2.linearize(ctx).into();
-                midend::ir::lowered::operands::BinaryComparisonOperands::new(
-                    lhs,
-                    rhs,
-                    midend::ir::lowered::operands::BinaryComparisonKind::NE,
+                let (lhs, ctx) = operands.e1.linearize_same_path(ctx)?;
+                let (rhs, unpathed) = operands.e2.linearize(ctx)?;
+                unpathed.into_result(
+                    midend::ir::lowered::operands::BinaryComparisonOperands::new(
+                        lhs,
+                        rhs,
+                        midend::ir::lowered::operands::BinaryComparisonKind::NE,
+                    ),
                 )
             }
         }
@@ -189,49 +200,56 @@ impl midend::treewalk::Collect for ArithmeticExpressionTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::ir::lowered::operands::BinaryArithmeticOperands>
-    for ArithmeticExpressionTree
-{
+impl midend::treewalk::Linearize for ArithmeticExpressionTree {
+    type Data = midend::ir::lowered::operands::BinaryArithmeticOperands;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        ctx: &mut midend::treewalk::LinearizeCtx,
-    ) -> midend::ir::lowered::operands::BinaryArithmeticOperands {
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
         match self {
             ArithmeticExpressionTree::Add(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.linearize(ctx).into();
-                let rhs: midend::ir::ValueId = operands.e2.linearize(ctx).into();
-                midend::ir::lowered::operands::BinaryArithmeticOperands::new(
-                    lhs,
-                    rhs,
-                    midend::ir::lowered::operands::BinaryArithmeticKind::Add,
+                let (lhs, ctx) = operands.e1.linearize_same_path(ctx)?;
+                let (rhs, unpathed) = operands.e2.linearize(ctx)?;
+                unpathed.into_result(
+                    midend::ir::lowered::operands::BinaryArithmeticOperands::new(
+                        lhs,
+                        rhs,
+                        midend::ir::lowered::operands::BinaryArithmeticKind::Add,
+                    ),
                 )
             }
             ArithmeticExpressionTree::Subtract(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.linearize(ctx).into();
-                let rhs: midend::ir::ValueId = operands.e2.linearize(ctx).into();
-                midend::ir::lowered::operands::BinaryArithmeticOperands::new(
-                    lhs,
-                    rhs,
-                    midend::ir::lowered::operands::BinaryArithmeticKind::Sub,
+                let (lhs, ctx) = operands.e1.linearize_same_path(ctx)?;
+                let (rhs, unpathed) = operands.e2.linearize(ctx)?;
+                unpathed.into_result(
+                    midend::ir::lowered::operands::BinaryArithmeticOperands::new(
+                        lhs,
+                        rhs,
+                        midend::ir::lowered::operands::BinaryArithmeticKind::Sub,
+                    ),
                 )
             }
             ArithmeticExpressionTree::Multiply(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.linearize(ctx).into();
-                let rhs: midend::ir::ValueId = operands.e2.linearize(ctx).into();
-                midend::ir::lowered::operands::BinaryArithmeticOperands::new(
-                    lhs,
-                    rhs,
-                    midend::ir::lowered::operands::BinaryArithmeticKind::Mul,
+                let (lhs, ctx) = operands.e1.linearize_same_path(ctx)?;
+                let (rhs, unpathed) = operands.e2.linearize(ctx)?;
+                unpathed.into_result(
+                    midend::ir::lowered::operands::BinaryArithmeticOperands::new(
+                        lhs,
+                        rhs,
+                        midend::ir::lowered::operands::BinaryArithmeticKind::Mul,
+                    ),
                 )
             }
             ArithmeticExpressionTree::Divide(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.linearize(ctx).into();
-                let rhs: midend::ir::ValueId = operands.e2.linearize(ctx).into();
-                midend::ir::lowered::operands::BinaryArithmeticOperands::new(
-                    lhs,
-                    rhs,
-                    midend::ir::lowered::operands::BinaryArithmeticKind::Div,
+                let (lhs, ctx) = operands.e1.linearize_same_path(ctx)?;
+                let (rhs, unpathed) = operands.e2.linearize(ctx)?;
+                unpathed.into_result(
+                    midend::ir::lowered::operands::BinaryArithmeticOperands::new(
+                        lhs,
+                        rhs,
+                        midend::ir::lowered::operands::BinaryArithmeticKind::Div,
+                    ),
                 )
             }
         }

@@ -121,12 +121,15 @@ impl SymbolTable {
             .flatten()
     }
 
-    pub fn define_type(
+    pub fn define_type<S>(
         &mut self,
         parent_path: DefPath,
-        symbol: Type,
-    ) -> Result<DefPath, SymbolError> {
-        self.define(parent_path, SymbolDef::Type(symbol))
+        symbol: S,
+    ) -> Result<DefPath, SymbolError>
+    where
+        S: Into<Type>,
+    {
+        self.define(parent_path, symbol.into().into())
     }
 
     pub fn define_value(

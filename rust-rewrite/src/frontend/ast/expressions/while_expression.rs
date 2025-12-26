@@ -21,17 +21,21 @@ impl midend::treewalk::Collect for WhileExpressionTree {
         &self,
         mut ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
-        ctx = self.condition.collect_to_ctx(ctx)?;
+        ctx = self.condition.collect_same_path(ctx)?;
         self.body.collect_symbols(ctx)
     }
 }
 
-impl midend::treewalk::Linearize<midend::ir::ValueId> for WhileExpressionTree {
+impl midend::treewalk::Linearize for WhileExpressionTree {
+    type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
+    fn linearize(
+        self,
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let loc = self.loc();
 
-        let parent_scope_def_path = ctx.def_path().clone();
+        let parent_scope_def_path = ctx.path().clone();
         let loop_scope_def_path = ctx.reserve_subscope();
         let loop_done_label = ctx
             .function_mut()
@@ -43,7 +47,8 @@ impl midend::treewalk::Linearize<midend::ir::ValueId> for WhileExpressionTree {
             .unwrap();
 
         let condition_loc = self.condition.loc();
-        let condition = self.condition.linearize(ctx);
+        let condition;
+        (condition, ctx) = self.condition.linearize_same_path(ctx)?;
         let loop_condition_jump = midend::ir::IrLine::new_jump(
             condition_loc.end(),
             loop_done_label,
@@ -60,7 +65,7 @@ impl midend::treewalk::Linearize<midend::ir::ValueId> for WhileExpressionTree {
             .append_jump_to_current_block(loop_condition_jump)
             .unwrap();
 
-        let parent_def_path = ctx.def_path().clone();
+        let parent_def_path = ctx.path().clone();
         ctx.function_mut()
             .unconditional_branch_from_current(
                 loc.clone().end(),
@@ -68,7 +73,7 @@ impl midend::treewalk::Linearize<midend::ir::ValueId> for WhileExpressionTree {
                 parent_def_path,
             )
             .unwrap();
-        self.body.linearize(ctx);
+        let (_, mut ctx) = self.body.linearize(ctx)?;
 
         ctx.function_mut().finish_branch(loc.clone().end()).unwrap();
 
@@ -76,7 +81,7 @@ impl midend::treewalk::Linearize<midend::ir::ValueId> for WhileExpressionTree {
             .finish_loop(loc.end(), Vec::new())
             .unwrap();
 
-        midend::ir::ValueInterner::unit_value_id()
+        ctx.into_result(midend::ir::ValueInterner::unit_value_id())
     }
 }
 

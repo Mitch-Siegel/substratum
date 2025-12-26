@@ -74,17 +74,25 @@ impl midend::treewalk::Collect for Expression {
     }
 }
 
-impl midend::treewalk::Linearize<midend::ir::ValueId> for Expression {
+impl midend::treewalk::Linearize for Expression {
+    type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
-        match self {
-            Self::PathInExpression(path) => path.linearize(ctx),
-            Self::UnsignedDecimalConstant(_, constant) => {
-                *ctx.function_mut().values_mut().id_for_constant(constant)
-            }
+    fn linearize(
+        self,
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        let (value, ctx) = match self {
+            Self::PathInExpression(path) => path.linearize(ctx)?,
+            Self::UnsignedDecimalConstant(_, constant) => (
+                ctx.function_mut()
+                    .values_mut()
+                    .id_for_constant(constant)
+                    .to_owned(),
+                ctx.take(),
+            ),
             Self::Arithmetic(arith) => {
                 let loc = arith.loc();
-                let operands = arith.linearize(ctx);
+                let (operands, mut ctx) = arith.linearize(ctx)?;
                 let destination = ctx.function_mut().values_mut().next_temp();
                 let expression_statement = midend::ir::IrLine::new_binary_arithmetic_expression(
                     loc.start(),
@@ -94,11 +102,11 @@ impl midend::treewalk::Linearize<midend::ir::ValueId> for Expression {
                 ctx.function_mut()
                     .append_statement_to_current_block(expression_statement)
                     .unwrap();
-                destination
+                (destination, ctx)
             }
             Self::Comparison(cmp) => {
                 let loc = cmp.loc();
-                let operands = cmp.linearize(ctx);
+                let (operands, mut ctx) = cmp.linearize(ctx)?;
                 let destination = ctx.function_mut().values_mut().next_temp();
                 let comparison_statement = midend::ir::IrLine::new_binary_comparison_expression(
                     loc.start(),
@@ -108,16 +116,16 @@ impl midend::treewalk::Linearize<midend::ir::ValueId> for Expression {
                 ctx.function_mut()
                     .append_statement_to_current_block(comparison_statement)
                     .unwrap();
-                destination
+                (destination, ctx)
             }
-            Self::Assignment(assignment_expression) => assignment_expression.linearize(ctx),
-            Self::If(if_expression) => if_expression.linearize(ctx),
-            Self::Match(match_expression) => match_expression.linearize(ctx),
+            Self::Assignment(assignment_expression) => assignment_expression.linearize(ctx)?,
+            Self::If(if_expression) => if_expression.linearize(ctx)?,
+            Self::Match(match_expression) => match_expression.linearize(ctx)?,
 
-            Self::While(while_expression) => while_expression.linearize(ctx),
+            Self::While(while_expression) => while_expression.linearize(ctx)?,
             Self::FieldExpression(field_expression) => {
                 let field_loc = field_expression.loc();
-                let (receiver, field) = field_expression.linearize(ctx);
+                let ((receiver, field), mut ctx) = field_expression.linearize(ctx)?;
                 let field_pointer_temp = ctx.function_mut().values_mut().next_temp();
                 let field_read_line = midend::ir::IrLine::new_get_field_pointer(
                     field_loc.start(),
@@ -128,10 +136,12 @@ impl midend::treewalk::Linearize<midend::ir::ValueId> for Expression {
                 ctx.function_mut()
                     .append_statement_to_current_block(field_read_line)
                     .unwrap();
-                field_pointer_temp
+                (field_pointer_temp, ctx)
             }
-            Self::Call(call) => call.linearize(ctx),
-        }
+            Self::Call(call) => call.linearize(ctx)?,
+        };
+
+        ctx.into_result(value)
     }
 }
 

@@ -1,52 +1,24 @@
+use std::ops::DerefMut;
+
 use crate::midend::{symtab::Symtab, treewalk::*};
 
-pub struct CollectCtx {
+pub struct UnpathedCollectCtx {
     symtab: Box<symtab::SymbolTable>,
-    cur_path: symtab::DefPath,
 }
 
-impl CollectCtx {
-    pub fn new(symtab: Box<symtab::SymbolTable>, cur_path: symtab::DefPath) -> Self {
-        Self { symtab, cur_path }
+impl UnpathedCollectCtx {
+    pub fn new(symtab: Box<symtab::SymbolTable>) -> Self {
+        Self { symtab }
     }
 
     pub fn take(self) -> Box<symtab::SymbolTable> {
         self.symtab
     }
-
-    pub fn def_path(&self) -> &symtab::DefPath {
-        &self.cur_path
-    }
-
-    pub fn with_path(self, path: symtab::DefPath) -> (Self, symtab::DefPath) {
-        let new_self = Self {
-            symtab: self.symtab,
-            cur_path: path,
-        };
-
-        (new_self, self.cur_path)
-    }
-
-    pub fn declare_value(&mut self, name: String) -> Result<symtab::DefPath, symtab::SymbolError> {
-        self.declare(
-            self.cur_path
-                .clone()
-                .with_segment(symtab::PathSegment::Value(name))
-                .unwrap(),
-        )
-    }
-
-    pub fn declare_type(&mut self, name: String) -> Result<symtab::DefPath, symtab::SymbolError> {
-        self.declare(
-            self.cur_path
-                .clone()
-                .with_segment(symtab::PathSegment::Type(name))
-                .unwrap(),
-        )
-    }
 }
 
-impl Symtab for CollectCtx {
+impl PathableContext for UnpathedCollectCtx {}
+
+impl Symtab for UnpathedCollectCtx {
     fn insert(
         &mut self,
         path: symtab::DefPath,

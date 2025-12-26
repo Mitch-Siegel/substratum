@@ -16,21 +16,21 @@ impl Ast for TupleDataTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::EnumVariantRepr> for TupleDataTree {
+impl midend::treewalk::Linearize for TupleDataTree {
+    type Data = midend::symtab::EnumVariantRepr;
     fn linearize(
         self,
-        ctx: &mut midend::treewalk::LinearizeCtx,
-    ) -> midend::symtab::EnumVariantRepr {
-        midend::symtab::EnumVariantRepr::Tuple(
-            self.element_types
-                .into_iter()
-                .map(|type_tree| {
-                    type_tree
-                        .linearize(ctx)
-                        .expect("tuple members must have types")
-                })
-                .collect(),
-        )
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        let mut element_types = Vec::new();
+        for element in self.element_types {
+            let maybe_element_type;
+            (maybe_element_type, ctx) = element.linearize_same_path(ctx)?;
+
+            element_types.push(maybe_element_type.expect("tuple members must have types"));
+        }
+
+        ctx.into_result(midend::symtab::EnumVariantRepr::Tuple(element_types))
     }
 }
 
@@ -47,11 +47,12 @@ impl Ast for EnumVariantDataTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::EnumVariantRepr> for EnumVariantDataTree {
+impl midend::treewalk::Linearize for EnumVariantDataTree {
+    type Data = midend::symtab::EnumVariantRepr;
     fn linearize(
         self,
-        ctx: &mut midend::treewalk::LinearizeCtx,
-    ) -> midend::symtab::EnumVariantRepr {
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
         match self {
             EnumVariantDataTree::TupleData(elements) => elements.linearize(ctx),
         }
@@ -189,19 +190,21 @@ impl midend::treewalk::Collect for EnumVariantTree {
     }
 }
 
-impl midend::treewalk::Linearize<(String, midend::symtab::EnumVariantRepr)> for EnumVariantTree {
+impl midend::treewalk::Linearize for EnumVariantTree {
+    type Data = (String, midend::symtab::EnumVariantRepr);
     fn linearize(
         self,
-        ctx: &mut midend::treewalk::LinearizeCtx,
-    ) -> (String, midend::symtab::EnumVariantRepr) {
-        let variant_data_type = match self.data {
-            Some(variant_item) => variant_item.linearize(ctx),
-            None => midend::symtab::EnumVariantRepr::Unit,
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        let variant_data_type;
+        (variant_data_type, ctx) = match self.data {
+            Some(variant_item) => variant_item.linearize_same_path(ctx)?,
+            None => (midend::symtab::EnumVariantRepr::Unit, ctx),
         };
 
-        let variant_name = self.name.linearize(ctx);
+        let (variant_name, ctx) = self.name.linearize(ctx)?;
 
-        (variant_name, variant_data_type)
+        ctx.into_result((variant_name, variant_data_type))
     }
 }
 
@@ -250,15 +253,19 @@ impl midend::treewalk::Collect for EnumDefinitionTree {
         ctx.declare_type(self.name.value.clone())?;
 
         for variant in &self.variants {
-            ctx = variant.collect_to_ctx(ctx)?;
+            ctx = variant.collect_same_path(ctx)?;
         }
         Ok(ctx.take())
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::EnumRepr> for EnumDefinitionTree {
+impl midend::treewalk::Linearize for EnumDefinitionTree {
+    type Data = midend::symtab::EnumRepr;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::symtab::EnumRepr {
+    fn linearize(
+        self,
+        mut ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
         unimplemented!();
         /*let name = self.name.linearize(ctx);
         let type_def_path_component =
