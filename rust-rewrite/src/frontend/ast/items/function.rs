@@ -1,4 +1,7 @@
-use crate::{frontend::ast::*, midend::symtab::Symtab};
+use crate::{
+    frontend::ast::*,
+    midend::symtab::{FunctionPrototype, Symtab},
+};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ArgumentDeclarationTree {
@@ -23,7 +26,7 @@ impl Display for ArgumentDeclarationTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::symtab::Variable> for ArgumentDeclarationTree {
+impl midend::treewalk::Linearize<midend::symtab::Variable> for ArgumentDeclarationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::symtab::Variable {
         let arg_type: midend::types::Syntactic = self
@@ -55,9 +58,7 @@ impl Ast for FunctionDeclarationTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::symtab::values::function::FunctionPrototype>
-    for FunctionDeclarationTree
-{
+impl midend::treewalk::Collect for FunctionDeclarationTree {
     fn collect_symbols(
         &self,
         mut ctx: midend::treewalk::CollectCtx,
@@ -68,7 +69,11 @@ impl midend::treewalk::Treewalk<midend::symtab::values::function::FunctionProtot
 
         Ok(ctx.take())
     }
+}
 
+impl midend::treewalk::Linearize<midend::symtab::values::function::FunctionPrototype>
+    for FunctionDeclarationTree
+{
     fn linearize(
         self,
         ctx: &mut midend::treewalk::LinearizeCtx,
@@ -137,7 +142,7 @@ impl Display for FunctionDefinitionTree {
     }
 }
 
-impl midend::treewalk::Treewalk<()> for FunctionDefinitionTree {
+impl midend::treewalk::Collect for FunctionDefinitionTree {
     fn collect_symbols(
         &self,
         mut ctx: midend::treewalk::CollectCtx,
@@ -146,10 +151,12 @@ impl midend::treewalk::Treewalk<()> for FunctionDefinitionTree {
 
         (ctx, _) = ctx.with_path(function_path.clone());
 
-        ctx = (self.prototype.collect_symbols(ctx)?, function_path.clone()).into();
+        ctx = self.prototype.collect_to_ctx(ctx)?;
         self.body.collect_symbols(ctx)
     }
+}
 
+impl midend::treewalk::Linearize<()> for FunctionDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> () {
         let declared_prototype = self.prototype.linearize(ctx);

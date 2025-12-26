@@ -26,19 +26,20 @@ impl Display for BlockExpressionTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::ir::ValueId> for BlockExpressionTree {
+impl midend::treewalk::Collect for BlockExpressionTree {
     fn collect_symbols(
         &self,
         mut ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
-        let path = ctx.def_path().clone();
         for stmt in &self.statements {
-            ctx = (stmt.collect_symbols(ctx)?, path.clone()).into();
+            ctx = stmt.collect_to_ctx(ctx)?;
         }
 
         Ok(ctx.take())
     }
+}
 
+impl midend::treewalk::Linearize<midend::ir::ValueId> for BlockExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(mut self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
         let parent_def_path = ctx.def_path().clone();

@@ -1,4 +1,7 @@
-use crate::midend::{ir::unlowered::*, treewalk::Treewalk};
+use crate::midend::{
+    ir::unlowered::*,
+    treewalk::{Collect, Linearize},
+};
 
 struct MatchArmContext<'a> {
     pub ctx: &'a mut treewalk::LinearizeCtx,

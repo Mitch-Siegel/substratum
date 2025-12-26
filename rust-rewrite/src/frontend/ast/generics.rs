@@ -12,7 +12,7 @@ impl Ast for GenericParamTree {
     }
 }
 
-impl midend::treewalk::Treewalk<String> for GenericParamTree {
+impl midend::treewalk::Linearize<String> for GenericParamTree {
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> String {
         self.name.linearize(ctx)
     }
@@ -86,7 +86,7 @@ impl Display for GenericParamsListTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::types::GenericParamsList> for GenericParamsListTree {
+impl midend::treewalk::Linearize<midend::types::GenericParamsList> for GenericParamsListTree {
     #[tracing::instrument(skip(self), level = "trace")]
     fn linearize(self, _: &mut midend::treewalk::LinearizeCtx) -> midend::types::GenericParamsList {
         let mut generic_params_set = BTreeSet::<midend::types::GenericParam>::new();
@@ -122,7 +122,7 @@ impl Ast for GenericArgsListTree {
     }
 }
 
-impl midend::treewalk::Treewalk<Vec<midend::types::ParamSubst>> for GenericArgsListTree {
+impl midend::treewalk::Linearize<Vec<midend::types::ParamSubst>> for GenericArgsListTree {
     #[tracing::instrument(skip(self), level = "trace")]
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> Vec<midend::types::ParamSubst> {
         let generic_args: Vec<midend::types::ParamSubst> = self

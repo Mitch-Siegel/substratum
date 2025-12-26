@@ -30,7 +30,7 @@ impl Ast for TupleStructTree {
     }
 }
 
-impl midend::treewalk::Treewalk<PatternTree> for TupleStructTree {
+impl midend::treewalk::Linearize<PatternTree> for TupleStructTree {
     fn linearize(self, _ctx: &mut midend::treewalk::LinearizeCtx) -> PatternTree {
         PatternTree::TupleStruct(self)
         /*
@@ -69,7 +69,7 @@ impl std::fmt::Display for PatternTree {
     }
 }
 
-impl midend::treewalk::Treewalk<PatternTree> for PatternTree {
+impl midend::treewalk::Collect for PatternTree {
     fn collect_symbols(
         &self,
         mut ctx: midend::treewalk::CollectCtx,
@@ -92,7 +92,9 @@ impl midend::treewalk::Treewalk<PatternTree> for PatternTree {
             }
         }
     }
+}
 
+impl midend::treewalk::Linearize<PatternTree> for PatternTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> PatternTree {
         match self.clone() {
@@ -127,7 +129,7 @@ impl Display for MatchArmTree {
     }
 }
 
-impl midend::treewalk::Treewalk<(PatternTree, midend::ir::ValueId)> for MatchArmTree {
+impl midend::treewalk::Collect for MatchArmTree {
     fn collect_symbols(
         &self,
         mut ctx: midend::treewalk::CollectCtx,
@@ -140,7 +142,9 @@ impl midend::treewalk::Treewalk<(PatternTree, midend::ir::ValueId)> for MatchArm
         ctx.finish_subscope(arm_subscope_idx).unwrap();
         */
     }
+}
 
+impl midend::treewalk::Linearize<(PatternTree, midend::ir::ValueId)> for MatchArmTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
@@ -175,24 +179,21 @@ impl Ast for MatchExpressionTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::ir::ValueId> for MatchExpressionTree {
+impl midend::treewalk::Collect for MatchExpressionTree {
     fn collect_symbols(
         &self,
         mut ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
-        let path = ctx.def_path().clone();
-        ctx = (
-            self.scrutinee_expression.collect_symbols(ctx)?,
-            path.clone(),
-        )
-            .into();
+        ctx = self.scrutinee_expression.collect_to_ctx(ctx)?;
         for arm in &self.arms {
-            ctx = (arm.collect_symbols(ctx)?, path.clone()).into();
+            ctx = arm.collect_to_ctx(ctx)?;
         }
 
         Ok(ctx.take())
     }
+}
 
+impl midend::treewalk::Linearize<midend::ir::ValueId> for MatchExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
         let match_loc = self.loc();

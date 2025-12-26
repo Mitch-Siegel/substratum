@@ -19,6 +19,16 @@ impl ArithmeticDualOperands {
     }
 }
 
+impl midend::treewalk::Collect for ArithmeticDualOperands {
+    fn collect_symbols(
+        &self,
+        mut ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
+        ctx = self.e1.collect_to_ctx(ctx)?;
+        self.e2.collect_symbols(ctx)
+    }
+}
+
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ComparisonExpressionTree {
     LThan(ArithmeticDualOperands),
@@ -42,7 +52,23 @@ impl Ast for ComparisonExpressionTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::ir::lowered::operands::BinaryComparisonOperands>
+impl midend::treewalk::Collect for ComparisonExpressionTree {
+    fn collect_symbols(
+        &self,
+        ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
+        match self {
+            Self::LThan(operands)
+            | Self::GThan(operands)
+            | Self::LThanE(operands)
+            | Self::GThanE(operands)
+            | Self::Equals(operands)
+            | Self::NotEquals(operands) => operands.collect_symbols(ctx),
+        }
+    }
+}
+
+impl midend::treewalk::Linearize<midend::ir::lowered::operands::BinaryComparisonOperands>
     for ComparisonExpressionTree
 {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
@@ -149,7 +175,21 @@ impl Display for ArithmeticExpressionTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::ir::lowered::operands::BinaryArithmeticOperands>
+impl midend::treewalk::Collect for ArithmeticExpressionTree {
+    fn collect_symbols(
+        &self,
+        ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
+        match self {
+            Self::Add(operands)
+            | Self::Subtract(operands)
+            | Self::Multiply(operands)
+            | Self::Divide(operands) => operands.collect_symbols(ctx),
+        }
+    }
+}
+
+impl midend::treewalk::Linearize<midend::ir::lowered::operands::BinaryArithmeticOperands>
     for ArithmeticExpressionTree
 {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]

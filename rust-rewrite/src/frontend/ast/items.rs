@@ -42,7 +42,7 @@ impl Ast for ItemTree {
     }
 }
 
-impl midend::treewalk::Treewalk<()> for ItemTree {
+impl midend::treewalk::Collect for ItemTree {
     fn collect_symbols(
         &self,
         ctx: midend::treewalk::CollectCtx,
@@ -66,7 +66,9 @@ impl midend::treewalk::Treewalk<()> for ItemTree {
             },
         }
     }
+}
 
+impl midend::treewalk::Linearize<()> for ItemTree {
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> () {
         match self {
             ItemTree::FunctionDeclaration(function_declaration) => {

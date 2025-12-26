@@ -21,7 +21,7 @@ impl Ast for StatementTree {
     }
 }
 
-impl midend::treewalk::Treewalk<Option<midend::ir::ValueId>> for StatementTree {
+impl midend::treewalk::Collect for StatementTree {
     fn collect_symbols(
         &self,
         ctx: midend::treewalk::CollectCtx,
@@ -32,7 +32,9 @@ impl midend::treewalk::Treewalk<Option<midend::ir::ValueId>> for StatementTree {
             StatementTree::Expression(expr) => expr.collect_symbols(ctx),
         }
     }
+}
 
+impl midend::treewalk::Linearize<Option<midend::ir::ValueId>> for StatementTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> Option<midend::ir::ValueId> {
         match self {

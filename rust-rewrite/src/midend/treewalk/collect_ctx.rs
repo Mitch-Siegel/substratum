@@ -46,12 +46,6 @@ impl CollectCtx {
     }
 }
 
-impl From<(Box<symtab::SymbolTable>, symtab::DefPath)> for CollectCtx {
-    fn from(value: (Box<symtab::SymbolTable>, symtab::DefPath)) -> Self {
-        Self::new(value.0, value.1)
-    }
-}
-
 impl Symtab for CollectCtx {
     fn insert(
         &mut self,

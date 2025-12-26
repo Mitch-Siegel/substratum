@@ -1,4 +1,4 @@
-use crate::{frontend::ast::*, midend::treewalk};
+use crate::{frontend::ast::*, midend};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TypeTree {
@@ -13,7 +13,7 @@ impl Ast for TypeTree {
     }
 }
 
-impl midend::treewalk::Treewalk<Option<midend::types::Syntactic>> for TypeTree {
+impl midend::treewalk::Linearize<Option<midend::types::Syntactic>> for TypeTree {
     fn linearize(
         self,
         ctx: &mut midend::treewalk::LinearizeCtx,
@@ -48,7 +48,7 @@ impl Ast for ParenthesizedTypeTree {
     }
 }
 
-impl midend::treewalk::Treewalk<Option<midend::types::Syntactic>> for ParenthesizedTypeTree {
+impl midend::treewalk::Linearize<Option<midend::types::Syntactic>> for ParenthesizedTypeTree {
     fn linearize(
         self,
         ctx: &mut midend::treewalk::LinearizeCtx,
@@ -79,8 +79,8 @@ impl Ast for TupleTypeTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::types::Syntactic> for TupleTypeTree {
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::types::Syntactic {
+impl midend::treewalk::Linearize<midend::types::Syntactic> for TupleTypeTree {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::types::Syntactic {
         let members = self
             .members
             .into_iter()
@@ -118,8 +118,8 @@ impl Ast for InferredTypeTree {
     }
 }
 
-impl midend::treewalk::Treewalk<Option<midend::types::Syntactic>> for InferredTypeTree {
-    fn linearize(self, _: &mut treewalk::LinearizeCtx) -> Option<midend::types::Syntactic> {
+impl midend::treewalk::Linearize<Option<midend::types::Syntactic>> for InferredTypeTree {
+    fn linearize(self, _: &mut midend::treewalk::LinearizeCtx) -> Option<midend::types::Syntactic> {
         None
     }
 }
@@ -147,8 +147,11 @@ impl Ast for TypeNoBoundsTree {
     }
 }
 
-impl midend::treewalk::Treewalk<Option<midend::types::Syntactic>> for TypeNoBoundsTree {
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> Option<midend::types::Syntactic> {
+impl midend::treewalk::Linearize<Option<midend::types::Syntactic>> for TypeNoBoundsTree {
+    fn linearize(
+        self,
+        ctx: &mut midend::treewalk::LinearizeCtx,
+    ) -> Option<midend::types::Syntactic> {
         match self {
             Self::ParenthesizedType(p) => p.linearize(ctx),
             Self::TypePath(tp) => Some(tp.linearize(ctx)),
@@ -188,8 +191,8 @@ impl Ast for TypePath {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::types::Syntactic> for TypePath {
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::types::Syntactic {
+impl midend::treewalk::Linearize<midend::types::Syntactic> for TypePath {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::types::Syntactic {
         match self {
             Self::Primitive(p) => p.linearize(ctx),
             Self::ItemPath(i) => i.linearize(ctx),
@@ -218,8 +221,8 @@ impl Ast for PrimitiveTypePathTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::types::Syntactic> for PrimitiveTypePathTree {
-    fn linearize(self, _: &mut treewalk::LinearizeCtx) -> midend::types::Syntactic {
+impl midend::treewalk::Linearize<midend::types::Syntactic> for PrimitiveTypePathTree {
+    fn linearize(self, _: &mut midend::treewalk::LinearizeCtx) -> midend::types::Syntactic {
         unimplemented!();
     }
 }
@@ -262,8 +265,8 @@ impl Ast for TypeItemPathTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::types::Syntactic> for TypeItemPathTree {
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::types::Syntactic {
+impl midend::treewalk::Linearize<midend::types::Syntactic> for TypeItemPathTree {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::types::Syntactic {
         unimplemented!();
         /*
         let up = self.underlying_path.linearize(ctx);
@@ -319,8 +322,8 @@ impl Ast for ReferenceTypeTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::types::Syntactic> for ReferenceTypeTree {
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::types::Syntactic {
+impl midend::treewalk::Linearize<midend::types::Syntactic> for ReferenceTypeTree {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::types::Syntactic {
         midend::types::Syntactic::Reference(
             self.mutability,
             Box::new(
@@ -352,9 +355,9 @@ impl Ast for ArrayTypeTree {
     }
 }
 
-impl treewalk::Treewalk<midend::types::Syntactic> for ArrayTypeTree {
+impl midend::treewalk::Linearize<midend::types::Syntactic> for ArrayTypeTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::types::Syntactic {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::types::Syntactic {
         unimplemented!();
     }
 }

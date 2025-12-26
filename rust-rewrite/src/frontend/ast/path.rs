@@ -1,8 +1,4 @@
-
-use crate::{
-    frontend::ast::*,
-    midend::{self, treewalk::Treewalk},
-};
+use crate::{frontend::ast::*, midend};
 use serde::{Deserialize, Serialize};
 
 pub enum PathSegmentAction<T> {
@@ -94,7 +90,7 @@ where
     }
 }
 
-impl<T> midend::treewalk::Treewalk<PathSegmentAction<T>> for PathSegmentTree<T>
+impl<T> midend::treewalk::Linearize<PathSegmentAction<T>> for PathSegmentTree<T>
 where
     T: Ast,
 {
@@ -411,7 +407,7 @@ where
     }
 }
 
-impl<T> midend::treewalk::Treewalk<LinearizedPathTree<T>> for PathTree<T>
+impl<T> midend::treewalk::Linearize<LinearizedPathTree<T>> for PathTree<T>
 where
     T: Ast + std::fmt::Display,
 {

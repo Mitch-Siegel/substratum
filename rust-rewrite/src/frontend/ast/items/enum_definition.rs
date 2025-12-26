@@ -16,7 +16,7 @@ impl Ast for TupleDataTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::symtab::EnumVariantRepr> for TupleDataTree {
+impl midend::treewalk::Linearize<midend::symtab::EnumVariantRepr> for TupleDataTree {
     fn linearize(
         self,
         ctx: &mut midend::treewalk::LinearizeCtx,
@@ -47,7 +47,7 @@ impl Ast for EnumVariantDataTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::symtab::EnumVariantRepr> for EnumVariantDataTree {
+impl midend::treewalk::Linearize<midend::symtab::EnumVariantRepr> for EnumVariantDataTree {
     fn linearize(
         self,
         ctx: &mut midend::treewalk::LinearizeCtx,
@@ -179,7 +179,7 @@ impl Ast for EnumVariantTree {
     }
 }
 
-impl midend::treewalk::Treewalk<(String, midend::symtab::EnumVariantRepr)> for EnumVariantTree {
+impl midend::treewalk::Collect for EnumVariantTree {
     fn collect_symbols(
         &self,
         mut ctx: midend::treewalk::CollectCtx,
@@ -187,7 +187,9 @@ impl midend::treewalk::Treewalk<(String, midend::symtab::EnumVariantRepr)> for E
         ctx.declare_value(self.name.value.clone())?;
         Ok(ctx.take())
     }
+}
 
+impl midend::treewalk::Linearize<(String, midend::symtab::EnumVariantRepr)> for EnumVariantTree {
     fn linearize(
         self,
         ctx: &mut midend::treewalk::LinearizeCtx,
@@ -240,20 +242,21 @@ impl Ast for EnumDefinitionTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::symtab::EnumRepr> for EnumDefinitionTree {
+impl midend::treewalk::Collect for EnumDefinitionTree {
     fn collect_symbols(
         &self,
         mut ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
         ctx.declare_type(self.name.value.clone())?;
 
-        let path = ctx.def_path().clone();
         for variant in &self.variants {
-            ctx = (variant.collect_symbols(ctx)?, path.clone()).into();
+            ctx = variant.collect_to_ctx(ctx)?;
         }
         Ok(ctx.take())
     }
+}
 
+impl midend::treewalk::Linearize<midend::symtab::EnumRepr> for EnumDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::symtab::EnumRepr {
         unimplemented!();

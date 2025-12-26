@@ -12,7 +12,7 @@ impl Ast for StructFieldTree {
     }
 }
 
-impl midend::treewalk::Treewalk<(String, midend::types::Syntactic)> for StructFieldTree {
+impl midend::treewalk::Linearize<(String, midend::types::Syntactic)> for StructFieldTree {
     fn linearize(
         self,
         ctx: &mut midend::treewalk::LinearizeCtx,
@@ -61,7 +61,7 @@ impl Display for StructDefinitionTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::symtab::StructRepr> for StructDefinitionTree {
+impl midend::treewalk::Collect for StructDefinitionTree {
     fn collect_symbols(
         &self,
         mut ctx: midend::treewalk::CollectCtx,
@@ -70,7 +70,9 @@ impl midend::treewalk::Treewalk<midend::symtab::StructRepr> for StructDefinition
 
         Ok(ctx.take())
     }
+}
 
+impl midend::treewalk::Linearize<midend::symtab::StructRepr> for StructDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::symtab::StructRepr {
         unimplemented!();

@@ -24,7 +24,7 @@ impl Ast for ModuleTree {
     }
 }
 
-impl midend::treewalk::Treewalk<()> for ModuleTree {
+impl midend::treewalk::Collect for ModuleTree {
     fn collect_symbols(
         &self,
         mut ctx: midend::treewalk::CollectCtx,
@@ -41,12 +41,14 @@ impl midend::treewalk::Treewalk<()> for ModuleTree {
 
         for item in &self.items {
             let (item_ctx, prev_path) = ctx.with_path(module_path.clone());
-            ctx = (item.collect_symbols(item_ctx)?, prev_path).into();
+            ctx = midend::treewalk::CollectCtx::new(item.collect_symbols(item_ctx)?, prev_path);
         }
 
         Ok(ctx.take())
     }
+}
 
+impl midend::treewalk::Linearize<()> for ModuleTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> () {
         tracing::trace!(

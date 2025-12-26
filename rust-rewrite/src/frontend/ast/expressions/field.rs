@@ -18,7 +18,7 @@ impl Display for FieldExpressionTree {
     }
 }
 
-impl midend::treewalk::Treewalk<(midend::ir::ValueId, String)> for FieldExpressionTree {
+impl midend::treewalk::Linearize<(midend::ir::ValueId, String)> for FieldExpressionTree {
     // returns (receiver, field_info)
     // receiver is the value id for the receiver of the field access
     // field_info is a value id for the field being accessed

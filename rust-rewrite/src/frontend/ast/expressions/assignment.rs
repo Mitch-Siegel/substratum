@@ -18,7 +18,16 @@ impl Display for AssignmentTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::ir::ValueId> for AssignmentTree {
+impl midend::treewalk::Collect for AssignmentTree {
+    fn collect_symbols(
+        &self,
+        ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
+        self.value.collect_symbols(ctx)
+    }
+}
+
+impl midend::treewalk::Linearize<midend::ir::ValueId> for AssignmentTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
         let assignment_start = self.loc().start();

@@ -19,7 +19,7 @@ impl Ast for ImplementationTree {
     }
 }
 
-impl midend::treewalk::Treewalk<()> for ImplementationTree {
+impl midend::treewalk::Collect for ImplementationTree {
     fn collect_symbols(
         &self,
         mut ctx: midend::treewalk::CollectCtx,
@@ -66,7 +66,9 @@ impl midend::treewalk::Treewalk<()> for ImplementationTree {
         ctx.pop_def_path(impl_def_path_component).unwrap();
         */
     }
+}
 
+impl midend::treewalk::Linearize<()> for ImplementationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> () {
         unimplemented!();

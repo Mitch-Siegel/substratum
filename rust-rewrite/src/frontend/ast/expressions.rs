@@ -54,7 +54,7 @@ impl Ast for Expression {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::ir::ValueId> for Expression {
+impl midend::treewalk::Collect for Expression {
     fn collect_symbols(
         &self,
         mut ctx: midend::treewalk::CollectCtx,
@@ -72,7 +72,9 @@ impl midend::treewalk::Treewalk<midend::ir::ValueId> for Expression {
             }
         }
     }
+}
 
+impl midend::treewalk::Linearize<midend::ir::ValueId> for Expression {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
         match self {

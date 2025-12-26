@@ -21,12 +21,17 @@ impl From<symtab::SymbolError> for CollectError {
 
 pub type CollectResult = Result<Box<symtab::SymbolTable>, CollectError>;
 
-pub trait Treewalk<LinearizeResult> {
-    fn collect_symbols(&self, ctx: CollectCtx) -> CollectResult {
-        unreachable!("collect_symbols() called on AST without implementation");
-    }
+pub trait Collect {
+    fn collect_symbols(&self, ctx: CollectCtx) -> CollectResult;
 
-    fn linearize(self, ctx: &mut LinearizeCtx) -> LinearizeResult;
+    fn collect_to_ctx(&self, ctx: CollectCtx) -> Result<CollectCtx, CollectError> {
+        let old_path = ctx.def_path().clone();
+        Ok(CollectCtx::new(self.collect_symbols(ctx)?, old_path))
+    }
+}
+
+pub trait Linearize<T> {
+    fn linearize(self, ctx: &mut LinearizeCtx) -> T;
 }
 
 pub fn path_from_module(module: &frontend::ast::ModuleTree) -> symtab::DefPath {
