@@ -1,5 +1,3 @@
-use std::ops::DerefMut;
-
 use crate::midend::{symtab::Symtab, treewalk::*};
 
 pub struct UnpathedCollectCtx {

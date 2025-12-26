@@ -16,7 +16,7 @@ impl midend::treewalk::Linearize for GenericParamTree {
     type Data = String;
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         self.name.linearize(ctx)
     }
@@ -95,7 +95,7 @@ impl midend::treewalk::Linearize for GenericParamsListTree {
     #[tracing::instrument(skip(self), level = "trace")]
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let mut generic_params_set = BTreeSet::<midend::types::GenericParam>::new();
 

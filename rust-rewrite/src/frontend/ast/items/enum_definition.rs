@@ -51,7 +51,7 @@ impl midend::treewalk::Linearize for EnumVariantDataTree {
     type Data = midend::symtab::EnumVariantRepr;
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         match self {
             EnumVariantDataTree::TupleData(elements) => elements.linearize(ctx),
@@ -59,7 +59,7 @@ impl midend::treewalk::Linearize for EnumVariantDataTree {
     }
 }
 
-fn create_enum_variant_constructor(
+fn _create_enum_variant_constructor(
     _symtab: &mut midend::symtab::SymbolTable,
     _enum_path: midend::symtab::DefPath,
     _enum_name: &String,
@@ -260,11 +260,11 @@ impl midend::treewalk::Collect for EnumDefinitionTree {
 }
 
 impl midend::treewalk::Linearize for EnumDefinitionTree {
-    type Data = midend::symtab::EnumRepr;
+    type Data = midend::symtab::TypeDecl;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         unimplemented!();
         /*let name = self.name.linearize(ctx);

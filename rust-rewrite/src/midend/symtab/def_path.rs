@@ -109,7 +109,7 @@ pub trait Path:
 
     fn without_last(self) -> Result<(Self, PathSegment), PathError>;
 
-    fn first(&self) -> &PathSegment {
+    fn _first(&self) -> &PathSegment {
         &self[0]
     }
 
@@ -117,7 +117,7 @@ pub trait Path:
         &self[self.len() - 1]
     }
 
-    fn is_prefix_of(&self, other: Self) -> bool {
+    fn _is_prefix_of(&self, other: Self) -> bool {
         if self.len() >= other.len() {
             return false;
         }
@@ -257,8 +257,7 @@ impl std::fmt::Display for DefPath {
                 write!(f, "::")?;
             }
         }
-        write!(f, "{}", self.last);
-        Ok(())
+        write!(f, "{}", self.last)
     }
 }
 
@@ -270,7 +269,6 @@ impl std::fmt::Debug for DefPath {
                 write!(f, "::")?;
             }
         }
-        write!(f, "{:?}", self.last);
-        Ok(())
+        write!(f, "{:?}", self.last)
     }
 }

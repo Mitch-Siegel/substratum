@@ -1,7 +1,7 @@
 use crate::midend::{ir::*, symtab::Path, *};
 use std::collections::{HashMap, HashSet};
 
-pub fn find_unlowered_irs(cf: &ControlFlow) -> HashMap<usize, HashSet<usize>> {
+pub fn _find_unlowered_irs(cf: &ControlFlow) -> HashMap<usize, HashSet<usize>> {
     // map from block label to statement indices of unlowered statements
     let mut unlowered = HashMap::<usize, HashSet<usize>>::new();
 

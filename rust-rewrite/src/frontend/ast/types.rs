@@ -17,7 +17,7 @@ impl midend::treewalk::Linearize for TypeTree {
     type Data = Option<midend::types::Syntactic>;
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         match self {
             Self::TypeNoBounds(tnb) => tnb.linearize(ctx),
@@ -53,7 +53,7 @@ impl midend::treewalk::Linearize for ParenthesizedTypeTree {
     type Data = Option<midend::types::Syntactic>;
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         self.inner_type.linearize(ctx)
     }
@@ -130,7 +130,7 @@ impl midend::treewalk::Linearize for InferredTypeTree {
     type Data = Option<midend::types::Syntactic>;
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         ctx.into_result(None)
     }
@@ -163,7 +163,7 @@ impl midend::treewalk::Linearize for TypeNoBoundsTree {
     type Data = Option<midend::types::Syntactic>;
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let (type_, ctx) = match self {
             Self::ParenthesizedType(p) => p.linearize(ctx)?,
@@ -222,7 +222,7 @@ impl midend::treewalk::Linearize for TypePath {
     type Data = midend::types::Syntactic;
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         match self {
             Self::Primitive(p) => p.linearize(ctx),
@@ -256,7 +256,7 @@ impl midend::treewalk::Linearize for PrimitiveTypePathTree {
     type Data = midend::types::Syntactic;
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        _ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         unimplemented!();
     }
@@ -304,7 +304,7 @@ impl midend::treewalk::Linearize for TypeItemPathTree {
     type Data = midend::types::Syntactic;
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        _ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         unimplemented!();
         /*
@@ -401,7 +401,7 @@ impl midend::treewalk::Linearize for ArrayTypeTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         unimplemented!();
     }

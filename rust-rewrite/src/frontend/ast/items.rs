@@ -80,31 +80,29 @@ impl midend::treewalk::Linearize for ItemTree {
                     "Function declaration without definitions not yet supported: {}",
                     function_declaration.name
                 );
-                ctx.take()
-                /*
-                let function_context = FunctionWalkContext::new(context);
-                let declared_function = function_declaration.walk(function_context);
-
-                    function_declaration.walk(&mut WalkContext::new(&context.global_scope));
-                context.insert_function_prototype(declared_function);*/
             }
             ItemTree::FunctionDefinition(function_definition) => {
-                let (a, ctx) = function_definition.linearize(ctx)?;
-                ctx
+                let function;
+                (function, ctx) = function_definition.linearize_same_path(ctx)?;
+                ctx.define_value(function)?;
+                ctx.take()
             }
             ItemTree::StructDefinition(struct_tree) => {
-                let (_struct_repr, ctx) = struct_tree.linearize(ctx)?;
-                unimplemented!();
-                ctx
+                let struct_repr;
+                (struct_repr, ctx) = struct_tree.linearize_same_path(ctx)?;
+                ctx.define_type(struct_repr)?;
+                ctx.take()
             }
             ItemTree::EnumDefinition(enum_tree) => {
-                let (_enum_repr, ctx) = enum_tree.linearize(ctx)?;
-                unimplemented!();
-                ctx
+                let enum_repr;
+                (enum_repr, ctx) = enum_tree.linearize_same_path(ctx)?;
+                ctx.define_type(enum_repr)?;
+                ctx.take()
             }
-            ItemTree::Implementation(implementation) => {
-                let (_, ctx) = implementation.linearize(ctx)?;
-                ctx
+            ItemTree::Implementation(_implementation) => {
+                unimplemented!();
+                //let (_, ctx) = implementation.linearize(ctx)?;
+                //ctx
             }
             ItemTree::Module((module, _)) => match module {
                 Ok(m) => m.linearize(ctx)?.1,

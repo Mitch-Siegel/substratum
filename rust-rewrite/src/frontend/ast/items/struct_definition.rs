@@ -16,7 +16,7 @@ impl midend::treewalk::Linearize for StructFieldTree {
     type Data = (String, midend::types::Syntactic);
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let (maybe_field_type, ctx) = self.type_.linearize_same_path(ctx)?;
 
@@ -75,11 +75,11 @@ impl midend::treewalk::Collect for StructDefinitionTree {
 }
 
 impl midend::treewalk::Linearize for StructDefinitionTree {
-    type Data = midend::symtab::StructRepr;
+    type Data = midend::symtab::TypeDecl;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         unimplemented!();
         /*

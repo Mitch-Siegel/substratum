@@ -1,89 +1,10 @@
 use crate::midend::{symtab::*, treewalk::*};
 
-use std::collections::{BTreeSet, HashMap};
-
-pub struct GenericParamsContext {
-    params_by_path: HashMap<DefPath, BTreeSet<types::GenericParam>>,
-    paths_by_param: HashMap<types::GenericParam, BTreeSet<DefPath>>,
-    all_params: BTreeSet<types::GenericParam>,
-}
-
-impl GenericParamsContext {
-    pub fn new() -> Self {
-        Self {
-            params_by_path: HashMap::new(),
-            paths_by_param: HashMap::new(),
-            all_params: BTreeSet::new(),
-        }
-    }
-
-    pub fn add_params_at_path(
-        &mut self,
-        def_path: DefPath,
-        params: BTreeSet<types::GenericParam>,
-    ) -> Result<(), BTreeSet<types::GenericParam>> {
-        let duplicated: BTreeSet<types::GenericParam> = self
-            .all_params
-            .intersection(&params)
-            .map(|param| param.clone())
-            .collect();
-        if duplicated.len() > 0 {
-            return Err(duplicated);
-        }
-
-        self.all_params.append(&mut params.clone());
-        for param in &params {
-            self.paths_by_param
-                .entry(param.clone())
-                .or_default()
-                .insert(def_path.clone());
-        }
-        match self.params_by_path.insert(def_path.clone(), params) {
-            Some(existing_params) => panic!(
-                "existing params at defpath {}: {:?}!",
-                def_path, existing_params
-            ),
-            None => (),
-        }
-
-        Ok(())
-    }
-
-    fn remove_params_at_path(
-        &mut self,
-        def_path: DefPath,
-    ) -> Result<BTreeSet<types::GenericParam>, ()> {
-        let params_at_path = match self.params_by_path.remove(&def_path) {
-            Some(params) => params,
-            None => return Err(()),
-        };
-
-        for param in &params_at_path {
-            if !self.all_params.remove(param) {
-                return Err(());
-            }
-            match self.paths_by_param.get_mut(param) {
-                Some(paths) => {
-                    paths.remove(&def_path);
-                }
-                None => return Err(()),
-            }
-        }
-        Ok(params_at_path)
-    }
-
-    fn get(&self, def_path: &DefPath) -> Option<&BTreeSet<types::GenericParam>> {
-        self.params_by_path.get(def_path)
-    }
-
-    pub fn paths_for_param(&self, param: &types::GenericParam) -> Option<&BTreeSet<DefPath>> {
-        self.paths_by_param.get(param)
-    }
-}
+use std::collections::HashMap;
 
 pub struct UnpathedLinearizeCtx {
     symtab: Box<SymbolTable>,
-    functions: HashMap<DefPath, FunctionLinearizeCtx>,
+    _functions: HashMap<DefPath, FunctionLinearizeCtx>,
 }
 
 impl std::fmt::Debug for LinearizeCtx {
@@ -98,13 +19,12 @@ impl UnpathedLinearizeCtx {
     pub fn new(symtab: Box<SymbolTable>) -> Self {
         Self {
             symtab,
-            functions: HashMap::new(),
+            _functions: HashMap::new(),
         }
     }
 
     pub fn from_existing(
         symtab: Box<SymbolTable>,
-        generics: GenericParamsContext,
         definition_path: DefPath,
         manager: ir::BlockManager,
         block: usize,
@@ -115,7 +35,10 @@ impl UnpathedLinearizeCtx {
         ))
         .collect();
 
-        Self { symtab, functions }
+        Self {
+            symtab,
+            _functions: functions,
+        }
     }
 
     pub fn into_result<T>(self, data: T) -> LinearizeResult<T> {
@@ -126,27 +49,8 @@ impl UnpathedLinearizeCtx {
         self.symtab
     }
 
-    fn symtab(&self) -> &SymbolTable {
-        &self.symtab
-    }
-
-    fn symtab_mut(&mut self) -> &mut SymbolTable {
-        &mut self.symtab
-    }
-
     //fn def_path_mut(&mut self) -> &mut DefPath
     //
-
-    pub fn define_type<S>(
-        &mut self,
-        path: symtab::DefPath,
-        symbol: S,
-    ) -> Result<DefPath, SymbolError>
-    where
-        S: Into<symtab::Type>,
-    {
-        self.symtab.define_type(path, symbol)
-    }
 
     pub fn create_function(
         &mut self,
@@ -198,7 +102,11 @@ impl UnpathedLinearizeCtx {
         */
     }
 
-    pub fn finish_function(&mut self, _expected_name: String) -> Result<(), ()> {
+    pub fn finish_function(
+        &mut self,
+        _expected_name: String,
+        _return_value: ir::ValueId,
+    ) -> Result<symtab::Function, LinearizeError> {
         unimplemented!();
         /*
             let def_path = self.def_path().clone();

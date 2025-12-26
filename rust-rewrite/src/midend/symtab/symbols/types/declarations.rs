@@ -61,7 +61,7 @@ impl std::fmt::Display for TypeDecl {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.declared_type)?;
         if !self.generic_params.is_empty() {
-            write!(f, "<");
+            write!(f, "<")?;
             let mut first = true;
             for p in &self.generic_params {
                 if !first {

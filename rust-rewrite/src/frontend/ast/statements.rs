@@ -39,7 +39,7 @@ impl midend::treewalk::Linearize for StatementTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let (maybe_value, ctx) = match self {
             Self::Item(_) => unimplemented!(),

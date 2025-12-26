@@ -167,7 +167,7 @@ impl midend::treewalk::Collect for FunctionDefinitionTree {
 }
 
 impl midend::treewalk::Linearize for FunctionDefinitionTree {
-    type Data = ();
+    type Data = midend::symtab::Function;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
@@ -179,7 +179,7 @@ impl midend::treewalk::Linearize for FunctionDefinitionTree {
 
         ctx.create_function(declared_prototype).unwrap();
         let (return_value, mut ctx) = self.body.linearize(ctx)?;
-        ctx.finish_function(function_name).unwrap();
-        ctx.into_result(())
+        let function = ctx.finish_function(function_name, return_value)?;
+        ctx.into_result(function)
     }
 }

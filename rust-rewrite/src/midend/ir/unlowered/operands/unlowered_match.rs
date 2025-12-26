@@ -1,6 +1,6 @@
 use crate::midend::{ir::unlowered::*, treewalk::Linearize};
 
-struct MatchArmContext {
+struct _MatchArmContext {
     pub ctx: treewalk::LinearizeCtx,
     pub scrutinee: ValueId,
 }
@@ -12,18 +12,18 @@ pub struct MatchArm {
     pub result_value: ValueId,
 }
 
-fn lower_pattern(
+fn _lower_pattern(
     pattern: frontend::ast::expressions::match_expression::PatternTree,
-    mut arm_ctx: MatchArmContext,
+    mut arm_ctx: _MatchArmContext,
 ) -> Result<(LoweredPattern, treewalk::UnpathedLinearizeCtx), treewalk::LinearizeError> {
     use frontend::ast::expressions::match_expression::PatternTree;
     let lowered_pattern;
     let ctx;
     (lowered_pattern, ctx) = match pattern {
         PatternTree::Literal(expr) => {
-            let (expr_value, ctx) = expr.linearize(arm_ctx.ctx)?;
-            let pattern = LoweredPattern::Constructor(
-                PatternConstructor::Constant(
+            let (_expr_value, ctx) = expr.linearize(arm_ctx.ctx)?;
+            let pattern = LoweredPattern::_Constructor(
+                PatternConstructor::_Constant(
                     123, /*arm_ctx
                         .ctx
                         .function()
@@ -37,7 +37,7 @@ fn lower_pattern(
         }
         PatternTree::Identifier(name) => {
             let (name, ctx) = name.linearize(arm_ctx.ctx)?;
-            (LoweredPattern::Identifier(name), ctx)
+            (LoweredPattern::_Identifier(name), ctx)
         }
         PatternTree::TupleStruct(tuple_struct) => {
             let _scrutinee_type = arm_ctx
@@ -97,37 +97,37 @@ fn lower_pattern(
 
 #[derive(Debug)]
 pub enum PatternConstructor {
-    EnumVariant {
+    _EnumVariant {
         ty: types::Semantic,
         variant: String,
     },
     /*Struct {
         ty: types::Semantic,
     },*/
-    Constant(usize),
+    _Constant(usize),
 }
 
 impl std::fmt::Display for PatternConstructor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::EnumVariant { ty, variant } => write!(f, "enum variant {}::{}", ty, variant),
+            Self::_EnumVariant { ty, variant } => write!(f, "enum variant {}::{}", ty, variant),
             //Self::Struct{ty} => write!(f, "struct {}", ty),
-            Self::Constant(constant) => write!(f, "constant {}", constant),
+            Self::_Constant(constant) => write!(f, "constant {}", constant),
         }
     }
 }
 
 #[derive(Debug)]
 pub enum LoweredPattern {
-    Constructor(PatternConstructor, Vec<LoweredPattern>), // fields = subpatterns
-    Identifier(String),
+    _Constructor(PatternConstructor, Vec<LoweredPattern>), // fields = subpatterns
+    _Identifier(String),
     //Wildcard,
 }
 
 impl std::fmt::Display for LoweredPattern {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Constructor(pat, subpats) => {
+            Self::_Constructor(pat, subpats) => {
                 write!(f, "{} [", pat)?;
                 let mut first = true;
                 for subpat in subpats {
@@ -140,7 +140,7 @@ impl std::fmt::Display for LoweredPattern {
                 }
                 write!(f, "]")
             }
-            Self::Identifier(ident) => write!(f, "{}", ident),
+            Self::_Identifier(ident) => write!(f, "{}", ident),
             //Self::Wildcard => write!(f, "*"),
         }
     }

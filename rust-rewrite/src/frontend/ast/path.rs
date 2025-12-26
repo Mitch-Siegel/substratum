@@ -97,7 +97,7 @@ where
     type Data = PathSegmentAction<T>;
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<PathSegmentAction<T>> {
         let (action, ctx) = match self.ident {
             IdentSegment::Super(_) => (PathSegmentAction::Super(self.data), ctx.take()),
@@ -127,23 +127,23 @@ where
 }
 
 pub struct LinearizedPathTree<T> {
-    pub segments: Vec<(String, Option<T>)>,
+    pub _segments: Vec<(String, Option<T>)>,
 }
 
 impl<T> LinearizedPathTree<T> {
-    fn new() -> Self {
+    fn _new() -> Self {
         Self {
-            segments: Vec::new(),
+            _segments: Vec::new(),
         }
     }
 
-    fn with_component(mut self, component: String, maybe_data: Option<T>) -> Self {
-        self.segments.push((component, maybe_data));
+    fn _with_component(mut self, component: String, maybe_data: Option<T>) -> Self {
+        self._segments.push((component, maybe_data));
 
         self
     }
 
-    pub fn map_data<OnData>(self, _on_data: OnData) -> ()
+    pub fn _map_data<OnData>(self, _on_data: OnData) -> ()
 //Result<midend::symtab::RawPath, String>
     //where
     //    OnData: FnMut(&midend::symtab::RawPath, Option<T>),
@@ -218,50 +218,18 @@ where
     }
 }
 
-pub fn walk_middle_ident_segment(
-    _segment_loc: &sourceloc::SourceSpan,
-    _ident: String,
-    _expr_path: midend::symtab::DefPath,
-) -> Result<midend::symtab::DefPath, String> {
-    unimplemented!();
-    /*
-    let type_component = midend::symtab::DefPathComponent::Type(ident);
-    match expr_path.with_component(type_component) {
-        Ok(new_path) => Ok(new_path),
-        Err(e) => Err(e.to_string()),
-    }
-    */
-}
-
-pub fn walk_ident_segment(
-    _segment_loc: &sourceloc::SourceSpan,
-    _ident: midend::symtab::PathSegment,
-    _size_hint: usize,
-    _expr_path: midend::symtab::DefPath,
-    _ctx: &mut midend::treewalk::LinearizeCtx,
-) -> Result<midend::symtab::DefPath, String> {
-    unimplemented!();
-    /*
-    if size_hint == 0 {
-        expr_path = expr_path.with_component(ident).unwrap();
-    } else {
-        walk_middle_ident_segment(segment_loc, ident.raw(), expr_path)
-    }
-    */
-}
-
 enum PathWalkState<T> {
     Start,
     StartGlobal,
-    LeadingLowerSupers(LinearizedPathTree<T>),
-    RequireIdent(LinearizedPathTree<T>),
+    _LeadingLowerSupers(LinearizedPathTree<T>),
+    _RequireIdent(LinearizedPathTree<T>),
 }
 
 impl<T> PathWalkState<T>
 where
     T: Ast + std::fmt::Display,
 {
-    fn error(action: PathSegmentAction<T>, loc: sourceloc::SourceSpan) -> ! {
+    fn _error(action: PathSegmentAction<T>, loc: sourceloc::SourceSpan) -> ! {
         panic!(
             "path segment {} is not allowed in this position ({})",
             action, loc
@@ -406,10 +374,10 @@ where
         match self {
             PathWalkState::Start => Self::start(segment, size_hint, ctx),
             PathWalkState::StartGlobal => Self::start_global(segment, size_hint, ctx),
-            PathWalkState::LeadingLowerSupers(state) => {
+            PathWalkState::_LeadingLowerSupers(state) => {
                 Self::leading_lower_supers(segment, size_hint, state, ctx)
             }
-            PathWalkState::RequireIdent(state) => {
+            PathWalkState::_RequireIdent(state) => {
                 Self::require_ident(segment, size_hint, state, ctx)
             }
         }

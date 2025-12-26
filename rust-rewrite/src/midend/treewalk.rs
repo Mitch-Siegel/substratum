@@ -6,7 +6,7 @@ pub mod linearize_context;
 
 pub use collect_ctx::UnpathedCollectCtx;
 pub use function_linearize_context::FunctionLinearizeCtx;
-pub use linearize_context::{GenericParamsContext, UnpathedLinearizeCtx};
+pub use linearize_context::UnpathedLinearizeCtx;
 
 pub struct PathedCtx<T>
 where
@@ -52,6 +52,14 @@ where
         self
     }
 
+    pub fn declare_type(&mut self, name: String) -> Result<symtab::DefPath, symtab::SymbolError> {
+        let full_path = self
+            .path
+            .clone()
+            .with_segment(symtab::PathSegment::Type(name))?;
+        self.unpathed.declare(full_path)
+    }
+
     pub fn declare_value(&mut self, name: String) -> Result<symtab::DefPath, symtab::SymbolError> {
         let full_path = self
             .path
@@ -60,12 +68,20 @@ where
         self.unpathed.declare(full_path)
     }
 
-    pub fn declare_type(&mut self, name: String) -> Result<symtab::DefPath, symtab::SymbolError> {
-        let full_path = self
-            .path
-            .clone()
-            .with_segment(symtab::PathSegment::Type(name))?;
-        self.unpathed.declare(full_path)
+    pub fn define_type<S>(&mut self, symbol: S) -> Result<symtab::DefPath, symtab::SymbolError>
+    where
+        symtab::Type: From<S>,
+    {
+        self.unpathed
+            .define(self.path.clone(), symtab::Type::from(symbol).into())
+    }
+
+    pub fn define_value<S>(&mut self, symbol: S) -> Result<symtab::DefPath, symtab::SymbolError>
+    where
+        symtab::Value: From<S>,
+    {
+        self.unpathed
+            .define(self.path.clone(), symtab::Value::from(symbol).into())
     }
 }
 
@@ -81,7 +97,6 @@ where
     }
 }
 
-#[derive(Debug)]
 pub enum CollectError {
     Symbol(symtab::SymbolError),
 }
@@ -89,6 +104,14 @@ pub enum CollectError {
 impl From<symtab::SymbolError> for CollectError {
     fn from(value: symtab::SymbolError) -> Self {
         Self::Symbol(value)
+    }
+}
+
+impl std::fmt::Debug for CollectError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Symbol(s) => write!(f, "symbol error: {:?}", s),
+        }
     }
 }
 
@@ -180,7 +203,7 @@ pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable>
             module.module_path,
             path
         );
-        let mut linearize_ctx = UnpathedLinearizeCtx::new(symtab);
+        let linearize_ctx = UnpathedLinearizeCtx::new(symtab);
         let (_, ctx) = module.linearize(linearize_ctx.with_path(path)).unwrap();
         symtab = ctx.take();
     }

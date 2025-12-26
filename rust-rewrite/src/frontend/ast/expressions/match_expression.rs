@@ -158,7 +158,7 @@ impl midend::treewalk::Linearize for MatchArmTree {
         mut ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let pattern;
-        let arm_value: midend::ir::ValueId;
+        let _arm_value: midend::ir::ValueId;
         (pattern, ctx) = self.pattern.linearize_same_path(ctx)?;
         let (arm_value, ctx) = self.expression.linearize(ctx)?;
         ctx.into_result((pattern, arm_value))
