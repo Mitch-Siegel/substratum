@@ -3,9 +3,9 @@ use crate::frontend::ast::*;
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ImplementationTree {
     pub impl_keyword_loc: sourceloc::SourceSpan,
-    pub generic_params: Option<generics::GenericParamsListTree>,
+    pub generic_params: generics::OptionalGenericParamsListTree,
     pub for_: IdentifierTree,
-    pub implemented_for_generic_params: Option<generics::GenericParamsListTree>,
+    pub implemented_for_generic_params: generics::OptionalGenericParamsListTree,
     pub items: Vec<items::FunctionDefinitionTree>,
     pub close_brace_loc: sourceloc::SourceSpan,
 }
@@ -79,14 +79,15 @@ impl midend::treewalk::Linearize for ImplementationTree {
 
 impl Display for ImplementationTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let generic_params_string = match &self.generic_params {
-            Some(params) => String::from(format!("<{}>", params)),
-            None => String::new(),
+        let mut generic_params_string = String::from(format!("{}", &self.generic_params));
+        if generic_params_string.len() > 0 {
+            generic_params_string = String::from(format!("<{}>", generic_params_string))
         };
 
-        let for_generic_params_string = match &self.implemented_for_generic_params {
-            Some(params) => String::from(format!("<{}>", params)),
-            None => String::new(),
+        let mut for_generic_params_string =
+            String::from(format!("{}", &self.implemented_for_generic_params));
+        if for_generic_params_string.len() > 0 {
+            for_generic_params_string = String::from(format!("<{}>", for_generic_params_string))
         };
 
         write!(

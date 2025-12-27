@@ -12,6 +12,18 @@ pub enum DeclaredType {
     Enum(EnumRepr),
 }
 
+impl From<StructRepr> for DeclaredType {
+    fn from(value: StructRepr) -> Self {
+        Self::Struct(value)
+    }
+}
+
+impl From<EnumRepr> for DeclaredType {
+    fn from(value: EnumRepr) -> Self {
+        Self::Enum(value)
+    }
+}
+
 impl std::fmt::Display for DeclaredType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -23,8 +35,8 @@ impl std::fmt::Display for DeclaredType {
 
 #[derive(Clone, Debug)]
 pub struct TypeDecl {
-    declared_type: DeclaredType,
-    generic_params: midend::types::GenericParamsList,
+    pub declared_type: DeclaredType,
+    pub generic_params: midend::types::GenericParamsList,
 }
 
 impl TypeDecl {

@@ -40,7 +40,8 @@ impl StructRepr {
     pub fn new(
         name: String,
         field_definitions: Vec<(String, midend::types::Syntactic)>,
-    ) -> Result<Self, FieldRepr> {
+    ) -> Result<Self, FieldRepr> // TODO: struct duplicat field error
+    {
         let field_order: Vec<String> = field_definitions
             .iter()
             .map(|(name, _)| name.clone())

@@ -117,6 +117,49 @@ impl midend::treewalk::Linearize for GenericParamsListTree {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct OptionalGenericParamsListTree {
+    pub start_loc: sourceloc::SourceLoc,
+    pub maybe_params: Option<GenericParamsListTree>,
+}
+
+impl Ast for OptionalGenericParamsListTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        if let Some(params) = &self.maybe_params {
+            params.loc()
+        } else {
+            self.start_loc.clone().into()
+        }
+    }
+}
+
+impl Display for OptionalGenericParamsListTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.maybe_params {
+            Some(p) => write!(f, "{}", p),
+            None => Ok(()),
+        }
+    }
+}
+
+impl midend::treewalk::Linearize for OptionalGenericParamsListTree {
+    type Data = midend::types::GenericParamsList;
+    fn linearize(
+        self,
+        ctx: midend::treewalk::LinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        let (params, ctx) = match self.maybe_params {
+            Some(params) => {
+                let (params_result, ctx) = params.linearize(ctx)?;
+                (params_result, ctx)
+            }
+            None => (midend::types::GenericParamsList::new(), ctx.take()),
+        };
+
+        ctx.into_result(params)
+    }
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct GenericArgsListTree {
     pub open_angle_bracket_loc: sourceloc::SourceSpan,
     pub args: Vec<TypeTree>,

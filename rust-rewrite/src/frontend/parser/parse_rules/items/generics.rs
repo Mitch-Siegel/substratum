@@ -18,10 +18,10 @@ impl<'a, 'p> ItemParser<'a, 'p> {
     // parses the generic parameters to be taken by a type
     pub fn try_parse_generic_params_list(
         &mut self,
-    ) -> Result<Option<ast::generics::GenericParamsListTree>, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("generic params list")?;
+    ) -> Result<ast::generics::OptionalGenericParamsListTree, ParseError> {
+        let (start_loc, _span) = self.start_parsing("generic params list")?;
 
-        let maybe_params_tree = match self.peek_token()? {
+        let maybe_params = match self.peek_token()? {
             Token::LThan => {
                 let open_angle_bracket_loc = self.expect_token(Token::LThan)?;
                 let mut params: Vec<ast::generics::GenericParamTree> = Vec::new();
@@ -50,7 +50,12 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             _ => None,
         };
 
-        self.finish_parsing(maybe_params_tree)
+        let optional_params_tree = ast::generics::OptionalGenericParamsListTree {
+            start_loc,
+            maybe_params,
+        };
+
+        self.finish_parsing(optional_params_tree)
     }
 
     // parses the generic parameters passed in to a type

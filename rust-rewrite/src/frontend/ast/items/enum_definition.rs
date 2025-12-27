@@ -221,7 +221,7 @@ impl Display for EnumVariantTree {
 pub struct EnumDefinitionTree {
     pub enum_keyword_loc: sourceloc::SourceSpan,
     pub name: IdentifierTree,
-    pub generic_params: Option<generics::GenericParamsListTree>,
+    pub generic_params: generics::OptionalGenericParamsListTree,
     pub variants: Vec<EnumVariantTree>,
 }
 
@@ -233,9 +233,7 @@ impl Ast for EnumDefinitionTree {
             .merge(&self.name.loc())
             .unwrap();
 
-        if let Some(params) = &self.generic_params {
-            loc = loc.merge(&params.loc()).unwrap();
-        }
+        loc = loc.merge(&self.generic_params.loc()).unwrap();
 
         for variant in &self.variants {
             loc = loc.merge(&variant.loc()).unwrap();
@@ -261,11 +259,14 @@ impl midend::treewalk::Collect for EnumDefinitionTree {
 }
 
 impl midend::treewalk::Linearize for EnumDefinitionTree {
-    type Data = midend::symtab::TypeDecl;
-    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
+    type Data = (
+        midend::symtab::EnumRepr,
+        <generics::OptionalGenericParamsListTree as midend::treewalk::Linearize>::Data,
+    );
+    #[tracing::instrument(skip(self, _ctx), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        ctx: midend::treewalk::LinearizeCtx,
+        _ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         unimplemented!();
         /*let name = self.name.linearize(ctx);

@@ -37,7 +37,7 @@ impl Display for StructFieldTree {
 pub struct StructDefinitionTree {
     pub struct_keyword_loc: sourceloc::SourceSpan,
     pub name: IdentifierTree,
-    pub generic_params: Option<generics::GenericParamsListTree>,
+    pub generic_params: generics::OptionalGenericParamsListTree,
     pub fields: Vec<StructFieldTree>,
     pub close_brace_loc: sourceloc::SourceSpan,
 }
@@ -75,34 +75,33 @@ impl midend::treewalk::Collect for StructDefinitionTree {
 }
 
 impl midend::treewalk::Linearize for StructDefinitionTree {
-    type Data = midend::symtab::TypeDecl;
-    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
+    type Data = (
+        midend::symtab::StructRepr,
+        <generics::OptionalGenericParamsListTree as midend::treewalk::Linearize>::Data,
+    );
+    #[tracing::instrument(skip(self, ctx), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        ctx: midend::treewalk::LinearizeCtx,
+        mut ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
-        unimplemented!();
-        /*
-        let generic_params: midend::types::GenericParamsList = match self.generic_params {
-            Some(params) => params.linearize(ctx),
-            None => midend::types::GenericParamsList::new(),
-        };
+        let struct_name;
+        (struct_name, ctx) = self.name.linearize_same_path(ctx)?;
 
-        let struct_name = self.name.linearize(ctx);
+        let struct_path = ctx.declare_type(struct_name.clone())?;
+        ctx = ctx.with_path(struct_path);
 
-        let type_def_path_component = midend::symtab::DefPathComponent::Type(
-            midend::types::Syntactic::Named(struct_name.clone()),
-        );
-        ctx.push_def_path(type_def_path_component.clone(), &generic_params);
+        let mut fields = Vec::new();
+        for field in self.fields {
+            let linearized_field;
+            (linearized_field, ctx) = field.linearize_same_path(ctx)?;
+            fields.push(linearized_field);
+        }
 
-        let fields = self
-            .fields
-            .into_iter()
-            .map(|field| field.linearize(ctx))
-            .collect::<Vec<_>>();
+        // TODO: struct duplicate field error
+        let struct_repr = midend::symtab::StructRepr::new(struct_name, fields).unwrap();
 
-        ctx.pop_def_path(type_def_path_component).unwrap();
-        midend::symtab::StructRepr::new(struct_name, generic_params, fields).unwrap()
-        */
+        let (params, ctx) = self.generic_params.linearize(ctx)?;
+
+        ctx.into_result((struct_repr, params))
     }
 }

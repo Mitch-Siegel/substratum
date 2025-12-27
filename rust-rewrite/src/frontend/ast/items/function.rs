@@ -44,7 +44,7 @@ impl midend::treewalk::Linearize for ArgumentDeclarationTree {
 pub struct FunctionDeclarationTree {
     pub fn_keyword_loc: sourceloc::SourceSpan,
     pub name: IdentifierTree,
-    pub generic_params: Option<generics::GenericParamsListTree>,
+    pub generic_params: generics::OptionalGenericParamsListTree,
     pub arguments: Vec<ArgumentDeclarationTree>,
     pub args_close_paren_loc: sourceloc::SourceSpan,
     pub return_type: Option<TypeTree>,
@@ -80,10 +80,7 @@ impl midend::treewalk::Linearize for FunctionDeclarationTree {
         mut ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let generic_params;
-        (generic_params, ctx) = match self.generic_params {
-            Some(params) => params.linearize_same_path(ctx)?,
-            None => (Vec::new(), ctx),
-        };
+        (generic_params, ctx) = self.generic_params.linearize_same_path(ctx)?;
 
         let mut arguments = Vec::new();
 
