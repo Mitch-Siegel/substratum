@@ -25,7 +25,7 @@ pub trait Symtab {
 
     // declare 'path' to exist
     fn declare(&mut self, path: DefPath) -> Result<DefPath, SymbolError> {
-        trace::debug!("declare {}", path);
+        trace::trace!("declare {}", path);
         self.insert(path, None)
     }
 
@@ -36,7 +36,7 @@ pub trait Symtab {
             SymbolDef::Value(_) => assert!(parent_path.is_value()),
         }
 
-        trace::debug!("define {} at {}", symbol.name(), parent_path);
+        trace::trace!("define {} at {}", symbol.name(), parent_path);
         self.insert(
             parent_path.with_segment(symbol.path_segment())?,
             Some(symbol),
@@ -147,6 +147,7 @@ impl Symtab for SymbolTable {
         path: DefPath,
         maybe_symbol: Option<SymbolDef>,
     ) -> Result<DefPath, SymbolError> {
+        let allow_definition = maybe_symbol.is_some();
         if path.len() > 1 {
             let (parent_path, _) = path.clone().without_last().unwrap();
             if !self
@@ -155,13 +156,21 @@ impl Symtab for SymbolTable {
                 .or_default()
                 .insert(path.clone())
             {
-                panic!("untracked child path {}", path)
+                if !allow_definition {
+                    panic!("untracked child path {}", path)
+                }
             }
         }
 
         match self.symbols.insert(path.clone(), maybe_symbol) {
             Some(Some(_)) => Err(SymbolError::AlreadyDefined(path)),
-            Some(None) => Err(SymbolError::AlreadyDeclared(path)),
+            Some(None) => {
+                if allow_definition {
+                    Ok(path)
+                } else {
+                    Err(SymbolError::AlreadyDeclared(path))
+                }
+            }
             None => Ok(path),
         }
     }

@@ -52,6 +52,7 @@ where
         self
     }
 
+    #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
     pub fn declare_type(&mut self, name: String) -> Result<symtab::DefPath, symtab::SymbolError> {
         let full_path = self
             .path
@@ -60,6 +61,7 @@ where
         self.unpathed.declare(full_path)
     }
 
+    #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
     pub fn declare_value(&mut self, name: String) -> Result<symtab::DefPath, symtab::SymbolError> {
         let full_path = self
             .path
@@ -68,16 +70,20 @@ where
         self.unpathed.declare(full_path)
     }
 
+    #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
     pub fn define_type<S>(&mut self, symbol: S) -> Result<symtab::DefPath, symtab::SymbolError>
     where
+        S: std::fmt::Debug,
         symtab::Type: From<S>,
     {
         self.unpathed
             .define(self.path.clone(), symtab::Type::from(symbol).into())
     }
 
+    #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
     pub fn define_value<S>(&mut self, symbol: S) -> Result<symtab::DefPath, symtab::SymbolError>
     where
+        S: std::fmt::Debug,
         symtab::Value: From<S>,
     {
         self.unpathed
@@ -164,15 +170,16 @@ where
     }
 }
 
-pub fn path_from_module(module: &frontend::ast::ModuleTree) -> symtab::DefPath {
+pub fn module_prefix_segments(module: &frontend::ast::ModuleTree) -> Vec<symtab::PathSegment> {
     let segments = module
         .module_path
         .iter()
         .map(|segment| symtab::PathSegment::Type(segment.clone()))
         .collect::<Vec<_>>();
-    let (last, prefix_segments) = segments.split_last().unwrap();
+    let (_, segments) = segments.split_last().unwrap();
 
-    symtab::DefPath::new(prefix_segments.into(), last.to_owned())
+    println!("module prefix segments: {:?}", segments);
+    segments.to_owned()
 }
 
 pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable> {
@@ -181,30 +188,30 @@ pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable>
     trace::debug!("collect symbols");
 
     for module in &program {
-        let path = path_from_module(module);
+        let prefix_segments = module_prefix_segments(module);
         let collect_ctx = UnpathedCollectCtx::new(symtab);
 
         symtab = module
-            .collect_symbols(collect_ctx.with_path(path))
+            .collect_from_prefix_segments(collect_ctx, prefix_segments)
             .unwrap()
             .take();
     }
 
-    //symtab.collect_impls();
-
     trace::debug!("linearize");
 
     for module in program {
-        let path = path_from_module(&module);
+        let prefix_segments = module_prefix_segments(&module);
 
         trace::debug!(
-            "walk module \"{}\": {:?} (defpath {})",
+            "walk module \"{}\": {:?} (prefix segments {:?})",
             module.name,
             module.module_path,
-            path
+            prefix_segments
         );
         let linearize_ctx = UnpathedLinearizeCtx::new(symtab);
-        let (_, ctx) = module.linearize(linearize_ctx.with_path(path)).unwrap();
+        let (_, ctx) = module
+            .linearize_from_prefix_segments(linearize_ctx, prefix_segments)
+            .unwrap();
         symtab = ctx.take();
     }
 
