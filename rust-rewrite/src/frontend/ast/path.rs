@@ -1,9 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::{frontend::ast::*, midend};
+use crate::{
+    frontend::ast::*,
+    midend::{self, treewalk::PathableContext},
+};
 
 pub enum PathSegmentAction<T> {
+    Crate(Option<T>),
     Super(Option<T>),
     Ident(String, Option<T>),
     SelfLower(Option<T>),
@@ -16,6 +20,10 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let maybe_data = match self {
+            Self::Crate(d) => {
+                write!(f, "Crate")?;
+                d
+            }
             Self::Super(d) => {
                 write!(f, "Super")?;
                 d
@@ -128,47 +136,6 @@ where
     }
 }
 
-pub struct LinearizedPathTree<T> {
-    pub _segments: Vec<(String, Option<T>)>,
-}
-
-impl<T> LinearizedPathTree<T> {
-    fn _new() -> Self {
-        Self {
-            _segments: Vec::new(),
-        }
-    }
-
-    fn _with_component(mut self, component: String, maybe_data: Option<T>) -> Self {
-        self._segments.push((component, maybe_data));
-
-        self
-    }
-
-    pub fn _map_data<OnData>(self, _on_data: OnData) -> ()
-//Result<midend::symtab::RawPath, String>
-    //where
-    //    OnData: FnMut(&midend::symtab::RawPath, Option<T>),
-    {
-        unimplemented!();
-        /*
-        let mut search_path = self.path.clone();
-        while search_path.len() > 0 {
-            on_data(&search_path, self.segment_data.remove(&search_path));
-            search_path.pop().unwrap();
-        }
-
-        match self.segment_data.len() {
-            0 => Ok(self.path),
-            other => Err(format!(
-                "{} entries unaccounted for in segment data for path {}",
-                other, self.path
-            )),
-        }
-        */
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PathTree<T>
 where
@@ -234,14 +201,21 @@ mod path_walk {
         AlreadyDidExclFirst,
     }
 
-    pub struct PathWalkCtx<T> {
+    #[derive(Debug)]
+    pub struct PathWalkCtx<T>
+    where
+        T: std::fmt::Debug,
+    {
         context_segments: Vec<midend::symtab::PathSegment>,
         walked_segments: Vec<midend::symtab::PathSegment>,
         walked_segment_data: Vec<Option<T>>,
         did_excl_first: bool,
     }
 
-    impl<T> PathWalkCtx<T> {
+    impl<T> PathWalkCtx<T>
+    where
+        T: std::fmt::Debug,
+    {
         pub fn new(context_segments: Vec<midend::symtab::PathSegment>) -> Self {
             Self {
                 context_segments,
@@ -276,7 +250,7 @@ mod path_walk {
             unimplemented!();
         }
 
-        pub fn do_self_lower(&mut self) -> Result<(), PathWalkError> {
+        pub fn _do_self_lower(&mut self) -> Result<(), PathWalkError> {
             unimplemented!();
         }
 
@@ -350,7 +324,12 @@ mod path_walk {
 }
 
 use path_walk::PathWalkCtx;
-pub struct FinishedPathWalk<T> {
+
+#[derive(Debug)]
+pub struct FinishedPathWalk<T>
+where
+    T: std::fmt::Debug,
+{
     prefix_segments: Vec<midend::symtab::PathSegment>,
     pathed_data: HashMap<midend::symtab::DefPath, T>,
     last_segment_data: Option<T>,
@@ -359,7 +338,10 @@ pub struct FinishedPathWalk<T> {
     macro_path: Option<midend::symtab::DefPath>,
 }
 
-impl<T> FinishedPathWalk<T> {
+impl<T> FinishedPathWalk<T>
+where
+    T: std::fmt::Debug,
+{
     pub fn as_type(self) -> Result<midend::symtab::DefPath, ()> {
         unimplemented!();
     }
@@ -373,16 +355,21 @@ impl<T> FinishedPathWalk<T> {
     }
 }
 
-enum PathWalkState<T> {
+#[derive(Debug)]
+enum PathWalkState<T>
+where
+    T: std::fmt::Debug,
+{
     Start(PathWalkCtx<T>),
     StartGlobal(PathWalkCtx<T>),
     LeadingLowerSupers(PathWalkCtx<T>),
-    _RequireIdent(PathWalkCtx<T>),
+    RequireIdent(PathWalkCtx<T>),
+    Finished(FinishedPathWalk<T>),
 }
 
 impl<T> PathWalkState<T>
 where
-    T: Ast + std::fmt::Display,
+    T: Ast + std::fmt::Display + std::fmt::Debug,
 {
     fn error(action: PathSegmentAction<T>, loc: sourceloc::SourceSpan) -> ! {
         panic!(
@@ -399,59 +386,74 @@ where
         Self::StartGlobal(PathWalkCtx::new(Vec::new()))
     }
 
-    fn do_leading_crate_or_self(action: PathSegmentAction<T>, size_hint: usize) -> Self {
-        unimplemented!();
-    }
-
-    fn leading_lower_supers(
-        segment: PathSegmentAction<T>,
+    fn do_ident(
+        mut ctx: PathWalkCtx<T>,
+        ident: String,
+        maybe_data: Option<T>,
         size_hint: usize,
-        ctx: PathWalkCtx<T>,
-    ) -> Result<Self, String> {
-        unimplemented!();
-    }
-
-    fn require_ident(
-        segment: PathSegmentAction<T>,
-        size_hint: usize,
-        ctx: PathWalkCtx<T>,
-    ) -> Result<Self, String> {
-        unimplemented!();
+        symtab: &Box<midend::symtab::SymbolTable>,
+    ) -> Self {
+        if size_hint > 0 {
+            ctx.add_segment(midend::symtab::PathSegment::Type(ident), maybe_data);
+            Self::RequireIdent(ctx)
+        } else {
+            let finished = ctx.finish(symtab, ident, maybe_data);
+            Self::Finished(finished)
+        }
     }
 
     fn transition(
-        mut self,
+        self,
         action: PathSegmentAction<T>,
         size_hint: usize,
         loc: sourceloc::SourceSpan,
+        symtab: &Box<midend::symtab::SymbolTable>,
     ) -> Result<Self, String> {
         match self {
-            PathWalkState::Start(ctx) => {
-                match action {
-                    PathSegmentAction::Super(_) => {
-                        ctx.do_super().unwrap();
-                    }
-                    PathSegmentAction::SelfUpper(_) => {
-                        ctx.do_self_upper().unwrap();
-                    }
-                    _ => Self::error(action, loc),
+            PathWalkState::Start(mut ctx) => match action {
+                PathSegmentAction::Crate(_) => {
+                    ctx.do_crate().unwrap();
+                    Ok(Self::RequireIdent(ctx))
                 }
-
-                Ok(Self::LeadingLowerSupers(ctx))
-            }
-            PathWalkState::StartGlobal(ctx) => unimplemented!(),
-            PathWalkState::LeadingLowerSupers(ctx) => {
+                PathSegmentAction::Super(_) => {
+                    ctx.do_super().unwrap();
+                    Ok(Self::LeadingLowerSupers(ctx))
+                }
+                PathSegmentAction::SelfUpper(_) => {
+                    ctx.do_self_upper().unwrap();
+                    Ok(Self::LeadingLowerSupers(ctx))
+                }
+                PathSegmentAction::Ident(ident, maybe_data) => {
+                    Ok(Self::do_ident(ctx, ident, maybe_data, size_hint, symtab))
+                }
+                _ => Self::error(action, loc),
+            },
+            PathWalkState::StartGlobal(ctx) => match action {
+                PathSegmentAction::Ident(ident, maybe_data) => {
+                    Ok(Self::do_ident(ctx, ident, maybe_data, size_hint, symtab))
+                }
+                _ => Self::error(action, loc),
+            },
+            PathWalkState::LeadingLowerSupers(_ctx) => {
                 unimplemented!()
                 //Self::leading_lower_supers(segment, size_hint, ctx)
             }
-            PathWalkState::_RequireIdent(state) => unimplemented!(),
+            PathWalkState::RequireIdent(_ctx) => unimplemented!(),
+            PathWalkState::Finished(_) => Err(String::from("already finished!")),
+        }
+    }
+
+    pub fn finish(self) -> Result<FinishedPathWalk<T>, String> {
+        match self {
+            PathWalkState::Finished(state) => Ok(state),
+            other => Err(format!("unfinished path walk in sate {:?}", other).into()),
         }
     }
 }
 
 impl<T> midend::treewalk::Linearize for PathTree<T>
 where
-    T: Ast + std::fmt::Display,
+    T: Ast + std::fmt::Display + std::fmt::Debug,
 {
     type Data = FinishedPathWalk<T>;
     fn linearize(
@@ -470,13 +472,16 @@ where
 
         while let Some(segment) = segments.next() {
             let segment_loc = segment.loc();
-            let (action, unpathed_ctx) = segment.linearize_same_path(ctx)?;
+            let (action, unpathed_ctx) = segment.linearize(ctx)?;
+            let symtab = unpathed_ctx.take();
             walk_state = walk_state
-                .transition(action, segments.size_hint().0, segment_loc)
+                .transition(action, segments.size_hint().0, segment_loc, &symtab)
                 .unwrap();
-            ctx = unpathed_ctx.with_path(ctx_path.clone());
+            ctx = midend::treewalk::UnpathedLinearizeCtx::new(symtab).with_path(ctx_path.clone());
         }
 
-        unimplemented!();
+        let finished = walk_state.finish().unwrap();
+
+        ctx.into_result(finished)
     }
 }

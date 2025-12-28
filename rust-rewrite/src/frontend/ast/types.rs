@@ -1,4 +1,7 @@
-use crate::{frontend::ast::*, midend};
+use crate::{
+    frontend::ast::*,
+    midend::{self, symtab::Path},
+};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TypeTree {
@@ -309,11 +312,11 @@ impl midend::treewalk::Linearize for TypeItemPathTree {
         let (path, ctx) = self.underlying_path.linearize(ctx)?;
         let type_path = path.as_type().unwrap();
 
-        //let type_ = midend::types::Syntactic::Named(type_path.last().raw());
+        let type_ = midend::types::Syntactic::Named(type_path.last().raw().into());
+
+        ctx.into_result(type_).unwrap();
 
         unimplemented!("handle monomorphization for linearized path");
-
-        ctx.into_result(type_)
     }
 }
 

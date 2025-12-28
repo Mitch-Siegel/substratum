@@ -60,7 +60,7 @@ pub trait Symtab {
         }
     }
 
-    fn lookup(
+    fn lookup_def(
         &self,
         search_path: DefPath,
         lookup_path: DefPath,
@@ -76,8 +76,36 @@ pub trait Symtab {
                 .collect::<Vec<_>>();
             let search_path = DefPath::new(all_prefix_segments, symbol_segment.to_owned());
             match self.lookup_at(&search_path) {
-                Ok(symbol) => {
+                Ok(Some(symbol)) => {
                     return Ok((symbol, search_path));
+                }
+                Ok(None) | Err(_) => {
+                    search_segments.pop().unwrap();
+                }
+            }
+        }
+
+        Err(SymbolError::Undeclared(lookup_path))
+    }
+
+    fn lookup_decl(
+        &self,
+        search_path: DefPath,
+        lookup_path: DefPath,
+    ) -> Result<DefPath, SymbolError> {
+        let mut search_segments = search_path.clone().into_iter().collect::<Vec<_>>();
+        let lookup_segments = lookup_path.clone().into_iter().collect::<Vec<_>>();
+        let (symbol_segment, lookup_segments) = lookup_segments.split_last().unwrap();
+        while search_segments.len() > 0 {
+            let all_prefix_segments = search_path
+                .clone()
+                .into_iter()
+                .chain(lookup_segments.to_owned())
+                .collect::<Vec<_>>();
+            let search_path = DefPath::new(all_prefix_segments, symbol_segment.to_owned());
+            match self.lookup_at(&search_path) {
+                Ok(Some(_)) | Ok(None) => {
+                    return Ok(search_path);
                 }
                 Err(_) => {
                     search_segments.pop().unwrap();
@@ -219,32 +247,6 @@ impl Symtab for SymbolTable {
             Some(maybe_symbol) => Ok(maybe_symbol.as_ref()),
             None => Err(SymbolError::Undeclared(path.clone())),
         }
-    }
-
-    fn lookup_def_at(&self, path: &DefPath) -> Result<&SymbolDef, SymbolError> {
-        match self.symbols.get(path) {
-            Some(Some(symbol)) => Ok(symbol),
-            Some(None) => Err(SymbolError::Undefined(path.clone())),
-            None => Err(SymbolError::Undeclared(path.clone())),
-        }
-    }
-
-    fn lookup(
-        &self,
-        mut search_path: DefPath,
-        lookup_path: DefPath,
-    ) -> Result<(&SymbolDef, DefPath), SymbolError> {
-        while search_path.len() > 0 {
-            match search_path.clone().join(lookup_path.clone()) {
-                Ok(full_path) => match self.symbols.get(&full_path) {
-                    Some(Some(symbol)) => return Ok((symbol, full_path)),
-                    _ => (),
-                },
-                Err(_) => (),
-            }
-            search_path = search_path.without_last().unwrap().0;
-        }
-        Err(SymbolError::Undefined(lookup_path))
     }
 }
 

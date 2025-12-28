@@ -1,9 +1,9 @@
-use crate::midend::{treewalk::*, *};
+use crate::midend::treewalk::*;
 
 use std::collections::HashMap;
 
 pub struct UnpathedLinearizeCtx {
-    symtab: Box<symtabb::SymbolTable>,
+    symtab: Box<symtab::SymbolTable>,
     _functions: HashMap<symtab::DefPath, FunctionLinearizeCtx>,
 }
 

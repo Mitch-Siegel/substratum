@@ -105,7 +105,7 @@ pub trait Path:
 {
     fn len(&self) -> usize;
 
-    fn join(self, other: Self) -> Result<Self, PathError>;
+    fn _join(self, other: Self) -> Result<Self, PathError>;
 
     fn without_last(self) -> Result<(Self, PathSegment), PathError>;
 
@@ -203,7 +203,7 @@ impl Path for DefPath {
         self.prefix_segments.len() + 1
     }
 
-    fn join(mut self, other: Self) -> Result<Self, PathError> {
+    fn _join(mut self, other: Self) -> Result<Self, PathError> {
         for segment in other.into_iter() {
             let prev_last: PathSegment = std::mem::replace(&mut self.last, segment.clone());
             if prev_last.can_own(&segment) {
