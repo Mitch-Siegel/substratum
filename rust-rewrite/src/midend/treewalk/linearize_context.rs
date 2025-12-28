@@ -1,10 +1,10 @@
-use crate::midend::{symtab::*, treewalk::*};
+use crate::midend::{treewalk::*, *};
 
 use std::collections::HashMap;
 
 pub struct UnpathedLinearizeCtx {
-    symtab: Box<SymbolTable>,
-    _functions: HashMap<DefPath, FunctionLinearizeCtx>,
+    symtab: Box<symtabb::SymbolTable>,
+    _functions: HashMap<symtab::DefPath, FunctionLinearizeCtx>,
 }
 
 impl std::fmt::Debug for LinearizeCtx {
@@ -16,7 +16,7 @@ impl std::fmt::Debug for LinearizeCtx {
 impl PathableContext for UnpathedLinearizeCtx {}
 
 impl UnpathedLinearizeCtx {
-    pub fn new(symtab: Box<SymbolTable>) -> Self {
+    pub fn new(symtab: Box<symtab::SymbolTable>) -> Self {
         Self {
             symtab,
             _functions: HashMap::new(),
@@ -24,12 +24,12 @@ impl UnpathedLinearizeCtx {
     }
 
     pub fn from_existing(
-        symtab: Box<SymbolTable>,
-        definition_path: DefPath,
+        symtab: Box<symtab::SymbolTable>,
+        definition_path: symtab::DefPath,
         manager: ir::BlockManager,
         block: usize,
     ) -> Self {
-        let functions: HashMap<DefPath, FunctionLinearizeCtx> = std::iter::once((
+        let functions: HashMap<symtab::DefPath, FunctionLinearizeCtx> = std::iter::once((
             definition_path.clone(),
             FunctionLinearizeCtx::from_existing(manager, block),
         ))
@@ -45,7 +45,7 @@ impl UnpathedLinearizeCtx {
         LinearizeResult::<T>::Ok((data, self))
     }
 
-    pub fn take(self) -> Box<SymbolTable> {
+    pub fn take(self) -> Box<symtab::SymbolTable> {
         self.symtab
     }
 
@@ -55,7 +55,7 @@ impl UnpathedLinearizeCtx {
     pub fn create_function(
         &mut self,
         _prototype: symtab::values::function::FunctionPrototype,
-    ) -> Result<(), SymbolError> {
+    ) -> Result<(), symtab::SymbolError> {
         unimplemented!();
         /*
         let unit_type_id = self
@@ -182,7 +182,7 @@ impl UnpathedLinearizeCtx {
 
     pub fn push_def_path(
         &mut self,
-        _component: PathSegment,
+        _component: symtab::PathSegment,
         _generic_params: &types::GenericParamsList,
     ) {
         unimplemented!();
@@ -207,7 +207,10 @@ impl UnpathedLinearizeCtx {
     }
 
     // FUTURE: error type for pop def path here and in symbol collection context?
-    pub fn pop_def_path(&mut self, _expect: PathSegment) -> Result<(), (PathSegment, PathSegment)> {
+    pub fn pop_def_path(
+        &mut self,
+        _expect: symtab::PathSegment,
+    ) -> Result<(), (symtab::PathSegment, symtab::PathSegment)> {
         unimplemented!();
         /*
         let def_path = self.def_path().clone();
@@ -247,7 +250,7 @@ impl UnpathedLinearizeCtx {
         */
     }
 
-    pub fn self_variable(&self) -> Result<DefPath, SymbolError> {
+    pub fn self_variable(&self) -> Result<symtab::DefPath, symtab::SymbolError> {
         unimplemented!();
         /*
         Ok(self
@@ -257,7 +260,10 @@ impl UnpathedLinearizeCtx {
     }
 
     // resolves a string type name to either a defined type or a generic param
-    pub fn disambiguate_named_type(&self, _name: &str) -> Result<types::Syntactic, SymbolError> {
+    pub fn disambiguate_named_type(
+        &self,
+        _name: &str,
+    ) -> Result<types::Syntactic, symtab::SymbolError> {
         unimplemented!();
         /*
         // first, lookup the type in the Symbol table
@@ -345,17 +351,16 @@ impl UnpathedLinearizeCtx {
 impl symtab::Symtab for UnpathedLinearizeCtx {
     fn insert(
         &mut self,
-        path: DefPath,
-        maybe_symbol: Option<SymbolDef>,
-    ) -> Result<DefPath, SymbolError> {
+        path: symtab::DefPath,
+        maybe_symbol: Option<symtab::SymbolDef>,
+    ) -> Result<symtab::DefPath, symtab::SymbolError> {
         self.symtab.insert(path, maybe_symbol)
     }
 
-    fn lookup(
+    fn lookup_at(
         &self,
-        search_path: DefPath,
-        lookup_path: DefPath,
-    ) -> Result<(&SymbolDef, DefPath), SymbolError> {
-        self.symtab.lookup(search_path, lookup_path)
+        path: &symtab::DefPath,
+    ) -> Result<Option<&symtab::SymbolDef>, symtab::SymbolError> {
+        self.symtab.lookup_at(path)
     }
 }

@@ -25,11 +25,10 @@ impl Symtab for UnpathedCollectCtx {
         self.symtab.insert(path, maybe_symbol)
     }
 
-    fn lookup(
+    fn lookup_at(
         &self,
-        search_path: symtab::DefPath,
-        lookup_path: symtab::DefPath,
-    ) -> Result<(&symtab::SymbolDef, symtab::DefPath), symtab::SymbolError> {
-        self.symtab.lookup(search_path, lookup_path)
+        path: &symtab::DefPath,
+    ) -> Result<Option<&symtab::SymbolDef>, symtab::SymbolError> {
+        self.symtab.lookup_at(path)
     }
 }
