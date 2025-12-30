@@ -310,7 +310,11 @@ impl midend::treewalk::Linearize for TypeItemPathTree {
         ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let (path, ctx) = self.underlying_path.linearize(ctx)?;
-        let type_path = path.as_type().unwrap();
+        let (type_path, path_data) = path.as_type().unwrap();
+
+        for (path, segment_data) in path_data {
+            println!("path segment data {}: {}", path, segment_data);
+        }
 
         let type_ = midend::types::Syntactic::Named(type_path.last().raw().into());
 

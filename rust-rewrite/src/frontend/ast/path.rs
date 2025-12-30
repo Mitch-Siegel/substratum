@@ -261,6 +261,7 @@ mod path_walk {
 
         pub fn finish(
             self,
+            loc: &sourceloc::SourceSpan,
             symtab: &Box<midend::symtab::SymbolTable>,
             segment_name: String,
             maybe_data: Option<T>,
@@ -312,8 +313,10 @@ mod path_walk {
             };
 
             FinishedPathWalk {
+                loc: loc.clone(),
                 prefix_segments,
                 pathed_data,
+                last_ident: segment_name,
                 last_segment_data: maybe_data,
                 type_path,
                 value_path,
@@ -330,8 +333,10 @@ pub struct FinishedPathWalk<T>
 where
     T: std::fmt::Debug,
 {
+    loc: sourceloc::SourceSpan,
     prefix_segments: Vec<midend::symtab::PathSegment>,
     pathed_data: HashMap<midend::symtab::DefPath, T>,
+    last_ident: String,
     last_segment_data: Option<T>,
     type_path: Option<midend::symtab::DefPath>,
     value_path: Option<midend::symtab::DefPath>,
@@ -342,16 +347,65 @@ impl<T> FinishedPathWalk<T>
 where
     T: std::fmt::Debug,
 {
-    pub fn as_type(self) -> Result<midend::symtab::DefPath, ()> {
-        unimplemented!();
+    fn handle_last_segment_data(
+        mut pathed_data: HashMap<midend::symtab::DefPath, T>,
+        path: &midend::symtab::DefPath,
+        maybe_data: Option<T>,
+    ) -> HashMap<midend::symtab::DefPath, T> {
+        if let Some(data) = maybe_data {
+            pathed_data.insert(path.clone(), data);
+        }
+        pathed_data
     }
 
-    pub fn as_value(self) -> Result<midend::symtab::DefPath, ()> {
-        unimplemented!();
+    pub fn as_type(
+        self,
+    ) -> Result<(midend::symtab::DefPath, HashMap<midend::symtab::DefPath, T>), String> {
+        let path = self.type_path.ok_or(String::from(format!(
+            "path {} (@{}) is not valid as type",
+            midend::symtab::DefPath::new(
+                self.prefix_segments,
+                midend::symtab::PathSegment::Value(self.last_ident),
+            ),
+            self.loc,
+        )))?;
+        let pathed_data =
+            Self::handle_last_segment_data(self.pathed_data, &path, self.last_segment_data);
+
+        Ok((path, pathed_data))
     }
 
-    pub fn as_macro(self) -> Result<midend::symtab::DefPath, ()> {
-        unimplemented!();
+    pub fn as_value(
+        self,
+    ) -> Result<(midend::symtab::DefPath, HashMap<midend::symtab::DefPath, T>), String> {
+        let path = self.value_path.ok_or(String::from(format!(
+            "path {} (@{}) is not valid as value",
+            midend::symtab::DefPath::new(
+                self.prefix_segments,
+                midend::symtab::PathSegment::Value(self.last_ident),
+            ),
+            self.loc,
+        )))?;
+        let pathed_data =
+            Self::handle_last_segment_data(self.pathed_data, &path, self.last_segment_data);
+
+        Ok((path, pathed_data))
+    }
+
+    pub fn _as_macro(
+        self,
+    ) -> Result<(midend::symtab::DefPath, HashMap<midend::symtab::DefPath, T>), String> {
+        let path = self.macro_path.ok_or(String::from(format!(
+            "path {} is not valid as macro",
+            midend::symtab::DefPath::new(
+                self.prefix_segments,
+                midend::symtab::PathSegment::Macro(self.last_ident)
+            )
+        )))?;
+        let pathed_data =
+            Self::handle_last_segment_data(self.pathed_data, &path, self.last_segment_data);
+
+        Ok((path, pathed_data))
     }
 }
 
@@ -386,8 +440,11 @@ where
         Self::StartGlobal(PathWalkCtx::new(Vec::new()))
     }
 
+    /// parameters
+    /// loc: the span of the entire path including the identifier being handled
     fn do_ident(
         mut ctx: PathWalkCtx<T>,
+        loc: &sourceloc::SourceSpan,
         ident: String,
         maybe_data: Option<T>,
         size_hint: usize,
@@ -397,13 +454,14 @@ where
             ctx.add_segment(midend::symtab::PathSegment::Type(ident), maybe_data);
             Self::RequireIdent(ctx)
         } else {
-            let finished = ctx.finish(symtab, ident, maybe_data);
+            let finished = ctx.finish(loc, symtab, ident, maybe_data);
             Self::Finished(finished)
         }
     }
 
     fn transition(
         self,
+        path_span: &sourceloc::SourceSpan,
         action: PathSegmentAction<T>,
         size_hint: usize,
         loc: sourceloc::SourceSpan,
@@ -423,15 +481,15 @@ where
                     ctx.do_self_upper().unwrap();
                     Ok(Self::LeadingLowerSupers(ctx))
                 }
-                PathSegmentAction::Ident(ident, maybe_data) => {
-                    Ok(Self::do_ident(ctx, ident, maybe_data, size_hint, symtab))
-                }
+                PathSegmentAction::Ident(ident, maybe_data) => Ok(Self::do_ident(
+                    ctx, path_span, ident, maybe_data, size_hint, symtab,
+                )),
                 _ => Self::error(action, loc),
             },
             PathWalkState::StartGlobal(ctx) => match action {
-                PathSegmentAction::Ident(ident, maybe_data) => {
-                    Ok(Self::do_ident(ctx, ident, maybe_data, size_hint, symtab))
-                }
+                PathSegmentAction::Ident(ident, maybe_data) => Ok(Self::do_ident(
+                    ctx, path_span, ident, maybe_data, size_hint, symtab,
+                )),
                 _ => Self::error(action, loc),
             },
             PathWalkState::LeadingLowerSupers(_ctx) => {
@@ -468,14 +526,22 @@ where
             PathWalkState::<T>::start(ctx_segments)
         };
 
+        let mut path_span: sourceloc::SourceSpan = self.loc().start().into();
         let mut segments = self.segments.into_iter();
 
         while let Some(segment) = segments.next() {
             let segment_loc = segment.loc();
+            path_span = path_span.merge(&segment_loc).unwrap();
             let (action, unpathed_ctx) = segment.linearize(ctx)?;
             let symtab = unpathed_ctx.take();
             walk_state = walk_state
-                .transition(action, segments.size_hint().0, segment_loc, &symtab)
+                .transition(
+                    &path_span,
+                    action,
+                    segments.size_hint().0,
+                    segment_loc,
+                    &symtab,
+                )
                 .unwrap();
             ctx = midend::treewalk::UnpathedLinearizeCtx::new(symtab).with_path(ctx_path.clone());
         }
