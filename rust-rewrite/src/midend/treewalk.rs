@@ -78,21 +78,25 @@ where
     #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
     pub fn define_type<S>(&mut self, symbol: S) -> Result<symtab::DefPath, symtab::SymbolError>
     where
-        S: std::fmt::Debug,
+        S: symtab::Symbol + std::fmt::Debug,
         symtab::Type: From<S>,
     {
-        self.unpathed
-            .define(self.path.clone(), symtab::Type::from(symbol).into())
+        self.unpathed.define(
+            self.path.clone().with_segment(symbol.path_segment())?,
+            symtab::Type::from(symbol).into(),
+        )
     }
 
     #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
     pub fn define_value<S>(&mut self, symbol: S) -> Result<symtab::DefPath, symtab::SymbolError>
     where
-        S: std::fmt::Debug,
+        S: symtab::Symbol + std::fmt::Debug,
         symtab::Value: From<S>,
     {
-        self.unpathed
-            .define(self.path.clone(), symtab::Value::from(symbol).into())
+        self.unpathed.define(
+            self.path.clone().with_segment(symbol.path_segment())?,
+            symtab::Value::from(symbol).into(),
+        )
     }
 }
 
