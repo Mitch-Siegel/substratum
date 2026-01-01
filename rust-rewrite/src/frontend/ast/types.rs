@@ -313,14 +313,16 @@ impl midend::treewalk::Linearize for TypeItemPathTree {
         let (type_path, path_data) = path.as_type().unwrap();
 
         for (path, segment_data) in path_data {
-            println!("path segment data {}: {}", path, segment_data);
+            unimplemented!(
+                "handle monomorphization for path {} data {}",
+                path,
+                segment_data
+            );
         }
 
         let type_ = midend::types::Syntactic::Named(type_path.last().raw().into());
 
-        ctx.into_result(type_).unwrap();
-
-        unimplemented!("handle monomorphization for linearized path");
+        ctx.into_result(type_)
     }
 }
 

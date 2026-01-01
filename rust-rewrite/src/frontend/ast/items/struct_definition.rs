@@ -68,9 +68,10 @@ impl midend::treewalk::Collect for StructDefinitionTree {
         &self,
         mut ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
-        ctx.declare_type(self.name.value.clone())?;
+        let struct_path = ctx.declare_type(self.name.value.clone())?;
 
-        Ok(ctx.take())
+        self.generic_params
+            .collect_symbols(ctx.with_path(struct_path))
     }
 }
 
@@ -87,8 +88,9 @@ impl midend::treewalk::Linearize for StructDefinitionTree {
         let struct_name;
         (struct_name, ctx) = self.name.linearize_same_path(ctx)?;
 
-        let struct_path = ctx.declare_type(struct_name.clone())?;
-        ctx = ctx.with_path(struct_path);
+        ctx = ctx
+            .with_segment(midend::symtab::PathSegment::Type(struct_name.clone()))
+            .unwrap();
 
         let mut fields = Vec::new();
         for field in self.fields {

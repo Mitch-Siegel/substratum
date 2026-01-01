@@ -52,6 +52,11 @@ where
         self
     }
 
+    pub fn with_segment(mut self, segment: symtab::PathSegment) -> Result<Self, symtab::PathError> {
+        self.path = self.path.with_segment(segment)?;
+        Ok(self)
+    }
+
     #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
     pub fn declare_type(&mut self, name: String) -> Result<symtab::DefPath, symtab::SymbolError> {
         let full_path = self
@@ -195,6 +200,10 @@ pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable>
             .collect_from_prefix_segments(collect_ctx, prefix_segments)
             .unwrap()
             .take();
+    }
+
+    for decl in symtab.decls() {
+        println!("{}", decl);
     }
 
     trace::debug!("linearize");

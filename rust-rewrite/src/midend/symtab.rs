@@ -30,17 +30,15 @@ pub trait Symtab {
     }
 
     // define 'symbol' as a child of 'path', returning path::symbol or error
-    fn define(&mut self, parent_path: DefPath, symbol: SymbolDef) -> Result<DefPath, SymbolError> {
+    fn define(&mut self, path: DefPath, symbol: SymbolDef) -> Result<DefPath, SymbolError> {
         match symbol {
-            SymbolDef::Type(_) => assert!(parent_path.is_type()),
-            SymbolDef::Value(_) => assert!(parent_path.is_value()),
+            SymbolDef::Type(_) => assert!(path.is_type()),
+            SymbolDef::Value(_) => assert!(path.is_value()),
         }
+        assert!(*path.last() == symbol.path_segment());
 
-        trace::trace!("define {} at {}", symbol.name(), parent_path);
-        self.insert(
-            parent_path.with_segment(symbol.path_segment())?,
-            Some(symbol),
-        )
+        trace::trace!("define {} at {}", symbol.name(), path);
+        self.insert(path, Some(symbol))
     }
 
     fn lookup_at(&self, path: &DefPath) -> Result<Option<&SymbolDef>, SymbolError>;

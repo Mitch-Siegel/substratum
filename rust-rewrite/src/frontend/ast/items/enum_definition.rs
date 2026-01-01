@@ -251,6 +251,8 @@ impl midend::treewalk::Collect for EnumDefinitionTree {
         let enum_path = ctx.declare_type(self.name.value.clone())?;
         ctx = ctx.with_path(enum_path);
 
+        ctx = self.generic_params.collect_same_path(ctx)?;
+
         for variant in &self.variants {
             ctx = variant.collect_same_path(ctx)?;
         }

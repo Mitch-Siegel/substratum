@@ -54,6 +54,12 @@ impl ModuleTree {
 
         let module_name = path.last().raw().into();
 
+        trace::warning!(
+            "here with path {}, module name {}, ctx path ",
+            path,
+            module_name
+        );
+
         let module_path = ctx
             .define(
                 path,
@@ -62,6 +68,8 @@ impl ModuleTree {
                 )),
             )
             .unwrap();
+
+        trace::warning!("got module path of \"{}\"", module_path);
 
         let mut ctx = ctx.with_path(module_path);
         for item in self.items {

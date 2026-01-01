@@ -12,6 +12,16 @@ impl Ast for GenericParamTree {
     }
 }
 
+impl midend::treewalk::Collect for GenericParamTree {
+    fn collect_symbols(
+        &self,
+        mut ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
+        ctx.declare_type(self.name.value.clone())?;
+        Ok(ctx.take())
+    }
+}
+
 impl midend::treewalk::Linearize for GenericParamTree {
     type Data = String;
     fn linearize(
@@ -90,6 +100,19 @@ impl Display for GenericParamsListTree {
     }
 }
 
+impl midend::treewalk::Collect for GenericParamsListTree {
+    fn collect_symbols(
+        &self,
+        mut ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
+        for param in &self.params {
+            ctx = param.collect_same_path(ctx)?;
+        }
+
+        Ok(ctx.take())
+    }
+}
+
 impl midend::treewalk::Linearize for GenericParamsListTree {
     type Data = midend::types::GenericParamsList;
     #[tracing::instrument(skip(self), level = "trace")]
@@ -101,16 +124,15 @@ impl midend::treewalk::Linearize for GenericParamsListTree {
 
         let ctxless = self.linearize_ctxless();
 
-        let params_list = ctxless
-            .into_iter()
-            .map(|(loc, param)| {
-                if !generic_params_set.insert(param.clone()) {
-                    panic!("duplicate generic parameter {} @ {}", param, loc.start())
-                }
+        let mut params_list = midend::types::GenericParamsList::new();
 
-                param
-            })
-            .collect::<midend::types::GenericParamsList>();
+        for (loc, param) in ctxless {
+            if !generic_params_set.insert(param.clone()) {
+                panic!("duplicate generic parameter {} @ {}", param, loc.start())
+            }
+
+            params_list.push(param);
+        }
 
         ctx.into_result(params_list)
     }
@@ -137,6 +159,19 @@ impl Display for OptionalGenericParamsListTree {
         match &self.maybe_params {
             Some(p) => write!(f, "{}", p),
             None => Ok(()),
+        }
+    }
+}
+
+impl midend::treewalk::Collect for OptionalGenericParamsListTree {
+    fn collect_symbols(
+        &self,
+        ctx: midend::treewalk::CollectCtx,
+    ) -> midend::treewalk::CollectResult {
+        if let Some(params) = &self.maybe_params {
+            params.collect_symbols(ctx)
+        } else {
+            Ok(ctx.take())
         }
     }
 }
