@@ -17,7 +17,7 @@ impl Ast for TupleDataTree {
 }
 
 impl midend::treewalk::Linearize for TupleDataTree {
-    type Data = midend::symtab::EnumVariantRepr;
+    type Data = midend::symtab::types::EnumVariantRepr;
     fn linearize(
         self,
         mut ctx: midend::treewalk::LinearizeCtx,
@@ -30,7 +30,7 @@ impl midend::treewalk::Linearize for TupleDataTree {
             element_types.push(maybe_element_type.expect("tuple members must have types"));
         }
 
-        ctx.into_result(midend::symtab::EnumVariantRepr::Tuple(element_types))
+        ctx.into_result(midend::symtab::types::EnumVariantRepr::Tuple(element_types))
     }
 }
 
@@ -48,7 +48,7 @@ impl Ast for EnumVariantDataTree {
 }
 
 impl midend::treewalk::Linearize for EnumVariantDataTree {
-    type Data = midend::symtab::EnumVariantRepr;
+    type Data = midend::symtab::types::EnumVariantRepr;
     fn linearize(
         self,
         ctx: midend::treewalk::LinearizeCtx,
@@ -191,7 +191,7 @@ impl midend::treewalk::Collect for EnumVariantTree {
 }
 
 impl midend::treewalk::Linearize for EnumVariantTree {
-    type Data = (String, midend::symtab::EnumVariantRepr);
+    type Data = (String, midend::symtab::types::EnumVariantRepr);
     fn linearize(
         self,
         mut ctx: midend::treewalk::LinearizeCtx,
@@ -199,7 +199,7 @@ impl midend::treewalk::Linearize for EnumVariantTree {
         let variant_data_type;
         (variant_data_type, ctx) = match self.data {
             Some(variant_item) => variant_item.linearize_same_path(ctx)?,
-            None => (midend::symtab::EnumVariantRepr::Unit, ctx),
+            None => (midend::symtab::types::EnumVariantRepr::Unit, ctx),
         };
 
         let (variant_name, ctx) = self.name.linearize(ctx)?;
@@ -262,7 +262,7 @@ impl midend::treewalk::Collect for EnumDefinitionTree {
 
 impl midend::treewalk::Linearize for EnumDefinitionTree {
     type Data = (
-        midend::symtab::EnumRepr,
+        midend::symtab::types::EnumRepr,
         <generics::OptionalGenericParamsListTree as midend::treewalk::Linearize>::Data,
     );
     #[tracing::instrument(skip(self, _ctx), level = "trace", fields(tree_name = Self::reflect_name()))]

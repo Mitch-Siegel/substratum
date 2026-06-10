@@ -1,4 +1,4 @@
-use crate::midend::symtab::symbols::*;
+use crate::midend::symtab::{symbols::SymbolDef, PathSegment, Symbol};
 
 pub mod binding;
 pub mod function;

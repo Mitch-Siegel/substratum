@@ -1,18 +1,18 @@
-use crate::midend::symtab::*;
+use crate::midend::symtab::{types, DefPath, Symbol, SymbolTable};
 
 fn create_core_types(symtab: &mut SymbolTable) {
     let core_def_path = DefPath::new_type(Vec::new(), "core".into());
 
     for type_ in [
-        BuiltinType::Unit,
-        BuiltinType::U8,
-        BuiltinType::U16,
-        BuiltinType::U32,
-        BuiltinType::U64,
-        BuiltinType::I8,
-        BuiltinType::I16,
-        BuiltinType::I32,
-        BuiltinType::I64,
+        types::BuiltinType::Unit,
+        types::BuiltinType::U8,
+        types::BuiltinType::U16,
+        types::BuiltinType::U32,
+        types::BuiltinType::U64,
+        types::BuiltinType::I8,
+        types::BuiltinType::I16,
+        types::BuiltinType::I32,
+        types::BuiltinType::I64,
     ] {
         symtab
             .define_type(

@@ -12,8 +12,13 @@ pub mod intrinsics;
 pub mod symbols;
 pub mod visitor;
 
+pub mod types;
+pub mod values;
+
 pub use def_path::*;
 pub use symbols::*;
+pub use types::Type;
+pub use values::Value;
 pub use visitor::*;
 
 pub trait Symtab {

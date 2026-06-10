@@ -91,20 +91,24 @@ impl midend::treewalk::Linearize for ItemTree {
                 let struct_repr;
                 let generic_params;
                 ((struct_repr, generic_params), ctx) = struct_tree.linearize_same_path(ctx)?;
-                ctx.define_type(midend::symtab::Type::TypeDecl(midend::symtab::TypeDecl {
-                    declared_type: struct_repr.into(),
-                    generic_params,
-                }))?;
+                ctx.define_type(midend::symtab::Type::TypeDecl(
+                    midend::symtab::types::TypeDecl {
+                        declared_type: struct_repr.into(),
+                        generic_params,
+                    },
+                ))?;
                 ctx.take()
             }
             ItemTree::EnumDefinition(enum_tree) => {
                 let enum_repr;
                 let generic_params;
                 ((enum_repr, generic_params), ctx) = enum_tree.linearize_same_path(ctx)?;
-                ctx.define_type(midend::symtab::Type::TypeDecl(midend::symtab::TypeDecl {
-                    declared_type: enum_repr.into(),
-                    generic_params,
-                }))?;
+                ctx.define_type(midend::symtab::Type::TypeDecl(
+                    midend::symtab::types::TypeDecl {
+                        declared_type: enum_repr.into(),
+                        generic_params,
+                    },
+                ))?;
                 ctx.take()
             }
             ItemTree::Implementation(_implementation) => {

@@ -77,7 +77,7 @@ impl midend::treewalk::Collect for StructDefinitionTree {
 
 impl midend::treewalk::Linearize for StructDefinitionTree {
     type Data = (
-        midend::symtab::StructRepr,
+        midend::symtab::types::StructRepr,
         <generics::OptionalGenericParamsListTree as midend::treewalk::Linearize>::Data,
     );
     #[tracing::instrument(skip(self, ctx), level = "trace", fields(tree_name = Self::reflect_name()))]
@@ -100,7 +100,7 @@ impl midend::treewalk::Linearize for StructDefinitionTree {
         }
 
         // TODO: struct duplicate field error
-        let struct_repr = midend::symtab::StructRepr::new(struct_name, fields).unwrap();
+        let struct_repr = midend::symtab::types::StructRepr::new(struct_name, fields).unwrap();
 
         let (params, ctx) = self.generic_params.linearize(ctx)?;
 

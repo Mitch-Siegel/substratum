@@ -24,7 +24,7 @@ impl Display for ArgumentDeclarationTree {
 }
 
 impl midend::treewalk::Linearize for ArgumentDeclarationTree {
-    type Data = midend::symtab::Variable;
+    type Data = midend::symtab::values::Variable;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
@@ -36,7 +36,7 @@ impl midend::treewalk::Linearize for ArgumentDeclarationTree {
 
         let (name, ctx) = self.name.linearize(ctx)?;
 
-        ctx.into_result(midend::symtab::Variable::new(name, Some(arg_type)))
+        ctx.into_result(midend::symtab::values::Variable::new(name, Some(arg_type)))
     }
 }
 
@@ -164,7 +164,7 @@ impl midend::treewalk::Collect for FunctionDefinitionTree {
 }
 
 impl midend::treewalk::Linearize for FunctionDefinitionTree {
-    type Data = midend::symtab::Function;
+    type Data = midend::symtab::values::Function;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,

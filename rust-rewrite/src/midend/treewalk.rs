@@ -66,6 +66,7 @@ where
         self.unpathed.declare(full_path)
     }
 
+    /// declare a symbol in the value namespace
     #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
     pub fn declare_value(&mut self, name: String) -> Result<symtab::DefPath, symtab::SymbolError> {
         let full_path = self
@@ -75,18 +76,7 @@ where
         self.unpathed.declare(full_path)
     }
 
-    #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
-    pub fn define_type<S>(&mut self, symbol: S) -> Result<symtab::DefPath, symtab::SymbolError>
-    where
-        S: symtab::Symbol + std::fmt::Debug,
-        symtab::Type: From<S>,
-    {
-        self.unpathed.define(
-            self.path.clone().with_segment(symbol.path_segment())?,
-            symtab::Type::from(symbol).into(),
-        )
-    }
-
+    /// define a symbol in the value namespace
     #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
     pub fn define_value<S>(&mut self, symbol: S) -> Result<symtab::DefPath, symtab::SymbolError>
     where
@@ -96,6 +86,19 @@ where
         self.unpathed.define(
             self.path.clone().with_segment(symbol.path_segment())?,
             symtab::Value::from(symbol).into(),
+        )
+    }
+
+    /// define a symbol in the type namespace
+    #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
+    pub fn define_type<S>(&mut self, symbol: S) -> Result<symtab::DefPath, symtab::SymbolError>
+    where
+        S: symtab::Symbol + std::fmt::Debug,
+        symtab::Type: From<S>,
+    {
+        self.unpathed.define(
+            self.path.clone().with_segment(symbol.path_segment())?,
+            symtab::Type::from(symbol).into(),
         )
     }
 }

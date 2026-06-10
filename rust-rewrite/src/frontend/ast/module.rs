@@ -64,7 +64,7 @@ impl ModuleTree {
             .define(
                 path,
                 midend::symtab::SymbolDef::from(midend::symtab::Type::from(
-                    midend::symtab::Module::new(module_name),
+                    midend::symtab::types::Module::new(module_name),
                 )),
             )
             .unwrap();

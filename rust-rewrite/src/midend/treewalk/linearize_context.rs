@@ -106,7 +106,7 @@ impl UnpathedLinearizeCtx {
         &mut self,
         _expected_name: String,
         _return_value: ir::ValueId,
-    ) -> Result<symtab::Function, LinearizeError> {
+    ) -> Result<symtab::values::Function, LinearizeError> {
         unimplemented!();
         /*
             let def_path = self.def_path().clone();

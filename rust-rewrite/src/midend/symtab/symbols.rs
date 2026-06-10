@@ -1,11 +1,5 @@
 use crate::midend::symtab::*;
 
-pub mod types;
-pub mod values;
-
-pub use types::*;
-pub use values::*;
-
 #[enum_delegate::implement(Symbol)]
 #[derive(Debug)]
 pub enum SymbolDef {

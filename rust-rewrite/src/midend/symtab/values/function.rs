@@ -1,4 +1,7 @@
-use crate::midend::symtab::{Symbol, *};
+use crate::midend::{
+    self, ir,
+    symtab::{values, PathSegment, Symbol, SymbolDef, Value},
+};
 
 #[derive(Debug, Clone)]
 pub struct Function {
@@ -68,7 +71,7 @@ impl PartialEq for Function {
 pub struct FunctionPrototype {
     pub name: String,
     pub generic_params: midend::types::GenericParamsList,
-    pub arguments: Vec<Variable>,
+    pub arguments: Vec<values::Variable>,
     pub return_type: midend::types::Syntactic,
 }
 
@@ -101,7 +104,7 @@ impl FunctionPrototype {
     pub fn new(
         name: String,
         generic_params: midend::types::GenericParamsList,
-        arguments: Vec<Variable>,
+        arguments: Vec<values::Variable>,
         return_type: midend::types::Syntactic,
     ) -> Self {
         FunctionPrototype {
