@@ -11,7 +11,7 @@ pub use hash_map_ooo_iter::*;
 mod hash_map_ooo_iter {
     use std::collections::{HashMap, HashSet, VecDeque};
     use std::hash::Hash;
-    fn check_hash_key_order<K, V>(map: &HashMap<K, V>, mut key_order: impl Iterator<Item = K>)
+    fn check_hash_key_order<K, V>(map: &HashMap<K, V>, key_order: impl Iterator<Item = K>)
     where
         K: Eq + Hash,
     {

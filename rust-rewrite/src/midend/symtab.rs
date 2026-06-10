@@ -207,12 +207,12 @@ impl Symtab for SymbolTable {
         let allow_definition = maybe_symbol.is_some();
         if path.len() > 1 {
             let (parent_path, _) = path.clone().without_last().unwrap();
-            if (!self
+            if !self
                 .children
                 .entry(parent_path)
                 .or_default()
                 .insert(path.clone())
-                && !allow_definition)
+                && !allow_definition
             {
                 panic!("untracked child path {}", path)
             }

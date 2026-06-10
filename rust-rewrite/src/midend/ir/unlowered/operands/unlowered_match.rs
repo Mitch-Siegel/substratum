@@ -95,6 +95,7 @@ fn _lower_pattern(
     Ok((lowered_pattern, ctx))
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 pub enum PatternConstructor {
     _EnumVariant {
@@ -117,6 +118,7 @@ impl std::fmt::Display for PatternConstructor {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 pub enum LoweredPattern {
     _Constructor(PatternConstructor, Vec<LoweredPattern>), // fields = subpatterns

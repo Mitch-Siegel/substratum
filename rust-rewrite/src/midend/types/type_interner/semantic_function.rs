@@ -22,6 +22,7 @@ impl std::fmt::Display for SemanticFunctionError {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SemanticFunction {
     syntactic: Syntactic,

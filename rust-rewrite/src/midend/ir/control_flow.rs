@@ -9,6 +9,7 @@ pub struct ControlFlow {
     values: ValueInterner,
 }
 
+#[allow(unused)]
 pub struct ControlFlowIntoIter<T> {
     postorder_stack: VecDeque<T>,
 }

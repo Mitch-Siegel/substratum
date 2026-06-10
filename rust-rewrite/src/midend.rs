@@ -1,5 +1,6 @@
 use crate::{frontend, trace};
 
+#[allow(unused)]
 mod idfa;
 pub mod ir;
 mod optimization;

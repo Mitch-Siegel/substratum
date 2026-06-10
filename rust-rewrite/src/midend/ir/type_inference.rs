@@ -16,6 +16,7 @@ impl<'a> TypeInferenceContext<'a> {
     }
 }
 
+#[allow(unused)]
 pub enum TypePropagationError {
     ValueError(value::ValueError),
 }

@@ -3,6 +3,7 @@ use crate::midend::{ir::*, *};
 pub mod operands;
 use operands::*;
 
+#[allow(unused)]
 #[enum_delegate::register]
 pub trait Lowerable {
     fn lower(self, context: &mut treewalk::LinearizeCtx, loc: SourceLoc);
