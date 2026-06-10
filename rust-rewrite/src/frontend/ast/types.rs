@@ -306,17 +306,17 @@ impl midend::treewalk::Linearize for TypeItemPathTree {
         self,
         ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
-        let (path, _ctx) = self.underlying_path.linearize(ctx)?;
-        let (_type_path, _path_data) = path.into_type().unwrap();
+        let (path, ctx) = self.underlying_path.linearize(ctx)?;
+        let (type_path, path_data) = path.into_type().unwrap();
 
-        unimplemented!("handle monomorphizations");
+        if !path_data.is_empty() {
+            unimplemented!("handle monomorphizations");
+        }
 
-        // for (path, segment_data) in path_data {
-        // }
+        let type_ =
+            midend::types::Syntactic::Named(type_path.into_iter().last().unwrap().to_string());
 
-        // let type_ = midend::types::Syntactic::Named(type_path.last().raw().into());
-
-        // ctx.into_result(type_)
+        ctx.into_result(type_)
     }
 }
 
