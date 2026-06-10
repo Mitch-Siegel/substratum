@@ -278,18 +278,6 @@ impl Display for JumpOperands {
 
 pub type OrderedArgumentList = Vec<ValueId>;
 
-fn arg_list_to_string(args: &OrderedArgumentList) -> String {
-    let mut arg_string = String::new();
-    for arg in args {
-        if arg_string.len() > 0 {
-            arg_string += &",";
-        }
-
-        arg_string += &format!("{}", arg);
-    }
-    arg_string
-}
-
 /// ## Function Call Operands
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct CallParams {
@@ -314,7 +302,16 @@ impl OperandTypeInference for CallParams {
 
 impl Display for CallParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({})", arg_list_to_string(&self.arguments))?;
+        write!(
+            f,
+            "({})",
+            &self
+                .arguments
+                .iter()
+                .map(|arg| format!("{}", arg))
+                .collect::<Vec<String>>()
+                .join(", ")
+        )?;
         if let Some(retval) = self.return_value_to {
             write!(f, " -> {}", retval)?;
         }

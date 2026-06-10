@@ -33,7 +33,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
             | Token::LThanE
             | Token::GThanE
             | Token::Equals
-            | Token::NotEquals => Self::precedence_of_token(&token) >= precedence,
+            | Token::NotEquals => Self::precedence_of_token(token) >= precedence,
             _ => false,
         }
     }

@@ -53,15 +53,15 @@ impl PathSegment {
 
     pub fn raw(&self) -> &str {
         match self {
-            Self::Type(name) | Self::Value(name) | Self::Macro(name) => &name,
+            Self::Type(name) | Self::Value(name) | Self::Macro(name) => name,
         }
     }
 }
 
-impl Into<String> for PathSegment {
-    fn into(self) -> String {
-        match self {
-            Self::Type(s) | Self::Value(s) | Self::Macro(s) => s,
+impl From<PathSegment> for String {
+    fn from(value: PathSegment) -> String {
+        match value {
+            PathSegment::Type(s) | PathSegment::Value(s) | PathSegment::Macro(s) => s,
         }
     }
 }
@@ -82,13 +82,13 @@ impl From<MacroSegment> for PathSegment {
     }
 }
 
-impl<'a> std::fmt::Display for PathSegment {
+impl std::fmt::Display for PathSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.raw())
     }
 }
 
-impl<'a> std::fmt::Debug for PathSegment {
+impl std::fmt::Debug for PathSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}(", self.raw())?;
         match self {
@@ -177,24 +177,15 @@ impl DefPath {
     }
 
     pub fn is_type(&self) -> bool {
-        match self.last {
-            PathSegment::Type(_) => true,
-            _ => false,
-        }
+        matches!(self.last, PathSegment::Type(_))
     }
 
     pub fn is_value(&self) -> bool {
-        match self.last {
-            PathSegment::Value(_) => true,
-            _ => false,
-        }
+        matches!(self.last, PathSegment::Value(_))
     }
 
     pub fn is_macro(&self) -> bool {
-        match self.last {
-            PathSegment::Macro(_) => true,
-            _ => false,
-        }
+        matches!(self.last, PathSegment::Macro(_))
     }
 }
 
@@ -209,19 +200,19 @@ impl Path for DefPath {
             if prev_last.can_own(&segment) {
                 self.prefix_segments.push(prev_last);
             } else {
-                return Err(PathError::CantOwn(self.last.into(), segment));
+                return Err(PathError::CantOwn(self.last, segment));
             }
         }
         Ok(self)
     }
 
     fn without_last(mut self) -> Result<(DefPath, PathSegment), PathError> {
-        if self.prefix_segments.len() < 1 {
+        if self.prefix_segments.is_empty() {
             return Err(PathError::WithoutLastSingleSegment(self));
         }
 
-        let last = std::mem::replace(&mut self.last, self.prefix_segments.pop().unwrap().into());
-        Ok((self, last.into()))
+        let last = std::mem::replace(&mut self.last, self.prefix_segments.pop().unwrap());
+        Ok((self, last))
     }
 }
 
@@ -245,7 +236,7 @@ impl IntoIterator for DefPath {
     fn into_iter(self) -> Self::IntoIter {
         self.prefix_segments
             .into_iter()
-            .chain(std::iter::once(self.last.into()))
+            .chain(std::iter::once(self.last))
     }
 }
 

@@ -23,11 +23,8 @@ impl<'a, 'p> ModuleParser<'a, 'p> {
                 Token::RCurly | Token::Eof => break,
                 _ => {
                     let parsed_item = self.item_parser().parse_item(name.clone(), module_path)?;
-                    match &parsed_item {
-                        ItemTree::Module((_, child_worklist)) => {
-                            module_worklist.append(&mut child_worklist.clone());
-                        }
-                        _ => (),
+                    if let ItemTree::Module((_, child_worklist)) = &parsed_item {
+                        module_worklist.append(&mut child_worklist.clone());
                     }
                     items.push(parsed_item);
                 }
@@ -40,7 +37,6 @@ impl<'a, 'p> ModuleParser<'a, 'p> {
             .iter()
             .map(|path_component| path_component.to_str().unwrap().into())
             .chain(std::iter::once(name.value.clone()))
-            .map(|module| module)
             .collect();
 
         let module_tree = ModuleTree {

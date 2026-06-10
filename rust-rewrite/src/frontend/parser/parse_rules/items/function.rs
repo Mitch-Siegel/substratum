@@ -32,17 +32,11 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         let mut arguments = Vec::<ast::items::function::ArgumentDeclarationTree>::new();
 
         if allow_self_param {
-            match self.try_parse_self_argument()? {
-                Some(self_param) => {
-                    arguments.push(self_param);
-                    match self.peek_token()? {
-                        Token::Comma => {
-                            self.expect_token(Token::Comma)?;
-                        }
-                        _ => {}
-                    }
+            if let Some(self_param) = self.try_parse_self_argument()? {
+                arguments.push(self_param);
+                if let Token::Comma = self.peek_token()? {
+                    self.expect_token(Token::Comma)?;
                 }
-                None => {}
             }
         }
 

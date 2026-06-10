@@ -38,7 +38,7 @@ impl<'a> Parser<'a> {
         trace::debug!("Module hierarchy: {:?}", module_hierarchy);
 
         Parser {
-            lexer: lexer,
+            lexer,
             module_parse_stack: module_hierarchy,
             last_match: lexer_start_pos.into(),
             upcoming_tokens: VecDeque::new(),
@@ -68,7 +68,7 @@ impl<'a> Parser<'a> {
         // #[cfg(feature = "loud_parsing")]
         // println!("Parser::peek_token() -> {}", peeked);
         trace::trace!("Peek token: {} @ {}", peeked.0, peeked.1);
-        return Ok(peeked);
+        Ok(peeked)
     }
 
     fn lookahead_token(&mut self, lookahead_by: usize) -> Result<Token, LexError> {
@@ -186,6 +186,7 @@ impl<'a> Parser<'a> {
         Ok((start_loc, exit_on_drop_span))
     }
 
+    // FUTURE: is putting everything in a box really the right choice?
     fn finish_parsing<T>(&mut self, parsed: T) -> Result<T, ParseError>
     where
         T: std::fmt::Debug,

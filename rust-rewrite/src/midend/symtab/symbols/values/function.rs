@@ -43,7 +43,7 @@ impl Symbol for Function {
     }
 
     fn into_repr(self) -> SymbolDef {
-        SymbolDef::Value(Value::Function(self))
+        SymbolDef::Value(Value::Function(Box::new(self)))
     }
 }
 
@@ -76,7 +76,7 @@ impl std::fmt::Display for FunctionPrototype {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut arguments_string = String::new();
         for argument in &self.arguments {
-            if arguments_string.len() > 0 {
+            if !arguments_string.is_empty() {
                 arguments_string = format!("{}, {}", arguments_string, argument);
             } else {
                 arguments_string = format!("{}", argument);
@@ -105,7 +105,7 @@ impl FunctionPrototype {
         return_type: midend::types::Syntactic,
     ) -> Self {
         FunctionPrototype {
-            name: name,
+            name,
             generic_params,
             arguments,
             return_type,

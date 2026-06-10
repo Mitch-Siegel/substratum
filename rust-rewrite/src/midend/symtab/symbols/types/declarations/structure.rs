@@ -51,9 +51,8 @@ impl StructRepr {
         for (name, type_) in field_definitions {
             trace::trace!("Insert struct field {} (type: {})", name, type_,);
             let field = FieldRepr::new(name.clone(), type_);
-            match fields.insert(name, field) {
-                Some(existing_field) => return Err(existing_field),
-                None => (),
+            if let Some(existing_field) = fields.insert(name, field) {
+                return Err(existing_field);
             }
         }
 

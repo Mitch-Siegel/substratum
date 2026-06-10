@@ -111,7 +111,7 @@ where
         self.control_flow.predecessors(&block.label).unwrap().iter()
     }
 
-    fn analyze_block_forwards<'b>(&mut self, block: &ir::BasicBlock) {
+    fn analyze_block_forwards(&mut self, block: &ir::BasicBlock) {
         let label = block.label;
         let mut new_in_facts = BTreeSet::<T>::new();
 

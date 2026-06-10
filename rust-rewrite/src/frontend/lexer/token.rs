@@ -57,60 +57,63 @@ pub enum Token {
 
 impl PartialEq for Token {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Token::U8, Token::U8) => true,
-            (Token::U16, Token::U16) => true,
-            (Token::U32, Token::U32) => true,
-            (Token::U64, Token::U64) => true,
-            (Token::I8, Token::I8) => true,
-            (Token::I16, Token::I16) => true,
-            (Token::I32, Token::I32) => true,
-            (Token::I64, Token::I64) => true,
-            (Token::SelfLower, Token::SelfLower) => true,
-            (Token::SelfUpper, Token::SelfUpper) => true,
-            (Token::Reference, Token::Reference) => true,
-            (Token::Mut, Token::Mut) => true,
-            (Token::Plus, Token::Plus) => true,
-            (Token::Minus, Token::Minus) => true,
-            (Token::Star, Token::Star) => true,
-            (Token::FSlash, Token::FSlash) => true,
-            (Token::LThan, Token::LThan) => true,
-            (Token::GThan, Token::GThan) => true,
-            (Token::LThanE, Token::LThanE) => true,
-            (Token::GThanE, Token::GThanE) => true,
-            (Token::Equals, Token::Equals) => true,
-            (Token::NotEquals, Token::NotEquals) => true,
-            (Token::Assign, Token::Assign) => true,
-            (Token::Mod, Token::Mod) => true,
-            (Token::Fn_, Token::Fn_) => true,
-            (Token::Let, Token::Let) => true,
-            (Token::If, Token::If) => true,
-            (Token::Else, Token::Else) => true,
-            (Token::Match, Token::Match) => true,
-            (Token::While, Token::While) => true,
-            (Token::Pub, Token::Pub) => true,
-            (Token::Struct, Token::Struct) => true,
-            (Token::Enum, Token::Enum) => true,
-            (Token::Impl, Token::Impl) => true,
-            (Token::LParen, Token::LParen) => true,
-            (Token::RParen, Token::RParen) => true,
-            (Token::Arrow, Token::Arrow) => true,
-            (Token::FatArrow, Token::FatArrow) => true,
-            (Token::LCurly, Token::LCurly) => true,
-            (Token::RCurly, Token::RCurly) => true,
-            (Token::LBracket, Token::LBracket) => true,
-            (Token::RBracket, Token::RBracket) => true,
-            (Token::Comma, Token::Comma) => true,
-            (Token::Dot, Token::Dot) => true,
-            (Token::Semicolon, Token::Semicolon) => true,
-            (Token::Colon, Token::Colon) => true,
-            (Token::PathSep, Token::PathSep) => true,
-            (Token::Super, Token::Super) => true,
-            (Token::Identifier(_), Token::Identifier(_)) => true,
-            (Token::UnsignedDecimalConstant(_), Token::UnsignedDecimalConstant(_)) => true,
-            (Token::Eof, Token::Eof) => true,
-            _ => false,
-        }
+        matches!(
+            (self, other),
+            (Token::U8, Token::U8)
+                | (Token::U16, Token::U16)
+                | (Token::U32, Token::U32)
+                | (Token::U64, Token::U64)
+                | (Token::I8, Token::I8)
+                | (Token::I16, Token::I16)
+                | (Token::I32, Token::I32)
+                | (Token::I64, Token::I64)
+                | (Token::SelfLower, Token::SelfLower)
+                | (Token::SelfUpper, Token::SelfUpper)
+                | (Token::Reference, Token::Reference)
+                | (Token::Mut, Token::Mut)
+                | (Token::Plus, Token::Plus)
+                | (Token::Minus, Token::Minus)
+                | (Token::Star, Token::Star)
+                | (Token::FSlash, Token::FSlash)
+                | (Token::LThan, Token::LThan)
+                | (Token::GThan, Token::GThan)
+                | (Token::LThanE, Token::LThanE)
+                | (Token::GThanE, Token::GThanE)
+                | (Token::Equals, Token::Equals)
+                | (Token::NotEquals, Token::NotEquals)
+                | (Token::Assign, Token::Assign)
+                | (Token::Mod, Token::Mod)
+                | (Token::Fn_, Token::Fn_)
+                | (Token::Let, Token::Let)
+                | (Token::If, Token::If)
+                | (Token::Else, Token::Else)
+                | (Token::Match, Token::Match)
+                | (Token::While, Token::While)
+                | (Token::Pub, Token::Pub)
+                | (Token::Struct, Token::Struct)
+                | (Token::Enum, Token::Enum)
+                | (Token::Impl, Token::Impl)
+                | (Token::LParen, Token::LParen)
+                | (Token::RParen, Token::RParen)
+                | (Token::Arrow, Token::Arrow)
+                | (Token::FatArrow, Token::FatArrow)
+                | (Token::LCurly, Token::LCurly)
+                | (Token::RCurly, Token::RCurly)
+                | (Token::LBracket, Token::LBracket)
+                | (Token::RBracket, Token::RBracket)
+                | (Token::Comma, Token::Comma)
+                | (Token::Dot, Token::Dot)
+                | (Token::Semicolon, Token::Semicolon)
+                | (Token::Colon, Token::Colon)
+                | (Token::PathSep, Token::PathSep)
+                | (Token::Super, Token::Super)
+                | (Token::Identifier(_), Token::Identifier(_))
+                | (
+                    Token::UnsignedDecimalConstant(_),
+                    Token::UnsignedDecimalConstant(_)
+                )
+                | (Token::Eof, Token::Eof)
+        )
     }
 }
 

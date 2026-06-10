@@ -71,7 +71,7 @@ impl ParamSubstMap {
         let mut substs = Vec::with_capacity(order.len());
 
         for param in order {
-            match self.substitutions.get(&param) {
+            match self.substitutions.get(param) {
                 Some(subst) => substs.push(subst),
                 None => return Err(format!("param{} not present", param)),
             }
@@ -89,14 +89,13 @@ impl ParamSubstMap {
         self.substitutions = self
             .substitutions
             .into_iter()
-            .map(|(k, v)| {
+            .filter_map(|(k, v)| {
                 if params.contains(&k) {
                     Some((k, v))
                 } else {
                     None
                 }
             })
-            .flatten()
             .collect();
 
         Ok(self)
@@ -145,7 +144,7 @@ impl InstanceSet {
     pub fn new(underlying_definition: symtab::TypeDecl) -> Self {
         // special case for non-generic types. We must still be able to call get_underlying, which
         // requires lookup to succeed (only) when an empty substitution map is passed
-        let instances = if underlying_definition.generic_params().len() == 0 {
+        let instances = if underlying_definition.generic_params().is_empty() {
             std::iter::once(ParamSubstMap::empty()).collect()
         } else {
             HashSet::new()

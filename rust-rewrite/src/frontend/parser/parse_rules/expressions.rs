@@ -18,7 +18,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
 
         let mut expr = match self.peek_token()? {
             Token::SelfLower | Token::Identifier(_) => {
-                Expression::PathInExpression(self.parse_path_in_expression()?)
+                Expression::PathIn(self.parse_path_in_expression()?)
             }
             Token::If => Expression::If(Box::new(self.parse_if_expression()?)),
             Token::Match => Expression::Match(Box::new(self.parse_match_expression()?)),

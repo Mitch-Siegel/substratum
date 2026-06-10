@@ -84,9 +84,8 @@ impl EnumRepr {
         let mut variants = BTreeMap::<String, EnumVariant>::new();
         for (discriminant, (name, type_)) in variant_definitions.into_iter().enumerate() {
             let variant = EnumVariant::new(discriminant, name.clone(), type_);
-            match variants.insert(name, variant) {
-                Some(existing_variant) => return Err(existing_variant),
-                None => (),
+            if let Some(existing_variant) = variants.insert(name, variant) {
+                return Err(existing_variant);
             }
         }
 

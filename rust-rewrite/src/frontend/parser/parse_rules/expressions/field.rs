@@ -10,8 +10,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
             field: self.parse_identifier()?,
         };
 
-        let expression_tree =
-            ast::expressions::Expression::FieldExpression(Box::from(field_expression));
+        let expression_tree = ast::expressions::Expression::Field(Box::from(field_expression));
         self.finish_parsing(expression_tree)
     }
 }

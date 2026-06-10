@@ -93,18 +93,13 @@ impl<'a, 'p> TypeParser<'a, 'p> {
 
         let mut members = vec![first_type];
         loop {
-            match self.peek_token()? {
-                Token::RParen => {
-                    break;
-                }
-                _ => members.push(self.parse_type()?),
+            if let Token::RParen = self.peek_token()? {
+                break;
             }
+            members.push(self.parse_type()?);
 
-            match self.peek_token()? {
-                Token::Comma => {
-                    self.expect_token(Token::Comma)?;
-                }
-                _ => (),
+            if let Token::Comma = self.peek_token()? {
+                self.expect_token(Token::Comma)?;
             }
         }
         let close_paren_loc = self.expect_token(Token::RParen)?;

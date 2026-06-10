@@ -46,11 +46,11 @@ pub struct GenericParamsListTree {
 }
 
 impl GenericParamsListTree {
-    pub fn as_vec(self) -> Vec<IdentifierTree> {
+    pub fn into_vec(self) -> Vec<IdentifierTree> {
         self.params.into_iter().map(|param| param.name).collect()
     }
 
-    pub fn as_vec_with_locs(self) -> Vec<(IdentifierTree, sourceloc::SourceSpan)> {
+    pub fn into_vec_with_locs(self) -> Vec<(IdentifierTree, sourceloc::SourceSpan)> {
         self.params
             .into_iter()
             .map(|param| {
@@ -61,7 +61,7 @@ impl GenericParamsListTree {
     }
 
     pub fn linearize_ctxless(self) -> Vec<(sourceloc::SourceSpan, midend::types::GenericParam)> {
-        let generic_params_vec = self.as_vec_with_locs();
+        let generic_params_vec = self.into_vec_with_locs();
         generic_params_vec
             .into_iter()
             .map(|(param_name, loc)| {

@@ -52,9 +52,7 @@ where
                 // First call or exhausted previous line
                 self.next_line();
 
-                if self.line.is_none() {
-                    return None;
-                }
+                self.line.as_ref()?;
             }
         }
     }
@@ -84,10 +82,7 @@ impl ReadLine for FileLineReader {
             None => None,
         };
 
-        match line_option {
-            Some(string) => Some(string.chars().rev().chain(std::iter::once('\n')).collect()),
-            None => None,
-        }
+        line_option.map(|string| string.chars().rev().chain(std::iter::once('\n')).collect())
     }
 }
 
@@ -107,10 +102,7 @@ impl<'a> StrLineReader<'a> {
 impl<'a> ReadLine for StrLineReader<'a> {
     fn read_line(&mut self) -> Option<Vec<char>> {
         let line_option = self.lines.next();
-        match line_option {
-            Some(string) => Some(string.chars().rev().collect()),
-            None => None,
-        }
+        line_option.map(|string| string.chars().rev().collect())
     }
 }
 
@@ -143,8 +135,7 @@ impl<'a> Iterator for CharSource<'a> {
     type Item = char;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let c = self.read_char();
-        c
+        self.read_char()
     }
 }
 

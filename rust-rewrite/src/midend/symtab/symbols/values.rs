@@ -6,11 +6,39 @@ pub mod function;
 pub use binding::*;
 pub use function::*;
 
-#[enum_delegate::implement(Symbol)]
 #[derive(Clone, Debug)]
 pub enum Value {
-    Function(Function),
+    Function(Box<Function>),
     LocalBinding(LocalBinding),
+}
+
+impl Symbol for Value {
+    fn name(&self) -> &str {
+        match self {
+            Self::Function(f) => f.name(),
+            Self::LocalBinding(lb) => lb.name(),
+        }
+    }
+
+    fn into_repr(self) -> SymbolDef {
+        match self {
+            Self::Function(f) => f.into_repr(),
+            Self::LocalBinding(lb) => lb.into_repr(),
+        }
+    }
+
+    fn path_segment(&self) -> PathSegment {
+        match self {
+            Self::Function(f) => f.path_segment(),
+            Self::LocalBinding(lb) => lb.path_segment(),
+        }
+    }
+}
+
+impl From<Function> for Value {
+    fn from(value: Function) -> Self {
+        Self::Function(Box::new(value))
+    }
 }
 
 impl std::fmt::Display for Value {

@@ -11,8 +11,8 @@ pub mod types;
 fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
     let _ = symtab::Visitor::visit_with_starting_data(
         symtab,
-        |_path, symbol, suffix| match symbol {
-            symtab::SymbolDef::Value(symtab::Value::Function(f)) => {
+        |_path, symbol, suffix| {
+            if let symtab::SymbolDef::Value(symtab::Value::Function(f)) = symbol {
                 if let Some(cf) = &f.control_flow {
                     {
                         use std::io::Write;
@@ -20,13 +20,12 @@ fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
                         let filepath = std::path::Path::new(&path_string);
                         std::fs::create_dir_all(filepath.parent().unwrap()).unwrap();
                         let mut file = std::fs::File::create(filepath).unwrap();
-                        file.write(cf.graphviz_string().as_bytes()).unwrap();
+                        file.write_all(cf.graphviz_string().as_bytes()).unwrap();
                     }
                 } else {
                     panic!();
                 }
             }
-            _ => (),
         },
         suffix,
     );
@@ -75,5 +74,5 @@ pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> sym
     //tracing::debug!("convert IR back from SSA");
     //ssa_gen::remove_ssa_from_functions(&mut symtab);
 
-    *symtab
+    symtab
 }

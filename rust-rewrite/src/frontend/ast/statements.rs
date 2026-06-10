@@ -6,8 +6,8 @@ pub use let_statement::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum StatementTree {
-    Item(ItemTree),
-    Let(LetTree),
+    Item(Box<ItemTree>),
+    Let(Box<LetTree>),
     Expression(Expression),
 }
 

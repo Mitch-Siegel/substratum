@@ -93,7 +93,7 @@ where
 }
 
 pub fn id(line: u32, col: u32, name: &str) -> Expression {
-    Expression::PathInExpression(PathInExpressionTree {
+    Expression::PathIn(PathInExpressionTree {
         underlying_path: PathTree {
             segments: vec![PathSegmentTree {
                 ident: IdentSegment::Ident(IdentifierTree {

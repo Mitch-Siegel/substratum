@@ -16,13 +16,13 @@ impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
 
         for gen_fact in &facts.gen_facts {
             if !facts.kill_facts.contains(gen_fact) {
-                transferred.insert(gen_fact.clone());
+                transferred.insert(*gen_fact);
             }
         }
 
         for in_fact in &facts.in_facts {
             if !facts.kill_facts.contains(in_fact) {
-                transferred.insert(in_fact.clone());
+                transferred.insert(*in_fact);
             }
         }
 
@@ -44,10 +44,10 @@ impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
 
             for statement in block {
                 for read in statement.read_value_ids() {
-                    block_facts.kill_facts.insert(read.clone());
+                    block_facts.kill_facts.insert(read);
                 }
                 for write in statement.write_value_ids() {
-                    block_facts.gen_facts.insert(write.clone());
+                    block_facts.gen_facts.insert(write);
                 }
             }
         }
@@ -58,7 +58,7 @@ impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
         b: &std::collections::BTreeSet<Fact>,
     ) -> std::collections::BTreeSet<Fact> {
         for fact in b {
-            a.insert((*fact).clone());
+            a.insert(*fact);
         }
 
         a

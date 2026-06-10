@@ -24,7 +24,7 @@ impl midend::treewalk::Collect for ImplementationTree {
         &self,
         ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
-        return Ok(ctx.take());
+        Ok(ctx.take())
     }
 }
 
@@ -79,23 +79,17 @@ impl midend::treewalk::Linearize for ImplementationTree {
 
 impl Display for ImplementationTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut generic_params_string = String::from(format!("{}", &self.generic_params));
-        if generic_params_string.len() > 0 {
-            generic_params_string = String::from(format!("<{}>", generic_params_string))
+        let mut params: String = format!("{}", &self.generic_params);
+        if !params.is_empty() {
+            params = format!("<{}>", params);
         };
 
-        let mut for_generic_params_string =
-            String::from(format!("{}", &self.implemented_for_generic_params));
-        if for_generic_params_string.len() > 0 {
-            for_generic_params_string = String::from(format!("<{}>", for_generic_params_string))
+        let mut for_params = format!("{}", &self.implemented_for_generic_params);
+        if !for_params.is_empty() {
+            for_params = format!("<{}>", for_params);
         };
 
-        write!(
-            f,
-            "Impl{} {}{}",
-            generic_params_string, self.for_, for_generic_params_string
-        )
-        .and_then(|_| {
+        write!(f, "Impl{} {}{}", params, self.for_, for_params).and_then(|_| {
             for item in &self.items {
                 write!(f, "{}", item)?
             }

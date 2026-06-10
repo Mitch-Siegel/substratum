@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SourcePoint {
     pub line: u32,
     pub col: u32,
@@ -21,12 +21,6 @@ impl SourcePoint {
 impl Display for SourcePoint {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}", self.line, self.col)
-    }
-}
-
-impl Default for SourcePoint {
-    fn default() -> Self {
-        Self { line: 0, col: 0 }
     }
 }
 
@@ -49,7 +43,7 @@ impl SourceLoc {
     }
 
     pub fn valid(&self) -> bool {
-        self.file.len() > 0 && self.point.valid()
+        !self.file.is_empty() && self.point.valid()
     }
 }
 
@@ -117,7 +111,7 @@ impl From<SourceLoc> for SourceSpan {
     fn from(value: SourceLoc) -> Self {
         Self {
             file: value.file,
-            start: value.point.clone(),
+            start: value.point,
             end: value.point,
         }
     }

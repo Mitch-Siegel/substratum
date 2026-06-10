@@ -91,7 +91,7 @@ impl midend::treewalk::Linearize for IfExpressionTree {
         (if_value_id, ctx) = self.true_block.linearize_same_path(ctx)?;
 
         // create a separate, mutable value which contains the true result
-        let result_value = if_value_id.clone();
+        let result_value_id = if_value_id;
 
         // if a false block exists AND the 'if' value exists
         if self.false_block.is_some() {
@@ -109,28 +109,22 @@ impl midend::treewalk::Linearize for IfExpressionTree {
             .unwrap();
 
         // handle branch linearization and assignment to the result value
-        match self.false_block {
-            Some(else_block) => {
-                let else_loc = else_block.loc();
-                let else_value_id;
-                (else_value_id, ctx) = else_block.linearize_same_path(ctx)?;
+        if let Some(else_block) = self.false_block {
+            let else_loc = else_block.loc();
+            let else_value_id;
+            (else_value_id, ctx) = else_block.linearize_same_path(ctx)?;
 
-                // if the 'else' value exists (have already passed check to assert types are the same)
-                // copy the 'else' result to the common result_value at the end of the 'else' block
-                let assign_else_result_line = midend::ir::IrLine::new_assignment(
-                    else_loc.end(),
-                    result_value.clone().into(),
-                    else_value_id,
-                );
-                ctx.function_mut()
-                    .append_statement_to_current_block(assign_else_result_line)
-                    .unwrap();
-            }
-            None => {}
+            // if the 'else' value exists (have already passed check to assert types are the same)
+            // copy the 'else' result to the common result_value at the end of the 'else' block
+            let assign_else_result_line =
+                midend::ir::IrLine::new_assignment(else_loc.end(), result_value_id, else_value_id);
+            ctx.function_mut()
+                .append_statement_to_current_block(assign_else_result_line)
+                .unwrap();
         };
 
         ctx.function_mut().finish_branch(if_loc.end()).unwrap();
 
-        ctx.into_result(result_value)
+        ctx.into_result(result_value_id)
     }
 }

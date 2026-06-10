@@ -37,7 +37,7 @@ impl midend::treewalk::Linearize for AssignmentTree {
         let assignment_start = self.loc().start();
 
         let (assignment_ir, mut ctx) = match *self.assignee {
-            Expression::FieldExpression(field_expression_tree) => {
+            Expression::Field(field_expression_tree) => {
                 let field_loc = field_expression_tree.loc();
                 let (receiver, field);
                 ((receiver, field), ctx) = field_expression_tree.linearize_same_path(ctx)?;

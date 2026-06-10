@@ -22,11 +22,11 @@ impl<'a> IdfaImplementor<'a, Fact> for BlockArgs<'a> {
             for statement in block {
                 for read in statement.read_value_ids() {
                     if !block_facts.kill_facts.contains(&read) {
-                        block_facts.gen_facts.insert(read.clone());
+                        block_facts.gen_facts.insert(read);
                     }
                 }
                 for write in statement.write_value_ids() {
-                    block_facts.kill_facts.insert(write.clone());
+                    block_facts.kill_facts.insert(write);
                 }
             }
         }
@@ -34,7 +34,7 @@ impl<'a> IdfaImplementor<'a, Fact> for BlockArgs<'a> {
 
     fn f_meet(mut a: BTreeSet<Fact>, b: &BTreeSet<Fact>) -> BTreeSet<Fact> {
         for fact in b {
-            a.insert((*fact).clone());
+            a.insert(*fact);
         }
 
         a

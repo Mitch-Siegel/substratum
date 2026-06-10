@@ -32,7 +32,7 @@ impl Variable {
     }
 
     pub fn mangle_name_at_index(&mut self, index: usize) {
-        self.name = String::from(format!("{}_{}", index, self.name));
+        self.name = format!("{}_{}", index, self.name);
     }
 }
 

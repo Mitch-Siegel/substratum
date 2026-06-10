@@ -156,7 +156,7 @@ where
             .expect("PathTree must have at least one segment")
             .loc();
 
-        while let Some(segment) = seg_iter.next() {
+        for segment in seg_iter {
             loc_span = loc_span.merge(&segment.loc()).unwrap();
         }
 
@@ -236,7 +236,7 @@ mod path_walk {
         }
 
         pub fn do_super(&mut self) -> Result<midend::symtab::PathSegment, PathWalkError> {
-            if self.walked_segments.len() > 0 {
+            if !self.walked_segments.is_empty() {
                 return Err(PathWalkError::SuperInvalid);
             }
 
@@ -262,7 +262,7 @@ mod path_walk {
         pub fn finish(
             self,
             loc: &sourceloc::SourceSpan,
-            symtab: &Box<midend::symtab::SymbolTable>,
+            symtab: &midend::symtab::SymbolTable,
             segment_name: String,
             maybe_data: Option<T>,
         ) -> FinishedPathWalk<T> {
@@ -358,50 +358,50 @@ where
         pathed_data
     }
 
-    pub fn as_type(
+    pub fn into_type(
         self,
     ) -> Result<(midend::symtab::DefPath, HashMap<midend::symtab::DefPath, T>), String> {
-        let path = self.type_path.ok_or(String::from(format!(
+        let path = self.type_path.ok_or(format!(
             "path {} (@{}) is not valid as type",
             midend::symtab::DefPath::new(
                 self.prefix_segments,
                 midend::symtab::PathSegment::Value(self.last_ident),
             ),
             self.loc,
-        )))?;
+        ))?;
         let pathed_data =
             Self::handle_last_segment_data(self.pathed_data, &path, self.last_segment_data);
 
         Ok((path, pathed_data))
     }
 
-    pub fn as_value(
+    pub fn into_value(
         self,
     ) -> Result<(midend::symtab::DefPath, HashMap<midend::symtab::DefPath, T>), String> {
-        let path = self.value_path.ok_or(String::from(format!(
+        let path = self.value_path.ok_or(format!(
             "path {} (@{}) is not valid as value",
             midend::symtab::DefPath::new(
                 self.prefix_segments,
                 midend::symtab::PathSegment::Value(self.last_ident),
             ),
             self.loc,
-        )))?;
+        ))?;
         let pathed_data =
             Self::handle_last_segment_data(self.pathed_data, &path, self.last_segment_data);
 
         Ok((path, pathed_data))
     }
 
-    pub fn _as_macro(
+    pub fn into_macro(
         self,
     ) -> Result<(midend::symtab::DefPath, HashMap<midend::symtab::DefPath, T>), String> {
-        let path = self.macro_path.ok_or(String::from(format!(
+        let path = self.macro_path.ok_or(format!(
             "path {} is not valid as macro",
             midend::symtab::DefPath::new(
                 self.prefix_segments,
                 midend::symtab::PathSegment::Macro(self.last_ident)
             )
-        )))?;
+        ))?;
         let pathed_data =
             Self::handle_last_segment_data(self.pathed_data, &path, self.last_segment_data);
 
@@ -418,7 +418,7 @@ where
     StartGlobal(PathWalkCtx<T>),
     LeadingLowerSupers(PathWalkCtx<T>),
     RequireIdent(PathWalkCtx<T>),
-    Finished(FinishedPathWalk<T>),
+    Finished(Box<FinishedPathWalk<T>>),
 }
 
 impl<T> PathWalkState<T>
@@ -448,14 +448,14 @@ where
         ident: String,
         maybe_data: Option<T>,
         size_hint: usize,
-        symtab: &Box<midend::symtab::SymbolTable>,
+        symtab: &midend::symtab::SymbolTable,
     ) -> Self {
         if size_hint > 0 {
             ctx.add_segment(midend::symtab::PathSegment::Type(ident), maybe_data);
             Self::RequireIdent(ctx)
         } else {
             let finished = ctx.finish(loc, symtab, ident, maybe_data);
-            Self::Finished(finished)
+            Self::Finished(Box::new(finished))
         }
     }
 
@@ -465,7 +465,7 @@ where
         action: PathSegmentAction<T>,
         size_hint: usize,
         loc: sourceloc::SourceSpan,
-        symtab: &Box<midend::symtab::SymbolTable>,
+        symtab: &midend::symtab::SymbolTable,
     ) -> Result<Self, String> {
         match self {
             PathWalkState::Start(mut ctx) => match action {
@@ -503,8 +503,8 @@ where
 
     pub fn finish(self) -> Result<FinishedPathWalk<T>, String> {
         match self {
-            PathWalkState::Finished(state) => Ok(state),
-            other => Err(format!("unfinished path walk in sate {:?}", other).into()),
+            PathWalkState::Finished(state) => Ok(*state),
+            other => Err(format!("unfinished path walk in sate {:?}", other)),
         }
     }
 }

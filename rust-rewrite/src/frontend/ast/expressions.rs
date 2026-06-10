@@ -25,7 +25,7 @@ pub use while_expression::WhileExpressionTree;
 
 #[derive(Debug, ReflectName, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Expression {
-    PathInExpression(PathInExpressionTree),
+    PathIn(PathInExpressionTree),
     UnsignedDecimalConstant(sourceloc::SourceSpan, usize),
     Arithmetic(ArithmeticExpressionTree),
     Comparison(ComparisonExpressionTree),
@@ -33,14 +33,14 @@ pub enum Expression {
     If(Box<IfExpressionTree>),
     Match(Box<MatchExpressionTree>),
     While(Box<WhileExpressionTree>),
-    FieldExpression(Box<FieldExpressionTree>),
+    Field(Box<FieldExpressionTree>),
     Call(Box<CallExpressionTree>),
 }
 
 impl Ast for Expression {
     fn loc(&self) -> sourceloc::SourceSpan {
         match self {
-            Self::PathInExpression(e) => e.loc(),
+            Self::PathIn(e) => e.loc(),
             Self::UnsignedDecimalConstant(l, _) => l.clone(),
             Self::Arithmetic(e) => e.loc(),
             Self::Comparison(e) => e.loc(),
@@ -48,7 +48,7 @@ impl Ast for Expression {
             Self::If(e) => e.loc(),
             Self::Match(e) => e.loc(),
             Self::While(e) => e.loc(),
-            Self::FieldExpression(e) => e.loc(),
+            Self::Field(e) => e.loc(),
             Self::Call(e) => e.loc(),
         }
     }
@@ -63,13 +63,11 @@ impl midend::treewalk::Collect for Expression {
             Self::If(if_expr) => if_expr.collect_symbols(ctx),
             Self::While(while_expr) => while_expr.collect_symbols(ctx),
             Self::Match(match_expr) => match_expr.collect_symbols(ctx),
-            Self::PathInExpression(p) => p.collect_symbols(ctx),
+            Self::PathIn(p) => p.collect_symbols(ctx),
             Self::Arithmetic(a) => a.collect_symbols(ctx),
             Self::Comparison(c) => c.collect_symbols(ctx),
             Self::Assignment(a) => a.collect_symbols(ctx),
-            Self::FieldExpression(_) | Self::UnsignedDecimalConstant(_, _) | Self::Call(_) => {
-                Ok(ctx.take())
-            }
+            Self::Field(_) | Self::UnsignedDecimalConstant(_, _) | Self::Call(_) => Ok(ctx.take()),
         }
     }
 }
@@ -82,7 +80,7 @@ impl midend::treewalk::Linearize for Expression {
         mut ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let (value, ctx) = match self {
-            Self::PathInExpression(path) => path.linearize(ctx)?,
+            Self::PathIn(path) => path.linearize(ctx)?,
             Self::UnsignedDecimalConstant(_, constant) => (
                 ctx.function_mut()
                     .values_mut()
@@ -123,15 +121,15 @@ impl midend::treewalk::Linearize for Expression {
             Self::Match(match_expression) => match_expression.linearize(ctx)?,
 
             Self::While(while_expression) => while_expression.linearize(ctx)?,
-            Self::FieldExpression(field_expression) => {
+            Self::Field(field_expression) => {
                 let field_loc = field_expression.loc();
                 let ((receiver, field), mut ctx) = field_expression.linearize(ctx)?;
                 let field_pointer_temp = ctx.function_mut().values_mut().next_temp();
                 let field_read_line = midend::ir::IrLine::new_get_field_pointer(
                     field_loc.start(),
-                    receiver.into(),
+                    receiver,
                     field,
-                    field_pointer_temp.clone(),
+                    field_pointer_temp,
                 );
                 ctx.function_mut()
                     .append_statement_to_current_block(field_read_line)
@@ -148,7 +146,7 @@ impl midend::treewalk::Linearize for Expression {
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::PathInExpression(path) => write!(f, "{}", path),
+            Self::PathIn(path) => write!(f, "{}", path),
             Self::UnsignedDecimalConstant(_, constant) => write!(f, "{}", constant),
             Self::Arithmetic(arithmetic_expression) => write!(f, "{}", arithmetic_expression),
             Self::Comparison(comparison_expression) => write!(f, "{}", comparison_expression),
@@ -156,7 +154,7 @@ impl Display for Expression {
             Self::If(if_expression) => write!(f, "{}", if_expression),
             Self::Match(match_expression) => write!(f, "{}", match_expression),
             Self::While(while_expression) => write!(f, "{}", while_expression),
-            Self::FieldExpression(field_expression) => write!(f, "{}", field_expression),
+            Self::Field(field_expression) => write!(f, "{}", field_expression),
             Self::Call(function_call) => write!(f, "{}", function_call),
         }
     }

@@ -5,7 +5,7 @@ pub enum BranchError {
     NotBranched, // not branched but expected a branch
     Convergence(ConvergenceError),
     ConvergenceNotDone(usize), // convergence returned NotDone when expected Done
-    ConvergenceDone(ir::BasicBlock), // convergence returned Done when expected NotDone
+    ConvergenceDone(Box<ir::BasicBlock>), // convergence returned Done when expected NotDone
     NotDone(usize),
     WrongKind(BranchKind, Vec<BranchKind>), // (current, expected) where current branch doesn't match the expected kind
     MissingFalseBlock(usize),               // missing false block on branch (from_label)

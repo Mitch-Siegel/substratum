@@ -3,7 +3,7 @@ use crate::midend::treewalk::*;
 use std::collections::HashMap;
 
 pub struct UnpathedLinearizeCtx {
-    symtab: Box<symtab::SymbolTable>,
+    symtab: symtab::SymbolTable,
     _functions: HashMap<symtab::DefPath, FunctionLinearizeCtx>,
 }
 
@@ -16,7 +16,7 @@ impl std::fmt::Debug for LinearizeCtx {
 impl PathableContext for UnpathedLinearizeCtx {}
 
 impl UnpathedLinearizeCtx {
-    pub fn new(symtab: Box<symtab::SymbolTable>) -> Self {
+    pub fn new(symtab: symtab::SymbolTable) -> Self {
         Self {
             symtab,
             _functions: HashMap::new(),
@@ -24,7 +24,7 @@ impl UnpathedLinearizeCtx {
     }
 
     pub fn from_existing(
-        symtab: Box<symtab::SymbolTable>,
+        symtab: symtab::SymbolTable,
         definition_path: symtab::DefPath,
         manager: ir::BlockManager,
         block: usize,
@@ -45,7 +45,7 @@ impl UnpathedLinearizeCtx {
         LinearizeResult::<T>::Ok((data, self))
     }
 
-    pub fn take(self) -> Box<symtab::SymbolTable> {
+    pub fn take(self) -> symtab::SymbolTable {
         self.symtab
     }
 

@@ -7,8 +7,8 @@ pub struct Module {
 
 impl Module {
     pub fn new(name: String) -> Self {
-        assert!(name.len() > 0);
-        Self { name: name }
+        assert!(!name.is_empty());
+        Self { name }
     }
 }
 

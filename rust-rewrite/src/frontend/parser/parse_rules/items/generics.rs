@@ -30,11 +30,8 @@ impl<'a, 'p> ItemParser<'a, 'p> {
                         Token::GThan => break,
                         _ => {
                             params.push(self.parse_generic_param()?);
-                            match self.peek_token()? {
-                                Token::Comma => {
-                                    self.expect_token(Token::Comma)?;
-                                }
-                                _ => (),
+                            if let Token::Comma = self.peek_token()? {
+                                self.expect_token(Token::Comma)?;
                             }
                         }
                     }
@@ -67,17 +64,12 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         let open_angle_bracket_loc = self.expect_token(Token::LThan)?;
         let mut args: Vec<TypeTree> = Vec::new();
         loop {
-            match self.peek_token()? {
-                Token::GThan => break,
-                _ => {
-                    args.push(self.type_parser().parse_type()?);
-                    match self.peek_token()? {
-                        Token::Comma => {
-                            self.expect_token(Token::Comma)?;
-                        }
-                        _ => (),
-                    }
-                }
+            if let Token::GThan = self.peek_token()? {
+                break;
+            }
+            args.push(self.type_parser().parse_type()?);
+            if let Token::Comma = self.peek_token()? {
+                self.expect_token(Token::Comma)?;
             }
         }
         let close_angle_bracket_loc = self.expect_token(Token::GThan)?;

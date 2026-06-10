@@ -54,7 +54,7 @@ impl midend::treewalk::Linearize for WhileExpressionTree {
             loop_done_label,
             midend::ir::lowered::operands::JumpCondition::Conditional(
                 midend::ir::lowered::operands::BinaryComparisonOperands::new(
-                    condition.into(),
+                    condition,
                     *ctx.function_mut().values_mut().id_for_constant(0),
                     midend::ir::lowered::operands::BinaryComparisonKind::EQ,
                 ),

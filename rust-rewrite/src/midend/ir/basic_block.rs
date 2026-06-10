@@ -26,7 +26,7 @@ impl BasicBlock {
         def_path: symtab::DefPath,
         statements: Vec<ir::IrLine>,
     ) -> Self {
-        let unpropagated_lines: BTreeSet<usize> = (0..statements.len()).into_iter().collect();
+        let unpropagated_lines: BTreeSet<usize> = (0..statements.len()).collect();
         Self {
             label,
             def_path,
@@ -63,20 +63,15 @@ impl BasicBlock {
 }
 
 impl OperandTypeInference for BasicBlock {
+    /// do type inference on the block, returning whether any line in the block still has un-inferred types
     fn infer_types(&mut self, ctx: &TypeInferenceContext) -> bool {
         self.unpropagated_lines = self
             .unpropagated_lines
             .iter()
-            .map(
-                |line_idx| match self.statements[*line_idx].infer_types(ctx) {
-                    true => None,
-                    false => Some(line_idx),
-                },
-            )
-            .flatten()
+            .filter(|line_idx| self.statements[**line_idx].infer_types(ctx))
             .cloned()
             .collect();
-        self.unpropagated_lines.len() == 0
+        self.unpropagated_lines.is_empty()
     }
 }
 

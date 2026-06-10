@@ -16,7 +16,7 @@ impl<'a> IdfaImplementor<'a, Fact> for LiveVars<'a> {
 
         for fact in &to_transfer {
             if !facts.kill_facts.contains(fact) {
-                transferred.insert(fact.clone());
+                transferred.insert(*fact);
             }
         }
 
@@ -29,10 +29,10 @@ impl<'a> IdfaImplementor<'a, Fact> for LiveVars<'a> {
 
             for statement in block {
                 for read in statement.read_value_ids() {
-                    block_facts.kill_facts.insert(read.clone());
+                    block_facts.kill_facts.insert(read);
                 }
                 for write in statement.write_value_ids() {
-                    block_facts.gen_facts.insert(write.clone());
+                    block_facts.gen_facts.insert(write);
                 }
             }
         }
@@ -43,7 +43,7 @@ impl<'a> IdfaImplementor<'a, Fact> for LiveVars<'a> {
         b: &std::collections::BTreeSet<Fact>,
     ) -> std::collections::BTreeSet<Fact> {
         for fact in b {
-            a.insert((*fact).clone());
+            a.insert(*fact);
         }
 
         a

@@ -163,7 +163,7 @@ fn main() {
         trace_level: tracing::Level::WARN,
     };
 
-    let mut args_without_executable = std::env::args().map(|arg| arg).collect::<Vec<_>>();
+    let mut args_without_executable = std::env::args().collect::<Vec<_>>();
     args_without_executable.remove(0);
 
     let mut input_file = String::new();
@@ -206,19 +206,18 @@ fn main() {
         }
     }
 
-    assert!(input_file.len() > 0, "Input file must be provided!");
+    assert!(!input_file.is_empty(), "Input file must be provided!");
     let mut module_worklist = BTreeSet::<String>::new();
-    let (_, worklist_item) = file_path_to_module_name(&std::path::Path::new(&input_file));
+    let (_, worklist_item) = file_path_to_module_name(std::path::Path::new(&input_file));
     module_worklist.insert(worklist_item.to_str().unwrap().into());
     let mut modules = Vec::<frontend::ast::ModuleTree>::new();
 
-    while module_worklist.len() > 0 {
-        let filename_to_parse = module_worklist.pop_last().unwrap();
+    while let Some(filename_to_parse) = module_worklist.pop_last() {
         let filepath_to_parse = std::path::Path::new(&filename_to_parse);
 
         let (input_file, module_path, _opened_path, module_name) = {
             let _ = trace::span_auto_debug!("Parse worklist item {}", filename_to_parse);
-            let (module_name, module_parent_path) = file_path_to_module_name(&filepath_to_parse);
+            let (module_name, module_parent_path) = file_path_to_module_name(filepath_to_parse);
 
             trace::debug!(
                 "Module name: \"{}\", parent path: \"{}\"",
@@ -268,7 +267,7 @@ fn main() {
             module_name
         );
 
-        let lexer = frontend::Lexer::from_file(&filepath_to_parse, std::fs::File::from(input_file));
+        let lexer = frontend::Lexer::from_file(filepath_to_parse, input_file);
 
         let lexer_start_loc = lexer.current_loc();
 
@@ -279,7 +278,7 @@ fn main() {
             module_worklist: mut parsed_worklist,
         } = parser
             .parse(lexer_start_loc.into(), module_path, module_name)
-            .expect(&format!("Error in file {}", filename_to_parse));
+            .unwrap_or_else(|_| panic!("Error in file {}", filename_to_parse));
 
         module_worklist.append(&mut parsed_worklist);
 

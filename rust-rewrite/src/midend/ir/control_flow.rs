@@ -53,21 +53,19 @@ impl ControlFlow {
                             );
                         }
                     }
-                    Operation::Unlowered(ul) => match &ul {
-                        unlowered::Operation::Match(m) => {
-                            for arm in &m.arms {
-                                successors
-                                    .get_mut(&from_block.label)
-                                    .unwrap()
-                                    .insert(arm.arm_label);
-                                predecessors
-                                    .get_mut(&arm.arm_label)
-                                    .unwrap()
-                                    .insert(from_block.label);
-                            }
+                    Operation::Unlowered(unlowered::Operation::Match(m)) => {
+                        for arm in &m.arms {
+                            successors
+                                .get_mut(&from_block.label)
+                                .unwrap()
+                                .insert(arm.arm_label);
+                            predecessors
+                                .get_mut(&arm.arm_label)
+                                .unwrap()
+                                .insert(from_block.label);
                         }
-                        _ => (),
-                    },
+                    }
+                    Operation::Unlowered(_) => (),
                     _ => (),
                 }
             }
@@ -105,45 +103,40 @@ impl ControlFlow {
         let mut dfs_stack = Vec::<usize>::new();
         dfs_stack.push(0);
 
-        while dfs_stack.len() > 0 {
-            match dfs_stack.pop() {
-                Some(label) => {
-                    // only visit once
-                    if !visited.contains(&label) {
-                        visited.insert(label);
+        while let Some(label) = dfs_stack.pop() {
+            // only visit once
+            if !visited.contains(&label) {
+                visited.insert(label);
 
-                        postorder_stack.push(label);
+                postorder_stack.push(label);
 
-                        for successor in self.successors(&label).unwrap() {
-                            dfs_stack.push(*successor);
-                        }
-                    }
+                for successor in self.successors(&label).unwrap() {
+                    dfs_stack.push(*successor);
                 }
-                None => {}
             }
         }
         postorder_stack
     }
 
-    pub fn blocks_postorder(&self) -> HashMapOOOIter<usize, ir::BasicBlock> {
+    pub fn blocks_postorder(&self) -> HashMapOOOIter<'_, usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
         HashMapOOOIter::new(&self.blocks, rpo_stack.into_iter().rev())
     }
 
-    pub fn blocks_postorder_mut(&mut self) -> HashMapOOOIterMut<usize, ir::BasicBlock> {
+    pub fn blocks_postorder_mut(&mut self) -> HashMapOOOIterMut<'_, usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
         HashMapOOOIterMut::new(&mut self.blocks, rpo_stack.into_iter().rev())
     }
 
-    pub fn blocks_reverse_postorder(&self) -> HashMapOOOIter<usize, ir::BasicBlock> {
+    pub fn blocks_reverse_postorder(&self) -> HashMapOOOIter<'_, usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
         HashMapOOOIter::new(&self.blocks, rpo_stack.into_iter())
     }
 
-    pub fn blocks_reverse_postorder_mut(&mut self) -> HashMapOOOIterMut<usize, ir::BasicBlock> {
+    pub fn blocks_reverse_postorder_mut(&mut self) -> HashMapOOOIterMut<'_, usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
         HashMapOOOIterMut::new(&mut self.blocks, rpo_stack.into_iter())
@@ -167,7 +160,7 @@ impl ControlFlow {
             }
             graphviz_string += "\"];\n";
 
-            for successor in self.successors(&label).unwrap() {
+            for successor in self.successors(label).unwrap() {
                 graphviz_string += &format!("{}->{};", label, *successor);
             }
             graphviz_string += "\n";
@@ -201,23 +194,13 @@ impl ControlFlow {
         loop {
             let old_size = block_order.len();
 
-            block_order = block_order
-                .iter()
-                .map(
-                    |label| match blocks.get_mut(label).unwrap().infer_types(&ctx) {
-                        true => None,
-                        false => Some(label),
-                    },
-                )
-                .flatten()
-                .cloned()
-                .collect();
+            block_order.retain(|label| blocks.get_mut(label).unwrap().infer_types(&ctx));
             if old_size == block_order.len() {
                 break;
             }
         }
 
-        (block_order.len() == 0, symtab)
+        (block_order.is_empty(), symtab)
     }
 }
 

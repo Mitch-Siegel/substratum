@@ -18,7 +18,7 @@ impl<'a> Parser<'a> {
 
         let compound_statement = ast::expressions::BlockExpressionTree {
             open_brace_loc,
-            statements: statements,
+            statements,
             close_brace_loc,
         };
 

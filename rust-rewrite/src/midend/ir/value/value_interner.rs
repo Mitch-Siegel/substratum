@@ -87,12 +87,9 @@ impl ValueInterner {
     pub fn id_for_path(&mut self, def_path: symtab::DefPath) -> ValueId {
         match self.pathed_ids.get(&def_path) {
             Some(id) => *id,
-            None => {
-                let id = self
-                    .insert(Value::new(ValueKind::Variable(def_path.clone()), None))
-                    .unwrap();
-                id
-            }
+            None => self
+                .insert(Value::new(ValueKind::Variable(def_path.clone()), None))
+                .unwrap(),
         }
     }
 

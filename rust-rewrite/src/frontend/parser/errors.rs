@@ -5,8 +5,8 @@ use crate::frontend::{
 
 #[derive(Clone)]
 pub enum ParseError {
-    LexError(LexError),
-    UnexpectedToken(UnexpectedTokenError),
+    LexError(Box<LexError>),
+    UnexpectedToken(Box<UnexpectedTokenError>),
 }
 
 impl PartialEq for ParseError {
@@ -26,7 +26,7 @@ impl std::fmt::Display for ParseError {
             Self::UnexpectedToken(unexpected_token) => {
                 let mut expected_tokens = String::new();
                 for tok in &unexpected_token.expected {
-                    if expected_tokens.len() > 0 {
+                    if !expected_tokens.is_empty() {
                         expected_tokens += ", ";
                     }
 
@@ -77,20 +77,20 @@ impl ParseError {
         while_parsing_start: SourceLoc,
         parser_source_location: SourceLoc,
     ) -> Self {
-        Self::UnexpectedToken(UnexpectedTokenError {
+        Self::UnexpectedToken(Box::new(UnexpectedTokenError {
             loc,
             got,
             expected: expected.to_vec(),
             while_parsing,
             while_parsing_start,
             parser_source_location,
-        })
+        }))
     }
 }
 
 impl From<LexError> for ParseError {
     fn from(value: LexError) -> Self {
-        Self::LexError(value)
+        Self::LexError(Box::new(value))
     }
 }
 

@@ -156,8 +156,7 @@ impl Interner {
                 queue.push(fundamental_instance);
             }
 
-            while !queue.is_empty() {
-                let instance_params_map = queue.pop().unwrap();
+            while let Some(instance_params_map) = queue.pop() {
                 if instance_params_map.is_concrete() {
                     let generic_params = instance_set
                         .get_underlying(instance_params_map)

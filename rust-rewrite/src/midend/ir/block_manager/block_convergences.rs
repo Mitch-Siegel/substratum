@@ -25,16 +25,16 @@ impl BlockConvergences {
     pub fn add(&mut self, froms: &[usize], to: ir::BasicBlock) -> Result<(), ConvergenceError> {
         trace::trace!("add convergence from {:?} to {}", froms, to.label);
         for from in froms {
-            match self.open_convergences.insert(*from, to.label) {
-                Some(_) => return Err(ConvergenceError::FromBlockExists(*from)),
-                None => (),
+            if self.open_convergences.insert(*from, to.label).is_some() {
+                return Err(ConvergenceError::FromBlockExists(*from));
             }
         }
 
-        match self.convergence_blocks.insert(to.label, to) {
-            Some(block) => Err(ConvergenceError::ToBlockExists(block.label)),
-            None => Ok(()),
+        if let Some(block) = self.convergence_blocks.insert(to.label, to) {
+            return Err(ConvergenceError::ToBlockExists(block.label));
         }
+
+        Ok(())
     }
 
     // given an existing point to which control converges, add another path it converges from
@@ -45,9 +45,8 @@ impl BlockConvergences {
         }
 
         for from in froms {
-            match self.open_convergences.insert(*from, to_label) {
-                Some(_) => return Err(ConvergenceError::FromBlockExists(*from)),
-                None => (),
+            if self.open_convergences.insert(*from, to_label).is_some() {
+                return Err(ConvergenceError::FromBlockExists(*from));
             }
         }
 
@@ -62,8 +61,8 @@ impl BlockConvergences {
 
         let remaining_with_same_target = self
             .open_convergences
-            .iter()
-            .map(|(_, to)| if *to == converge_to { 1 } else { 0 })
+            .values()
+            .map(|to| if *to == converge_to { 1 } else { 0 })
             .sum::<usize>();
 
         if remaining_with_same_target > 0 {

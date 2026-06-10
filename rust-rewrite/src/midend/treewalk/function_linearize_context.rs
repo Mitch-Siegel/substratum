@@ -29,7 +29,7 @@ impl FunctionLinearizeCtx {
         }
 
         Self {
-            block_manager: block_manager,
+            block_manager,
             current_block: start_block_label,
         }
     }

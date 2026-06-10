@@ -65,7 +65,7 @@ impl<'a> Lexer<'a> {
                 let eof_point = SourcePoint::new(self.cur_line, self.cur_col);
                 (
                     Token::Eof,
-                    SourceSpan::new(self.cur_file.clone(), eof_point.clone(), eof_point),
+                    SourceSpan::new(self.cur_file.clone(), eof_point, eof_point),
                 )
             }
         };
@@ -190,7 +190,7 @@ impl<'a> Lexer<'a> {
             "let" => Some(Token::Let),
             "super" => Some(Token::Super),
             _ => {
-                if identifier.len() > 0 {
+                if !identifier.is_empty() {
                     Some(Token::Identifier(identifier))
                 } else {
                     None
@@ -349,7 +349,8 @@ impl<'a> Lexer<'a> {
                         }
                     }
                     Ok(Token::UnsignedDecimalConstant(
-                        usize::from_str_radix(&constant_string, 10)
+                        constant_string
+                            .parse::<usize>()
                             .expect("Couldn't convert unsigned decimal constant"),
                     ))
                 }

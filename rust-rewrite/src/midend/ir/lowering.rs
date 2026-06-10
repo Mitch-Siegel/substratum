@@ -11,16 +11,13 @@ fn check_symbol_for_lowering(
     symbol: &symtab::SymbolDef,
     to_lower: &mut FunctionsToLower,
 ) {
-    match symbol {
-        symtab::SymbolDef::Value(symtab::Value::Function(_)) => {
-            to_lower.0.push(def_path.clone());
-        }
-        _ => (),
+    if let symtab::SymbolDef::Value(symtab::Value::Function(_)) = symbol {
+        to_lower.0.push(def_path.clone());
     }
 }
 
-pub fn lower_symtab(mut symtab: Box<symtab::SymbolTable>) -> Box<symtab::SymbolTable> {
-    let functions_to_lower = symtab::Visitor::visit(symtab.as_ref(), check_symbol_for_lowering);
+pub fn lower_symtab(mut symtab: symtab::SymbolTable) -> symtab::SymbolTable {
+    let functions_to_lower = symtab::Visitor::visit(&symtab, check_symbol_for_lowering);
 
     for to_lower in functions_to_lower.0 {
         symtab = lower_function(to_lower, symtab);
@@ -30,16 +27,13 @@ pub fn lower_symtab(mut symtab: Box<symtab::SymbolTable>) -> Box<symtab::SymbolT
 }
 
 fn assert_symbol_lowered(def_path: &symtab::DefPath, symbol: &symtab::SymbolDef, _: &mut ()) {
-    match symbol {
-        symtab::SymbolDef::Value(symtab::Value::Function(function)) => {
-            assert!(
-                function.is_lowered(),
-                "Function '{}' (with defpath '{}' is not fully lowered",
-                function.name(),
-                def_path,
-            );
-        }
-        _ => (),
+    if let symtab::SymbolDef::Value(symtab::Value::Function(function)) = symbol {
+        assert!(
+            function.is_lowered(),
+            "Function '{}' (with defpath '{}' is not fully lowered",
+            function.name(),
+            def_path,
+        );
     }
 }
 

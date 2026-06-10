@@ -11,14 +11,12 @@ pub use hash_map_ooo_iter::*;
 mod hash_map_ooo_iter {
     use std::collections::{HashMap, HashSet, VecDeque};
     use std::hash::Hash;
-    fn check_hash_key_order<'a, K, V>(
-        map: &'a HashMap<K, V>,
-        mut key_order: impl Iterator<Item = K>,
-    ) where
+    fn check_hash_key_order<K, V>(map: &HashMap<K, V>, mut key_order: impl Iterator<Item = K>)
+    where
         K: Eq + Hash,
     {
         let mut seen_keys = HashSet::<K>::new();
-        while let Some(key) = key_order.next() {
+        for key in key_order {
             assert!(
                 map.contains_key(&key),
                 "All keys in key ordering for out-of-order Map iterator must be present in map"
@@ -140,14 +138,12 @@ mod hash_map_ooo_iter {
 #[allow(dead_code)]
 mod btree_map_ooo_iter {
     use std::collections::{BTreeMap, BTreeSet, VecDeque};
-    fn check_btree_key_order<'a, K, V>(
-        map: &'a BTreeMap<K, V>,
-        mut key_order: impl Iterator<Item = K>,
-    ) where
+    fn check_btree_key_order<K, V>(map: &BTreeMap<K, V>, key_order: impl Iterator<Item = K>)
+    where
         K: Eq + Ord,
     {
         let mut seen_keys = BTreeSet::<K>::new();
-        while let Some(key) = key_order.next() {
+        for key in key_order {
             assert!(
                 map.contains_key(&key),
                 "All keys in key ordering for out-of-order Map iterator must be present in map"

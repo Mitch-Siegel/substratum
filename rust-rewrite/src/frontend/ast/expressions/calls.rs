@@ -20,8 +20,8 @@ impl Display for CallParamsTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut params = String::new();
         for p in &self.params {
-            if params.len() > 0 {
-                params += &", ";
+            if !params.is_empty() {
+                params += ", ";
             }
             params += &format!("{}", p);
         }
@@ -82,12 +82,8 @@ impl midend::treewalk::Linearize for CallExpressionTree {
 
         let (params, mut ctx) = self.params.linearize(ctx)?;
 
-        let method_call_line = midend::ir::IrLine::new_call(
-            call_start,
-            function_operand.into(),
-            params,
-            return_value_to.clone(),
-        );
+        let method_call_line =
+            midend::ir::IrLine::new_call(call_start, function_operand, params, return_value_to);
 
         ctx.function_mut()
             .append_statement_to_current_block(method_call_line)

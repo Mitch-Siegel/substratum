@@ -1,15 +1,15 @@
 use crate::midend::{symtab::Symtab, treewalk::*};
 
 pub struct UnpathedCollectCtx {
-    symtab: Box<symtab::SymbolTable>,
+    symtab: symtab::SymbolTable,
 }
 
 impl UnpathedCollectCtx {
-    pub fn new(symtab: Box<symtab::SymbolTable>) -> Self {
+    pub fn new(symtab: symtab::SymbolTable) -> Self {
         Self { symtab }
     }
 
-    pub fn take(self) -> Box<symtab::SymbolTable> {
+    pub fn take(self) -> symtab::SymbolTable {
         self.symtab
     }
 }

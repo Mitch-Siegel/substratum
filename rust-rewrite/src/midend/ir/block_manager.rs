@@ -19,7 +19,7 @@ pub use convergence_error::ConvergenceError;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BranchKind {
     Unconditional,
-    ConditionalTrue(BasicBlock), // currently on the true branch of a conditional. Owns the
+    ConditionalTrue(Box<BasicBlock>), // currently on the true branch of a conditional. Owns the
     // block targeted by the false branch
     ConditionalFalse, // currently on the false branch of a conditional
     Switch(usize),    // within a switch but not one of its cases - owns the label of the switch
@@ -79,7 +79,7 @@ impl BlockManager {
     }
 
     pub fn try_take(self) -> Result<(HashMap<usize, BasicBlock>, ValueInterner), &'static str> {
-        if self.open_branch_path.len() > 0 {
+        if !self.open_branch_path.is_empty() {
             let msg = "Failing due to open branch path length > 0";
             trace::error!("{}", msg);
             return Err(msg);
@@ -235,17 +235,8 @@ impl BlockManager {
         let ctx = TypeInferenceContext::new(symtab, values);
         let mut require_reanalysis: BTreeSet<usize> = blocks.keys().cloned().collect();
 
-        while require_reanalysis.len() > 0 {
-            require_reanalysis = require_reanalysis
-                .into_iter()
-                .map(
-                    |label| match blocks.get_mut(&label).unwrap().infer_types(&ctx) {
-                        true => None,
-                        false => Some(label),
-                    },
-                )
-                .flatten()
-                .collect();
+        while !require_reanalysis.is_empty() {
+            require_reanalysis.retain(|label| blocks.get_mut(label).unwrap().infer_types(&ctx));
         }
     }
 }

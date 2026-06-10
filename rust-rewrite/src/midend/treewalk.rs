@@ -191,8 +191,8 @@ pub fn module_prefix_segments(module: &frontend::ast::ModuleTree) -> Vec<symtab:
     segments.to_owned()
 }
 
-pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable> {
-    let mut symtab = Box::new(symtab::SymbolTable::new());
+pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> symtab::SymbolTable {
+    let mut symtab = symtab::SymbolTable::new();
 
     trace::debug!("collect symbols");
 

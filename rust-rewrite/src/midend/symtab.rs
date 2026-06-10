@@ -66,7 +66,7 @@ pub trait Symtab {
         let mut search_segments = search_path.clone().into_iter().collect::<Vec<_>>();
         let lookup_segments = lookup_path.clone().into_iter().collect::<Vec<_>>();
         let (symbol_segment, lookup_segments) = lookup_segments.split_last().unwrap();
-        while search_segments.len() > 0 {
+        while !search_segments.is_empty() {
             let all_prefix_segments = search_path
                 .clone()
                 .into_iter()
@@ -94,7 +94,7 @@ pub trait Symtab {
         let mut search_segments = search_path.clone().into_iter().collect::<Vec<_>>();
         let lookup_segments = lookup_path.clone().into_iter().collect::<Vec<_>>();
         let (symbol_segment, lookup_segments) = lookup_segments.split_last().unwrap();
-        while search_segments.len() > 0 {
+        while !search_segments.is_empty() {
             let all_prefix_segments = search_path
                 .clone()
                 .into_iter()
@@ -157,33 +157,25 @@ impl SymbolTable {
 
     pub fn children(&self, def_path: &DefPath) -> HashSet<&DefPath> {
         match self.children.get(def_path) {
-            Some(paths) => paths.iter().map(|path_ref| path_ref).collect(),
+            Some(paths) => paths.iter().collect(),
             None => HashSet::new(),
         }
     }
 
     pub fn decls(&self) -> impl Iterator<Item = &DefPath> {
-        self.symbols.iter().map(|(path, _)| path)
+        self.symbols.keys()
     }
 
     pub fn defs(&self) -> impl Iterator<Item = (&DefPath, &SymbolDef)> {
         self.symbols
             .iter()
-            .map(|(path, maybe_def)| match maybe_def {
-                Some(def) => Some((path, def)),
-                None => None,
-            })
-            .flatten()
+            .filter_map(|(path, maybe_def)| maybe_def.as_ref().map(|def| (path, def)))
     }
 
     pub fn defs_mut(&mut self) -> impl Iterator<Item = (&DefPath, &mut SymbolDef)> {
         self.symbols
             .iter_mut()
-            .map(|(path, maybe_def)| match maybe_def {
-                Some(def) => Some((path, def)),
-                None => None,
-            })
-            .flatten()
+            .filter_map(|(path, maybe_def)| maybe_def.as_mut().map(|def| (path, def)))
     }
 
     pub fn define_type<S>(
@@ -215,15 +207,14 @@ impl Symtab for SymbolTable {
         let allow_definition = maybe_symbol.is_some();
         if path.len() > 1 {
             let (parent_path, _) = path.clone().without_last().unwrap();
-            if !self
+            if (!self
                 .children
-                .entry(parent_path.into())
+                .entry(parent_path)
                 .or_default()
                 .insert(path.clone())
+                && !allow_definition)
             {
-                if !allow_definition {
-                    panic!("untracked child path {}", path)
-                }
+                panic!("untracked child path {}", path)
             }
         }
 

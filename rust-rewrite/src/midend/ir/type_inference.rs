@@ -36,10 +36,7 @@ impl From<ValueError> for TypePropagationError {
 
 impl<'a> TypeInferenceContext<'a> {
     pub fn _type_for_value(&self, value_id: &ValueId) -> Option<types::Semantic> {
-        match self._values.semantic_for_id(value_id) {
-            Ok(ty) => Some(ty),
-            _ => None,
-        }
+        self._values.semantic_for_id(value_id).ok()
     }
 
     pub fn _assign_type_to_value(

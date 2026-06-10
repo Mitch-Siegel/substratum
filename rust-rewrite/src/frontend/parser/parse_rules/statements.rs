@@ -9,9 +9,9 @@ impl<'a, 'p> StatementParser<'a, 'p> {
 
         let statement = match self.peek_token()? {
             Token::Let => {
-                let let_stmt = ast::statements::StatementTree::Let(
+                let let_stmt = ast::statements::StatementTree::Let(Box::new(
                     self.statement_parser().parse_let_statement()?,
-                );
+                ));
                 self.expect_token(Token::Semicolon)?;
                 let_stmt
             }

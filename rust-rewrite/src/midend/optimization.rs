@@ -11,7 +11,7 @@ fn do_optimizations_on_function(_function: &mut Function) {
 
 #[allow(dead_code)]
 pub fn optimize_functions(functions: &mut HashMap<String, Function>) {
-    for (_, function) in functions {
+    for function in functions.values_mut() {
         do_optimizations_on_function(function);
     }
 }

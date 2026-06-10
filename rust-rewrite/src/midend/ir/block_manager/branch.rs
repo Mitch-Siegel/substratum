@@ -79,8 +79,10 @@ impl BlockManager {
         self.convergences
             .add(&[true_block.label, false_block.label], convergence_block)?;
 
-        self.open_branch_path
-            .push(Branch::new(from, BranchKind::ConditionalTrue(false_block)));
+        self.open_branch_path.push(Branch::new(
+            from,
+            BranchKind::ConditionalTrue(Box::new(false_block)),
+        ));
 
         let true_label = true_block.label;
         self.blocks.insert(true_label, true_block);
@@ -401,7 +403,7 @@ impl BlockManager {
 
         match self.converge_with_jump(last_block_label_in_case, loc)? {
             ConvergenceResult::NotDone(_) => Ok(()),
-            ConvergenceResult::Done(block) => Err(BranchError::ConvergenceDone(block)),
+            ConvergenceResult::Done(block) => Err(BranchError::ConvergenceDone(Box::new(block))),
         }?;
 
         Ok(switch_label)

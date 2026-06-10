@@ -1,6 +1,5 @@
 #![allow(unused_imports, unused_macros)]
 
-use tracing;
 pub use tracing::Level;
 pub use tracing_print::Print;
 
