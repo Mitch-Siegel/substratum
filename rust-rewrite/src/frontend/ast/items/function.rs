@@ -1,4 +1,7 @@
-use crate::{frontend::ast::*, midend};
+use crate::{
+    frontend::ast::*,
+    midend::{self, symtab::Path},
+};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ArgumentDeclarationTree {
@@ -31,7 +34,7 @@ impl midend::treewalk::Linearize for ArgumentDeclarationTree {
         mut ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let maybe_arg_type;
-        (maybe_arg_type, ctx) = self.type_.linearize_same_path(ctx)?;
+        (maybe_arg_type, ctx) = self.type_.linearize_in_place(ctx)?;
         let arg_type = maybe_arg_type.expect("argument types may not be '_'");
 
         let (name, ctx) = self.name.linearize(ctx)?;
@@ -80,13 +83,13 @@ impl midend::treewalk::Linearize for FunctionDeclarationTree {
         mut ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let generic_params;
-        (generic_params, ctx) = self.generic_params.linearize_same_path(ctx)?;
+        (generic_params, ctx) = self.generic_params.linearize_in_place(ctx)?;
 
         let mut arguments = Vec::new();
 
         for arg in self.arguments {
             let linearized_arg;
-            (linearized_arg, ctx) = arg.linearize_same_path(ctx)?;
+            (linearized_arg, ctx) = arg.linearize_in_place(ctx)?;
             arguments.push(linearized_arg);
         }
 
@@ -94,7 +97,7 @@ impl midend::treewalk::Linearize for FunctionDeclarationTree {
         (return_type, ctx) = match self.return_type {
             Some(type_) => {
                 let maybe_return_type;
-                (maybe_return_type, ctx) = type_.linearize_same_path(ctx)?;
+                (maybe_return_type, ctx) = type_.linearize_in_place(ctx)?;
                 let return_type = maybe_return_type.expect("function return types may not be '_'");
                 (return_type, ctx)
             }
@@ -155,10 +158,11 @@ impl midend::treewalk::Collect for FunctionDefinitionTree {
         mut ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
         let function_path = ctx.declare_value(self.prototype.name.value.clone())?;
+        ctx = ctx
+            .with_segment(function_path.last().clone())
+            .expect("invalid path for function");
 
-        ctx = ctx.with_path(function_path);
-
-        ctx = self.prototype.collect_same_path(ctx)?;
+        ctx = self.prototype.collect_in_place(ctx)?;
         self.body.collect_symbols(ctx)
     }
 }
@@ -171,7 +175,7 @@ impl midend::treewalk::Linearize for FunctionDefinitionTree {
         mut ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let declared_prototype;
-        (declared_prototype, ctx) = self.prototype.linearize_same_path(ctx)?;
+        (declared_prototype, ctx) = self.prototype.linearize_in_place(ctx)?;
         let function_name = declared_prototype.name.clone();
 
         ctx.create_function(declared_prototype).unwrap();

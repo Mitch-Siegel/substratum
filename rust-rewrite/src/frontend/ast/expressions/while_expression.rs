@@ -21,7 +21,7 @@ impl midend::treewalk::Collect for WhileExpressionTree {
         &self,
         mut ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
-        ctx = self.condition.collect_same_path(ctx)?;
+        ctx = self.condition.collect_in_place(ctx)?;
         self.body.collect_symbols(ctx)
     }
 }
@@ -48,7 +48,7 @@ impl midend::treewalk::Linearize for WhileExpressionTree {
 
         let condition_loc = self.condition.loc();
         let condition;
-        (condition, ctx) = self.condition.linearize_same_path(ctx)?;
+        (condition, ctx) = self.condition.linearize_in_place(ctx)?;
         let loop_condition_jump = midend::ir::IrLine::new_jump(
             condition_loc.end(),
             loop_done_label,

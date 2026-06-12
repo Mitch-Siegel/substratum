@@ -28,7 +28,7 @@ impl midend::treewalk::Linearize for FieldExpressionTree {
         self,
         ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
-        let (receiver, ctx) = self.receiver.linearize_same_path(ctx)?;
+        let (receiver, ctx) = self.receiver.linearize_in_place(ctx)?;
 
         let (field_name, ctx) = self.field.linearize(ctx)?;
         ctx.into_result((receiver, field_name))

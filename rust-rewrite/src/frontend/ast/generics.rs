@@ -106,7 +106,7 @@ impl midend::treewalk::Collect for GenericParamsListTree {
         mut ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
         for param in &self.params {
-            ctx = param.collect_same_path(ctx)?;
+            ctx = param.collect_in_place(ctx)?;
         }
 
         Ok(ctx.take())
@@ -220,7 +220,7 @@ impl midend::treewalk::Linearize for GenericArgsListTree {
         let mut generic_args = Vec::<midend::types::ParamSubst>::new();
         for arg in self.args {
             let maybe_type;
-            (maybe_type, ctx) = arg.linearize_same_path(ctx)?;
+            (maybe_type, ctx) = arg.linearize_in_place(ctx)?;
             let param_type = maybe_type.expect("generic params must have a type");
 
             let param = match param_type {

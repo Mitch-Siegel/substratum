@@ -38,7 +38,7 @@ impl ModuleTree {
         let mut module_ctx = ctx.with_path(module_path);
 
         for item in &self.items {
-            module_ctx = item.collect_same_path(module_ctx)?;
+            module_ctx = item.collect_in_place(module_ctx)?;
         }
 
         Ok(module_ctx.take())
@@ -73,7 +73,7 @@ impl ModuleTree {
 
         let mut ctx = ctx.with_path(module_path);
         for item in self.items {
-            (_, ctx) = item.linearize_same_path(ctx)?;
+            (_, ctx) = item.linearize_in_place(ctx)?;
         }
 
         ctx.into_result(())

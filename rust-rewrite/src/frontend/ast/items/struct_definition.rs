@@ -1,4 +1,4 @@
-use crate::frontend::ast::*;
+use crate::{frontend::ast::*, midend::symtab::Path};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct StructFieldTree {
@@ -18,7 +18,7 @@ impl midend::treewalk::Linearize for StructFieldTree {
         self,
         ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
-        let (maybe_field_type, ctx) = self.type_.linearize_same_path(ctx)?;
+        let (maybe_field_type, ctx) = self.type_.linearize_in_place(ctx)?;
 
         let field_type = maybe_field_type.expect("struct field types may not be '_'");
 
@@ -70,8 +70,10 @@ impl midend::treewalk::Collect for StructDefinitionTree {
     ) -> midend::treewalk::CollectResult {
         let struct_path = ctx.declare_type(self.name.value.clone())?;
 
-        self.generic_params
-            .collect_symbols(ctx.with_path(struct_path))
+        self.generic_params.collect_symbols(
+            ctx.with_segment(struct_path.last().clone())
+                .expect("invalid path for struct"),
+        )
     }
 }
 
@@ -86,7 +88,7 @@ impl midend::treewalk::Linearize for StructDefinitionTree {
         mut ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let struct_name;
-        (struct_name, ctx) = self.name.linearize_same_path(ctx)?;
+        (struct_name, ctx) = self.name.linearize_in_place(ctx)?;
 
         ctx = ctx
             .with_segment(midend::symtab::PathSegment::Type(struct_name.clone()))
@@ -95,7 +97,7 @@ impl midend::treewalk::Linearize for StructDefinitionTree {
         let mut fields = Vec::new();
         for field in self.fields {
             let linearized_field;
-            (linearized_field, ctx) = field.linearize_same_path(ctx)?;
+            (linearized_field, ctx) = field.linearize_in_place(ctx)?;
             fields.push(linearized_field);
         }
 

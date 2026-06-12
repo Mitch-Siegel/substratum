@@ -32,7 +32,7 @@ impl midend::treewalk::Collect for BlockExpressionTree {
         mut ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
         for stmt in &self.statements {
-            ctx = stmt.collect_same_path(ctx)?;
+            ctx = stmt.collect_in_place(ctx)?;
         }
 
         Ok(ctx.take())
@@ -58,13 +58,13 @@ impl midend::treewalk::Linearize for BlockExpressionTree {
 
         let last_statement = self.statements.pop();
         for statement in self.statements {
-            (_, ctx) = statement.linearize_same_path(ctx)?;
+            (_, ctx) = statement.linearize_in_place(ctx)?;
         }
 
         let last_statement_value = match last_statement {
             Some(statement_tree) => {
                 let maybe_value;
-                (maybe_value, ctx) = statement_tree.linearize_same_path(ctx)?;
+                (maybe_value, ctx) = statement_tree.linearize_in_place(ctx)?;
                 maybe_value.unwrap_or(midend::ir::ValueInterner::unit_value_id())
             }
             None => midend::ir::ValueInterner::unit_value_id(),

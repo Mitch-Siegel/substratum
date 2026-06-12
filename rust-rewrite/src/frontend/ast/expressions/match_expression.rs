@@ -87,7 +87,7 @@ impl midend::treewalk::Collect for PatternTree {
             }
             Self::TupleStruct(t) => {
                 for pattern in &t.subpatterns {
-                    ctx = pattern.collect_same_path(ctx)?;
+                    ctx = pattern.collect_in_place(ctx)?;
                 }
                 Ok(ctx.take())
             }
@@ -109,7 +109,7 @@ impl midend::treewalk::Linearize for PatternTree {
                 unimplemented!();
             }
             Self::TupleStruct(tuple_struct) => {
-                (_, ctx) = tuple_struct.linearize_same_path(ctx)?;
+                (_, ctx) = tuple_struct.linearize_in_place(ctx)?;
             }
         };
 
@@ -159,7 +159,7 @@ impl midend::treewalk::Linearize for MatchArmTree {
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let pattern;
         let _arm_value: midend::ir::ValueId;
-        (pattern, ctx) = self.pattern.linearize_same_path(ctx)?;
+        (pattern, ctx) = self.pattern.linearize_in_place(ctx)?;
         let (arm_value, ctx) = self.expression.linearize(ctx)?;
         ctx.into_result((pattern, arm_value))
     }
@@ -193,9 +193,9 @@ impl midend::treewalk::Collect for MatchExpressionTree {
         &self,
         mut ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
-        ctx = self.scrutinee_expression.collect_same_path(ctx)?;
+        ctx = self.scrutinee_expression.collect_in_place(ctx)?;
         for arm in &self.arms {
-            ctx = arm.collect_same_path(ctx)?;
+            ctx = arm.collect_in_place(ctx)?;
         }
 
         Ok(ctx.take())
@@ -223,7 +223,7 @@ impl midend::treewalk::Linearize for MatchExpressionTree {
             .unwrap();
 
         let scrutinee_value;
-        (scrutinee_value, ctx) = self.scrutinee_expression.linearize_same_path(ctx)?;
+        (scrutinee_value, ctx) = self.scrutinee_expression.linearize_in_place(ctx)?;
 
         // TODO: consolidate each arm's result into result_value
         let result_value = ctx.function_mut().values_mut().next_temp();
@@ -240,7 +240,7 @@ impl midend::treewalk::Linearize for MatchExpressionTree {
                 .create_switch_case(case_scope_def_path)
                 .unwrap();
             let (pattern, result_value);
-            ((pattern, result_value), ctx) = arm.linearize_same_path(ctx)?;
+            ((pattern, result_value), ctx) = arm.linearize_in_place(ctx)?;
             ctx.function_mut()
                 .finish_switch_case(arm_loc.end())
                 .unwrap();

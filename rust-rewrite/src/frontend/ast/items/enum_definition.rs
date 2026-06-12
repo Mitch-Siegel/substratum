@@ -1,4 +1,4 @@
-use crate::frontend::ast::*;
+use crate::{frontend::ast::*, midend::symtab::Path};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TupleDataTree {
@@ -25,7 +25,7 @@ impl midend::treewalk::Linearize for TupleDataTree {
         let mut element_types = Vec::new();
         for element in self.element_types {
             let maybe_element_type;
-            (maybe_element_type, ctx) = element.linearize_same_path(ctx)?;
+            (maybe_element_type, ctx) = element.linearize_in_place(ctx)?;
 
             element_types.push(maybe_element_type.expect("tuple members must have types"));
         }
@@ -197,7 +197,7 @@ impl midend::treewalk::Linearize for EnumVariantTree {
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let variant_data_type;
         (variant_data_type, ctx) = match self.data {
-            Some(variant_item) => variant_item.linearize_same_path(ctx)?,
+            Some(variant_item) => variant_item.linearize_in_place(ctx)?,
             None => (midend::symtab::types::EnumVariantRepr::Unit, ctx),
         };
 
@@ -248,12 +248,14 @@ impl midend::treewalk::Collect for EnumDefinitionTree {
         mut ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
         let enum_path = ctx.declare_type(self.name.value.clone())?;
-        ctx = ctx.with_path(enum_path);
+        ctx = ctx
+            .with_segment(enum_path.last().clone())
+            .expect("invalid path for enum");
 
-        ctx = self.generic_params.collect_same_path(ctx)?;
+        ctx = self.generic_params.collect_in_place(ctx)?;
 
         for variant in &self.variants {
-            ctx = variant.collect_same_path(ctx)?;
+            ctx = variant.collect_in_place(ctx)?;
         }
         Ok(ctx.take())
     }
@@ -269,17 +271,19 @@ impl midend::treewalk::Linearize for EnumDefinitionTree {
         self,
         ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
-        let (enum_name, ctx) = self.name.linearize_same_path(ctx)?;
+        let (enum_name, ctx) = self.name.linearize_in_place(ctx)?;
         let type_def_path_component = midend::symtab::PathSegment::Type(enum_name.clone());
 
-        let (generic_params, mut ctx) = self.generic_params.linearize_same_path(ctx)?;
-        ctx = ctx.with_segment(type_def_path_component.clone()).expect("path error during enum path creation");
+        let (generic_params, mut ctx) = self.generic_params.linearize_in_place(ctx)?;
+        ctx = ctx
+            .with_segment(type_def_path_component.clone())
+            .expect("path error during enum path creation");
 
         let mut variants: Vec<(String, midend::symtab::types::EnumVariantRepr)> = Vec::new();
 
         for variant in self.variants {
             let variant_loc = variant.loc();
-            let ((variant_name, variant_repr), variant_ctx) = variant.linearize_same_path(ctx)?;
+            let ((variant_name, variant_repr), variant_ctx) = variant.linearize_in_place(ctx)?;
             let arg_types = match &variant_repr {
                 midend::symtab::types::EnumVariantRepr::Tuple(types) => types.clone(),
                 midend::symtab::types::EnumVariantRepr::Unit => Vec::new(),

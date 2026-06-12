@@ -90,7 +90,7 @@ impl midend::treewalk::Linearize for TupleTypeTree {
         let mut members = Vec::new();
         for member in self.members {
             let maybe_member_type;
-            (maybe_member_type, ctx) = member.linearize_same_path(ctx)?;
+            (maybe_member_type, ctx) = member.linearize_in_place(ctx)?;
             let member_type = maybe_member_type.expect("tuple types may not be '_'");
             members.push(member_type);
         }
@@ -349,7 +349,7 @@ impl midend::treewalk::Linearize for ReferenceTypeTree {
         mut ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let maybe_type;
-        (maybe_type, ctx) = self.type_.linearize_same_path(ctx)?;
+        (maybe_type, ctx) = self.type_.linearize_in_place(ctx)?;
         let type_ = maybe_type.expect("reference types may not be '_'");
 
         let reference = midend::types::Syntactic::Reference(self.mutability, Box::new(type_));

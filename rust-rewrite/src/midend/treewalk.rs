@@ -47,11 +47,6 @@ where
         &self.path
     }
 
-    pub fn with_path(mut self, path: symtab::DefPath) -> Self {
-        self.path = path;
-        self
-    }
-
     pub fn with_segment(mut self, segment: symtab::PathSegment) -> Result<Self, symtab::PathError> {
         self.path = self.path.with_segment(segment)?;
         Ok(self)
@@ -139,7 +134,8 @@ pub type CollectResult = Result<UnpathedCollectCtx, CollectError>;
 pub trait Collect {
     fn collect_symbols(&self, ctx: CollectCtx) -> CollectResult;
 
-    fn collect_same_path(&self, ctx: CollectCtx) -> Result<CollectCtx, CollectError> {
+    /// call collect_symbols(), but return a CollectCtx with the same path as the one passed in
+    fn collect_in_place(&self, ctx: CollectCtx) -> Result<CollectCtx, CollectError> {
         let old_path = ctx.path().clone();
         Ok(self.collect_symbols(ctx)?.with_path(old_path))
     }
@@ -172,7 +168,8 @@ where
     type Data;
     fn linearize(self, ctx: LinearizeCtx) -> LinearizeResult<Self::Data>;
 
-    fn linearize_same_path(
+    /// call linearize(), but return a LinearizeCtx with the same path as the one passed in
+    fn linearize_in_place(
         self,
         ctx: LinearizeCtx,
     ) -> Result<(Self::Data, LinearizeCtx), LinearizeError> {

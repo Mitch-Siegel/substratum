@@ -40,7 +40,7 @@ impl midend::treewalk::Linearize for CallParamsTree {
 
         for param in self.params {
             let param_id;
-            (param_id, ctx) = param.linearize_same_path(ctx)?;
+            (param_id, ctx) = param.linearize_in_place(ctx)?;
             param_values.push(param_id);
         }
 
@@ -73,7 +73,7 @@ impl midend::treewalk::Linearize for CallExpressionTree {
         let call_start = self.loc().start();
 
         let function_operand;
-        (function_operand, ctx) = self.function_operand.linearize_same_path(ctx)?;
+        (function_operand, ctx) = self.function_operand.linearize_in_place(ctx)?;
 
         let return_value_to = ctx.function_mut().values_mut().next_temp();
 

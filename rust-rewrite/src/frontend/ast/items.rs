@@ -83,14 +83,14 @@ impl midend::treewalk::Linearize for ItemTree {
             }
             ItemTree::FunctionDefinition(function_definition) => {
                 let function;
-                (function, ctx) = function_definition.linearize_same_path(ctx)?;
+                (function, ctx) = function_definition.linearize_in_place(ctx)?;
                 ctx.define_value(function)?;
                 ctx.take()
             }
             ItemTree::StructDefinition(struct_tree) => {
                 let struct_repr;
                 let generic_params;
-                ((struct_repr, generic_params), ctx) = struct_tree.linearize_same_path(ctx)?;
+                ((struct_repr, generic_params), ctx) = struct_tree.linearize_in_place(ctx)?;
                 ctx.define_type(midend::symtab::Type::Decl(
                     midend::symtab::types::TypeDecl {
                         declared_type: struct_repr.into(),
@@ -102,7 +102,7 @@ impl midend::treewalk::Linearize for ItemTree {
             ItemTree::EnumDefinition(enum_tree) => {
                 let enum_repr;
                 let generic_params;
-                ((enum_repr, generic_params), ctx) = enum_tree.linearize_same_path(ctx)?;
+                ((enum_repr, generic_params), ctx) = enum_tree.linearize_in_place(ctx)?;
                 ctx.define_type(midend::symtab::Type::Decl(
                     midend::symtab::types::TypeDecl {
                         declared_type: enum_repr.into(),

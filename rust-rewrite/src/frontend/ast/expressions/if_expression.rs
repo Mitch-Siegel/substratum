@@ -42,7 +42,7 @@ impl midend::treewalk::Collect for IfExpressionTree {
         &self,
         mut ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
-        ctx = self.true_block.collect_same_path(ctx)?;
+        ctx = self.true_block.collect_in_place(ctx)?;
         if let Some(else_block) = &self.false_block {
             else_block.collect_symbols(ctx)
         } else {
@@ -62,7 +62,7 @@ impl midend::treewalk::Linearize for IfExpressionTree {
         let condition_loc = self.condition.loc();
         let if_loc = self.loc();
         let condition_value;
-        (condition_value, ctx) = self.condition.linearize_same_path(ctx)?;
+        (condition_value, ctx) = self.condition.linearize_in_place(ctx)?;
 
         let if_condition = midend::ir::lowered::operands::JumpCondition::Conditional(
             midend::ir::lowered::operands::BinaryComparisonOperands::new(
@@ -88,7 +88,7 @@ impl midend::treewalk::Linearize for IfExpressionTree {
 
         let true_loc = self.true_block.loc();
         let if_value_id;
-        (if_value_id, ctx) = self.true_block.linearize_same_path(ctx)?;
+        (if_value_id, ctx) = self.true_block.linearize_in_place(ctx)?;
 
         // create a separate, mutable value which contains the true result
         let result_value_id = if_value_id;
@@ -112,7 +112,7 @@ impl midend::treewalk::Linearize for IfExpressionTree {
         if let Some(else_block) = self.false_block {
             let else_loc = else_block.loc();
             let else_value_id;
-            (else_value_id, ctx) = else_block.linearize_same_path(ctx)?;
+            (else_value_id, ctx) = else_block.linearize_in_place(ctx)?;
 
             // if the 'else' value exists (have already passed check to assert types are the same)
             // copy the 'else' result to the common result_value at the end of the 'else' block
