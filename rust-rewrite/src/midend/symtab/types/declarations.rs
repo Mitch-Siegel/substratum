@@ -61,7 +61,7 @@ impl Symbol for TypeDecl {
     }
 
     fn into_repr(self) -> symtab::SymbolDef {
-        symtab::Type::TypeDecl(self).into_repr()
+        symtab::Type::Decl(self).into_repr()
     }
 
     fn path_segment(&self) -> symtab::PathSegment {

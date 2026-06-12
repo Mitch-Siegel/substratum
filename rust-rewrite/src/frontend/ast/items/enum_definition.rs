@@ -59,14 +59,13 @@ impl midend::treewalk::Linearize for EnumVariantDataTree {
     }
 }
 
-fn _create_enum_variant_constructor(
-    _symtab: &mut midend::symtab::SymbolTable,
-    _enum_path: midend::symtab::DefPath,
+fn create_enum_variant_constructor(
+    _ctx: &midend::treewalk::LinearizeCtx,
     _enum_name: &String,
     _variant_name: &String,
     _arg_types: Vec<midend::types::Syntactic>,
     _loc: sourceloc::SourceLoc,
-) {
+) -> midend::symtab::values::Function {
     unimplemented!();
     // create variables for each argument, named by index
     /*let args: Vec<midend::symtab::Variable> = arg_types
@@ -265,51 +264,42 @@ impl midend::treewalk::Linearize for EnumDefinitionTree {
         midend::symtab::types::EnumRepr,
         <generics::OptionalGenericParamsListTree as midend::treewalk::Linearize>::Data,
     );
-    #[tracing::instrument(skip(self, _ctx), level = "trace", fields(tree_name = Self::reflect_name()))]
+    #[tracing::instrument(skip(self, ctx), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        _ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::LinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
-        unimplemented!();
-        /*let name = self.name.linearize(ctx);
-        let type_def_path_component =
-            midend::symtab::DefPathComponent::Type(midend::types::Syntactic::Named(name.clone()));
+        let (enum_name, ctx) = self.name.linearize_same_path(ctx)?;
+        let type_def_path_component = midend::symtab::PathSegment::Type(enum_name.clone());
 
-        let generic_params = match self.generic_params {
-            Some(params) => params.linearize(ctx),
-            None => Vec::new(),
-        };
+        let (generic_params, mut ctx) = self.generic_params.linearize_same_path(ctx)?;
+        ctx = ctx.with_segment(type_def_path_component.clone()).expect("path error during enum path creation");
 
-        ctx.push_def_path(type_def_path_component.clone(), &generic_params);
+        let mut variants: Vec<(String, midend::symtab::types::EnumVariantRepr)> = Vec::new();
 
-        let variants: Vec<(String, midend::symtab::EnumVariantRepr)> = self
-            .variants
-            .into_iter()
-            .map(|variant| {
-                let variant_loc = variant.loc();
-                let (variant_name, variant_repr) = variant.linearize(ctx);
-                let arg_types = match &variant_repr {
-                    midend::symtab::EnumVariantRepr::Tuple(types) => types.clone(),
-                    midend::symtab::EnumVariantRepr::Unit => Vec::new(),
-                };
+        for variant in self.variants {
+            let variant_loc = variant.loc();
+            let ((variant_name, variant_repr), variant_ctx) = variant.linearize_same_path(ctx)?;
+            let arg_types = match &variant_repr {
+                midend::symtab::types::EnumVariantRepr::Tuple(types) => types.clone(),
+                midend::symtab::types::EnumVariantRepr::Unit => Vec::new(),
+            };
 
-                let enum_def_path = ctx.def_path().clone();
-                create_enum_variant_constructor(
-                    ctx.symtab_mut(),
-                    enum_def_path,
-                    &name,
-                    &variant_name,
-                    arg_types,
-                    variant_loc.start(),
-                );
+            create_enum_variant_constructor(
+                &variant_ctx,
+                &enum_name,
+                &variant_name,
+                arg_types,
+                variant_loc.start(),
+            );
+            ctx = variant_ctx;
 
-                (variant_name, variant_repr)
-            })
-            .collect::<Vec<_>>();
+            variants.push((variant_name, variant_repr));
+        }
 
-        ctx.pop_def_path(type_def_path_component).unwrap();
-        midend::symtab::EnumRepr::new(name, generic_params, variants).unwrap()
-        */
+        let enum_repr = midend::symtab::types::EnumRepr::new(enum_name, variants)
+            .expect("duplicate enum variant:");
+        ctx.into_result((enum_repr, generic_params))
     }
 }
 

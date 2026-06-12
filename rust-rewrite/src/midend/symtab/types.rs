@@ -15,8 +15,8 @@ pub enum Type {
     //UseDeclaration
 
     //TypeAlias
-    BuiltinType(BuiltinType),
-    TypeDecl(TypeDecl),
+    Builtin(BuiltinType),
+    Decl(TypeDecl),
     //Union
     //ConstantItem
     //StaticItem
@@ -29,8 +29,8 @@ impl std::fmt::Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Module(m) => write!(f, "{}", m),
-            Self::BuiltinType(bit) => write!(f, "{}", bit),
-            Self::TypeDecl(td) => write!(f, "{}", td),
+            Self::Builtin(bit) => write!(f, "{}", bit),
+            Self::Decl(td) => write!(f, "{}", td),
             //Self::GenericTypeParam(_) => write!(f, "generic type param"),
         }
     }

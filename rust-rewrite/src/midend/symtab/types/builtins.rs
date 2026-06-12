@@ -49,7 +49,7 @@ impl Symbol for BuiltinType {
     }
 
     fn into_repr(self) -> symtab::SymbolDef {
-        symtab::Type::BuiltinType(self).into_repr()
+        symtab::Type::Builtin(self).into_repr()
     }
 
     fn path_segment(&self) -> symtab::PathSegment {
