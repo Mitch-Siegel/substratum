@@ -12,10 +12,12 @@ pub mod intrinsics;
 pub mod symbols;
 pub mod visitor;
 
+pub mod implementation;
 pub mod types;
 pub mod values;
 
 pub use def_path::*;
+pub use implementation::Implementation;
 pub use symbols::*;
 pub use types::Type;
 pub use values::Value;
@@ -39,8 +41,26 @@ pub trait Symtab {
         match symbol {
             SymbolDef::Type(_) => assert!(path.is_type()),
             SymbolDef::Value(_) => assert!(path.is_value()),
+            SymbolDef::Impl(_) => assert!(path.is_impl()),
         }
         assert!(*path.last() == symbol.path_segment());
+
+        match path.clone().without_last() {
+            Ok((parent_path, _last_segment)) => {
+                if parent_path.is_impl() {
+                    if let SymbolDef::Impl(_impl_def) = self.lookup_at(&parent_path)?.unwrap() {
+                        // TODO: check that parent_path is a type or module
+                        Ok::<(), SymbolError>(())
+                    } else {
+                        Ok::<(), SymbolError>(())
+                    }
+                } else {
+                    Ok::<(), SymbolError>(())
+                }
+            }
+            Err(PathError::WithoutLastSingleSegment(_)) => Ok(()),
+            Err(e) => Err(e.into()),
+        }?;
 
         trace::trace!("define {} at {}", symbol.name(), path);
         self.insert(path, Some(symbol))
@@ -118,6 +138,14 @@ pub trait Symtab {
 
         Err(SymbolError::Undeclared(lookup_path))
     }
+
+    fn get_impls_for(&self, path: &DefPath) -> Result<&HashSet<DefPath>, SymbolError>;
+
+    fn create_impl(
+        &mut self,
+        impl_parent_path: DefPath,
+        impl_for_path: DefPath,
+    ) -> Result<DefPath, SymbolError>;
 }
 
 pub struct SymbolTable {
@@ -125,6 +153,7 @@ pub struct SymbolTable {
     // mapping of symbols to declarations (None) or definitions (Some)
     symbols: BTreeMap<DefPath, Option<SymbolDef>>,
     children: BTreeMap<DefPath, HashSet<DefPath>>,
+    impls: BTreeMap<DefPath, HashSet<DefPath>>,
 }
 
 impl Default for SymbolTable {
@@ -133,6 +162,7 @@ impl Default for SymbolTable {
             types: midend::types::Interner::new(),
             symbols: BTreeMap::new(),
             children: BTreeMap::new(),
+            impls: BTreeMap::new(),
         }
     }
 }
@@ -241,6 +271,20 @@ impl Symtab for SymbolTable {
             Some(maybe_symbol) => Ok(maybe_symbol.as_ref()),
             None => Err(SymbolError::Undeclared(path.clone())),
         }
+    }
+
+    fn get_impls_for(&self, path: &DefPath) -> Result<&HashSet<DefPath>, SymbolError> {
+        self.impls
+            .get(path)
+            .ok_or(SymbolError::Undeclared(path.clone()))
+    }
+
+    fn create_impl(
+        &mut self,
+        _impl_parent_path: DefPath,
+        _impl_for_path: DefPath,
+    ) -> Result<DefPath, SymbolError> {
+        unimplemented!();
     }
 }
 

@@ -36,24 +36,29 @@ pub struct ValueSegment(String);
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MacroSegment(String);
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub struct ImplId(pub u32);
+
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PathSegment {
     Type(String),
     Value(String),
     Macro(String),
+    Impl(ImplId),
 }
 
 impl PathSegment {
     pub fn can_own(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Type(_), _) => true,
-            (_, _) => false,
-        }
+        matches!(
+            (self, other),
+            (Self::Type(_), _) | (Self::Value(_), Self::Value(_)) | (Self::Value(_), Self::Type(_))
+        )
     }
 
     pub fn raw(&self) -> &str {
         match self {
             Self::Type(name) | Self::Value(name) | Self::Macro(name) => name,
+            Self::Impl(_) => panic!("no raw name for Impl segments"),
         }
     }
 }
@@ -62,6 +67,7 @@ impl From<PathSegment> for String {
     fn from(value: PathSegment) -> String {
         match value {
             PathSegment::Type(s) | PathSegment::Value(s) | PathSegment::Macro(s) => s,
+            PathSegment::Impl(_) => panic!("no raw name for Impl segments"),
         }
     }
 }
@@ -95,6 +101,7 @@ impl std::fmt::Debug for PathSegment {
             Self::Type(name) => write!(f, "T:{}", name),
             Self::Value(name) => write!(f, "V:{}", name),
             Self::Macro(name) => write!(f, "M:{}", name),
+            Self::Impl(id) => write!(f, "I:Impl({})", id.0),
         }?;
         write!(f, ")")
     }
@@ -186,6 +193,10 @@ impl DefPath {
 
     pub fn is_macro(&self) -> bool {
         matches!(self.last, PathSegment::Macro(_))
+    }
+
+    pub fn is_impl(&self) -> bool {
+        matches!(self.last, PathSegment::Impl(_))
     }
 }
 

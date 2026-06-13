@@ -1,5 +1,7 @@
 use crate::midend::{symtab::Symtab, treewalk::*};
 
+use std::collections::HashSet;
+
 pub struct UnpathedCollectCtx {
     symtab: symtab::SymbolTable,
 }
@@ -30,5 +32,20 @@ impl Symtab for UnpathedCollectCtx {
         path: &symtab::DefPath,
     ) -> Result<Option<&symtab::SymbolDef>, symtab::SymbolError> {
         self.symtab.lookup_at(path)
+    }
+
+    fn get_impls_for(
+        &self,
+        path: &symtab::DefPath,
+    ) -> Result<&HashSet<symtab::DefPath>, symtab::SymbolError> {
+        self.symtab.get_impls_for(path)
+    }
+
+    fn create_impl(
+        &mut self,
+        impl_parent_path: symtab::DefPath,
+        impl_for_path: symtab::DefPath,
+    ) -> Result<symtab::DefPath, symtab::SymbolError> {
+        self.symtab.create_impl(impl_parent_path, impl_for_path)
     }
 }

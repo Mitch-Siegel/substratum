@@ -1,10 +1,11 @@
-use crate::midend::symtab::*;
+use crate::midend::symtab::{Implementation, PathSegment, Type, Value};
 
 #[enum_delegate::implement(Symbol)]
 #[derive(Debug)]
 pub enum SymbolDef {
     Type(Type),
     Value(Value),
+    Impl(Implementation),
 }
 
 impl std::fmt::Display for SymbolDef {
@@ -12,6 +13,7 @@ impl std::fmt::Display for SymbolDef {
         match self {
             Self::Type(t) => write!(f, "type {}", t),
             Self::Value(v) => write!(f, "value {}", v),
+            Self::Impl(i) => write!(f, "impl {}", i.id.0),
         }
     }
 }
