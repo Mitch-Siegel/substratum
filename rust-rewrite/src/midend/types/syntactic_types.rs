@@ -24,7 +24,7 @@ impl Syntactic {
     pub fn resolve(
         &self,
         _generic_params: types::ParamSubstMap,
-        _ctx: &treewalk::LinearizeCtx,
+        _ctx: &treewalk::ValueLinearizeCtx,
     ) -> Option<Semantic> {
         unimplemented!();
         /*

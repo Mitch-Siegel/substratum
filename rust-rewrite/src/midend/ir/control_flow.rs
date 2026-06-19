@@ -245,17 +245,17 @@ mod tests {
                 lowered::{BinaryComparisonKind, BinaryComparisonOperands, JumpCondition},
                 BasicBlock, ControlFlow, IrLine, ValueId, ValueInterner,
             },
-            symtab::DefPath,
+            symtab::RawPath,
             types::Semantic,
         },
     };
     use std::collections::{BTreeSet, HashMap};
 
     fn test_control_flow() -> ControlFlow {
-        let mut b0 = BasicBlock::new(0, DefPath::empty());
-        let mut b1 = BasicBlock::new(1, DefPath::empty());
-        let mut b2 = BasicBlock::new(2, DefPath::empty());
-        let b3 = BasicBlock::new(3, DefPath::empty());
+        let mut b0 = BasicBlock::new(0, RawPath::empty());
+        let mut b1 = BasicBlock::new(1, RawPath::empty());
+        let mut b2 = BasicBlock::new(2, RawPath::empty());
+        let b3 = BasicBlock::new(3, RawPath::empty());
 
         // 0->1
         let jump = IrLine::new_jump(SourceLoc::none(), 1, JumpCondition::Unconditional);

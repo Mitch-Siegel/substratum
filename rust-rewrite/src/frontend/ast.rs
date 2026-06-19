@@ -37,11 +37,14 @@ impl Ast for IdentifierTree {
     }
 }
 
-impl midend::treewalk::Linearize for IdentifierTree {
+impl<P> midend::treewalk::Linearize<P> for IdentifierTree
+where
+    P: midend::symtab::Path,
+{
     type Data = String;
     fn linearize(
         self,
-        ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::LinearizeCtx<P>,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         ctx.into_result(self.value)
     }

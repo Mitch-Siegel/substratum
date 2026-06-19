@@ -121,14 +121,14 @@ impl BlockConvergences {
 
 #[cfg(test)]
 mod tests {
-    use crate::midend::{ir::block_manager::*, symtab::DefPath};
+    use crate::midend::{ir::block_manager::*, symtab::RawPath};
     use std::collections::HashMap;
 
     #[test]
     fn add() {
         let mut c = BlockConvergences::new();
         assert_eq!(
-            c.add(&[0, 1, 2], BasicBlock::new(3, DefPath::empty())),
+            c.add(&[0, 1, 2], BasicBlock::new(3, RawPath::empty())),
             Ok(())
         );
 
@@ -141,12 +141,12 @@ mod tests {
         assert_eq!(c.convergence_blocks.get(&3).unwrap().label, 3);
 
         assert_eq!(
-            c.add(&[4], ir::BasicBlock::new(3, DefPath::empty())),
+            c.add(&[4], ir::BasicBlock::new(3, RawPath::empty())),
             Err(ConvergenceError::ToBlockExists(3))
         );
 
         assert_eq!(
-            c.add(&[0], ir::BasicBlock::new(4, DefPath::empty())),
+            c.add(&[0], ir::BasicBlock::new(4, RawPath::empty())),
             Err(ConvergenceError::FromBlockExists(0))
         );
     }
@@ -155,7 +155,7 @@ mod tests {
     fn converge_and_is_empty() {
         let mut c = BlockConvergences::new();
         assert_eq!(
-            c.add(&[0, 1, 2], ir::BasicBlock::new(3, DefPath::empty())),
+            c.add(&[0, 1, 2], ir::BasicBlock::new(3, RawPath::empty())),
             Ok(())
         );
         assert_eq!(c.is_empty(), false);
@@ -168,7 +168,7 @@ mod tests {
             c.converge(1),
             Ok(ConvergenceResult::Done(ir::BasicBlock::new(
                 3,
-                DefPath::empty()
+                RawPath::empty()
             )))
         );
         assert_eq!(c.is_empty(), true);
@@ -180,7 +180,7 @@ mod tests {
     fn rename_source() {
         let mut c = BlockConvergences::new();
         assert_eq!(
-            c.add(&[0, 1, 2], ir::BasicBlock::new(3, DefPath::empty())),
+            c.add(&[0, 1, 2], ir::BasicBlock::new(3, RawPath::empty())),
             Ok(())
         );
 

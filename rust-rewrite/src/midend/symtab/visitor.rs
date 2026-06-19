@@ -6,7 +6,7 @@ pub struct MutVisitor {}
 impl MutVisitor {
     pub fn visit<C>(
         symtab: &mut SymbolTable,
-        on_symbol: fn(&DefPath, &mut SymbolDef, &mut C),
+        on_symbol: fn(&RawPath, &mut SymbolDef, &mut C),
         mut data: C,
     ) -> C {
         for (path, def) in symtab.defs_mut() {
@@ -20,7 +20,7 @@ impl MutVisitor {
 pub struct Visitor {}
 
 impl Visitor {
-    pub fn visit<C>(symtab: &SymbolTable, on_symbol: fn(&DefPath, &SymbolDef, &mut C)) -> C
+    pub fn visit<C>(symtab: &SymbolTable, on_symbol: fn(&RawPath, &SymbolDef, &mut C)) -> C
     where
         C: Default,
     {
@@ -29,7 +29,7 @@ impl Visitor {
 
     pub fn visit_with_starting_data<C>(
         symtab: &SymbolTable,
-        on_symbol: fn(&DefPath, &SymbolDef, &mut C),
+        on_symbol: fn(&RawPath, &SymbolDef, &mut C),
         mut data: C,
     ) -> C {
         for (path, def) in symtab.defs() {

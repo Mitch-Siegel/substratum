@@ -1,7 +1,7 @@
-use crate::midend::symtab::{types, DefPath, Symbol, SymbolTable};
+use crate::midend::symtab::{self, types, Symbol, SymbolTable, Symtab, TypePath};
 
 fn create_core_types(symtab: &mut SymbolTable) {
-    let core_def_path = DefPath::new_type(Vec::new(), "core".into());
+    let core_def_path = TypePath::new(None::<TypePath>, "core".into());
 
     for type_ in [
         types::BuiltinType::Unit,
@@ -18,9 +18,8 @@ fn create_core_types(symtab: &mut SymbolTable) {
             .define_type(
                 core_def_path
                     .clone()
-                    .with_segment(type_.path_segment())
-                    .unwrap(),
-                type_,
+                    .with_child_type(String::from(type_.name())),
+                symtab::Type::Builtin(type_),
             )
             .unwrap();
     }

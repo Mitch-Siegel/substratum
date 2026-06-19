@@ -3,7 +3,7 @@ use crate::midend::{ir::*, *};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BasicBlock {
     pub label: usize,
-    def_path: symtab::DefPath,
+    def_path: symtab::ValuePath,
     statements: Vec<IrLine>,
     // lines which may not have had any type propagation done on their ValueIds
     unpropagated_lines: BTreeSet<usize>,
@@ -11,7 +11,7 @@ pub struct BasicBlock {
 }
 
 impl BasicBlock {
-    pub fn new(label: usize, def_path: symtab::DefPath) -> Self {
+    pub fn new(label: usize, def_path: symtab::ValuePath) -> Self {
         BasicBlock {
             label,
             def_path,
@@ -23,7 +23,7 @@ impl BasicBlock {
 
     pub fn with_statements(
         label: usize,
-        def_path: symtab::DefPath,
+        def_path: symtab::ValuePath,
         statements: Vec<ir::IrLine>,
     ) -> Self {
         let unpropagated_lines: BTreeSet<usize> = (0..statements.len()).collect();
@@ -36,7 +36,7 @@ impl BasicBlock {
         }
     }
 
-    pub fn def_path(&self) -> &symtab::DefPath {
+    pub fn def_path(&self) -> &symtab::ValuePath {
         &self.def_path
     }
 

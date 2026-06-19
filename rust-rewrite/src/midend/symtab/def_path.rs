@@ -2,7 +2,7 @@
 pub enum PathError {
     CantOwn(PathSegment, PathSegment),
     PopEmpty,
-    WithoutLastSingleSegment(DefPath),
+    WithoutLastSingleSegment(RawPath),
 }
 
 impl std::fmt::Display for PathError {
@@ -108,13 +108,15 @@ impl std::fmt::Debug for PathSegment {
 }
 
 pub trait Path:
-    std::ops::Index<usize, Output = PathSegment> + IntoIterator<Item = PathSegment> + Sized
+    Clone
+    + std::fmt::Debug
+    + std::fmt::Display
+    + std::ops::Index<usize, Output = PathSegment>
+    + IntoIterator<Item = PathSegment>
+    + Sized
+    + Into<RawPath>
 {
     fn len(&self) -> usize;
-
-    fn _join(self, other: Self) -> Result<Self, PathError>;
-
-    fn without_last(self) -> Result<(Self, PathSegment), PathError>;
 
     fn _first(&self) -> &PathSegment {
         &self[0]
@@ -139,47 +141,16 @@ pub trait Path:
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DefPath {
+pub struct RawPath {
     prefix_segments: Vec<PathSegment>,
     last: PathSegment,
 }
 
-impl DefPath {
+impl RawPath {
     pub fn new(prefix_segments: Vec<PathSegment>, last: PathSegment) -> Self {
         Self {
             prefix_segments,
             last,
-        }
-    }
-
-    pub fn new_type(prefix_segments: Vec<PathSegment>, name: String) -> Self {
-        Self {
-            prefix_segments,
-            last: PathSegment::Type(name),
-        }
-    }
-
-    pub fn new_value(prefix_segments: Vec<PathSegment>, name: String) -> Self {
-        Self {
-            prefix_segments,
-            last: PathSegment::Value(name),
-        }
-    }
-
-    pub fn new_macro(prefix_segments: Vec<PathSegment>, name: String) -> Self {
-        Self {
-            prefix_segments,
-            last: PathSegment::Macro(name),
-        }
-    }
-
-    pub fn with_segment(mut self, segment: PathSegment) -> Result<Self, PathError> {
-        if self.last.can_own(&segment) {
-            let old_last = std::mem::replace(&mut self.last, segment);
-            self.prefix_segments.push(old_last);
-            Ok(self)
-        } else {
-            Err(PathError::CantOwn(self.last.clone(), segment))
         }
     }
 
@@ -198,26 +169,18 @@ impl DefPath {
     pub fn is_impl(&self) -> bool {
         matches!(self.last, PathSegment::Impl(_))
     }
-}
 
-impl Path for DefPath {
-    fn len(&self) -> usize {
-        self.prefix_segments.len() + 1
-    }
-
-    fn _join(mut self, other: Self) -> Result<Self, PathError> {
-        for segment in other.into_iter() {
-            let prev_last: PathSegment = std::mem::replace(&mut self.last, segment.clone());
-            if prev_last.can_own(&segment) {
-                self.prefix_segments.push(prev_last);
-            } else {
-                return Err(PathError::CantOwn(self.last, segment));
-            }
+    pub fn with_segment(mut self, segment: PathSegment) -> Result<Self, PathError> {
+        if self.last.can_own(&segment) {
+            let old_last = std::mem::replace(&mut self.last, segment);
+            self.prefix_segments.push(old_last);
+            Ok(self)
+        } else {
+            Err(PathError::CantOwn(self.last.clone(), segment))
         }
-        Ok(self)
     }
 
-    fn without_last(mut self) -> Result<(DefPath, PathSegment), PathError> {
+    pub fn without_last(mut self) -> Result<(RawPath, PathSegment), PathError> {
         if self.prefix_segments.is_empty() {
             return Err(PathError::WithoutLastSingleSegment(self));
         }
@@ -227,7 +190,13 @@ impl Path for DefPath {
     }
 }
 
-impl std::ops::Index<usize> for DefPath {
+impl Path for RawPath {
+    fn len(&self) -> usize {
+        self.prefix_segments.len() + 1
+    }
+}
+
+impl std::ops::Index<usize> for RawPath {
     type Output = PathSegment;
     fn index(&self, index: usize) -> &Self::Output {
         let prefix_len = self.prefix_segments.len();
@@ -241,7 +210,7 @@ impl std::ops::Index<usize> for DefPath {
     }
 }
 
-impl IntoIterator for DefPath {
+impl IntoIterator for RawPath {
     type Item = PathSegment;
     type IntoIter = std::iter::Chain<std::vec::IntoIter<Self::Item>, std::iter::Once<Self::Item>>;
     fn into_iter(self) -> Self::IntoIter {
@@ -251,7 +220,7 @@ impl IntoIterator for DefPath {
     }
 }
 
-impl std::fmt::Display for DefPath {
+impl std::fmt::Display for RawPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (index, component) in self.prefix_segments.iter().enumerate() {
             write!(f, "{}", component)?;
@@ -263,7 +232,7 @@ impl std::fmt::Display for DefPath {
     }
 }
 
-impl std::fmt::Debug for DefPath {
+impl std::fmt::Debug for RawPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (index, component) in self.prefix_segments.iter().enumerate() {
             write!(f, "{:?}", component)?;
@@ -272,5 +241,174 @@ impl std::fmt::Debug for DefPath {
             }
         }
         write!(f, "{:?}", self.last)
+    }
+}
+
+#[allow(unused)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypePath(pub(in crate::midend::symtab) RawPath);
+#[allow(unused)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ValuePath(pub(in crate::midend::symtab) RawPath);
+#[allow(unused)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MacroPath(pub(in crate::midend::symtab) RawPath);
+#[allow(unused)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImplPath(pub(in crate::midend::symtab) RawPath);
+
+impl TypePath {
+    pub fn new(parent: Option<impl Path>, name: String) -> Self {
+        match parent {
+            Some(parent) => Self(parent.into().with_segment(PathSegment::Type(name)).unwrap()),
+            None => Self(RawPath::new(Vec::new(), PathSegment::Type(name))),
+        }
+    }
+
+    #[allow(unused)]
+    pub fn with_child_type(self, name: String) -> Self {
+        Self(self.0.with_segment(PathSegment::Type(name)).unwrap())
+    }
+
+    #[allow(unused)]
+    pub fn with_child_value(self, name: String) -> ValuePath {
+        ValuePath(self.0.with_segment(PathSegment::Value(name)).unwrap())
+    }
+
+    #[allow(unused)]
+    pub fn with_child_macro(self, name: String) -> MacroPath {
+        MacroPath(self.0.with_segment(PathSegment::Macro(name)).unwrap())
+    }
+
+    #[allow(unused)]
+    pub fn with_child_impl(self, id: ImplId) -> ImplPath {
+        ImplPath(self.0.with_segment(PathSegment::Impl(id)).unwrap())
+    }
+}
+
+impl ValuePath {
+    #[allow(unused)]
+    pub fn with_child_value(self, name: String) -> Self {
+        Self(self.0.with_segment(PathSegment::Value(name)).unwrap())
+    }
+
+    #[allow(unused)]
+    pub fn with_child_type(self, name: String) -> TypePath {
+        TypePath(self.0.with_segment(PathSegment::Type(name)).unwrap())
+    }
+
+    #[allow(unused)]
+    pub fn with_child_macro(self, name: String) -> MacroPath {
+        MacroPath(self.0.with_segment(PathSegment::Macro(name)).unwrap())
+    }
+
+    #[allow(unused)]
+    pub fn with_child_impl(self, id: ImplId) -> ImplPath {
+        ImplPath(self.0.with_segment(PathSegment::Impl(id)).unwrap())
+    }
+}
+
+impl ImplPath {
+    #[allow(unused)]
+    pub fn with_child_value(self, name: String) -> ValuePath {
+        ValuePath(self.0.with_segment(PathSegment::Value(name)).unwrap())
+    }
+}
+
+impl From<RawPath> for TypePath {
+    fn from(value: RawPath) -> Self {
+        assert!(value.is_type());
+        Self(value)
+    }
+}
+
+impl From<RawPath> for ValuePath {
+    fn from(value: RawPath) -> Self {
+        assert!(value.is_value());
+        Self(value)
+    }
+}
+
+impl From<RawPath> for MacroPath {
+    fn from(value: RawPath) -> Self {
+        assert!(value.is_macro());
+        Self(value)
+    }
+}
+
+impl From<RawPath> for ImplPath {
+    fn from(value: RawPath) -> Self {
+        assert!(value.is_impl());
+        Self(value)
+    }
+}
+
+impl std::ops::Index<usize> for TypePath {
+    type Output = PathSegment;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+impl Path for TypePath {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl From<TypePath> for RawPath {
+    fn from(value: TypePath) -> Self {
+        value.0
+    }
+}
+
+impl IntoIterator for TypePath {
+    type Item = PathSegment;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter().collect::<Vec<_>>().into_iter()
+    }
+}
+
+impl std::ops::Index<usize> for ValuePath {
+    type Output = PathSegment;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+impl Path for ValuePath {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl From<ValuePath> for RawPath {
+    fn from(value: ValuePath) -> Self {
+        value.0
+    }
+}
+
+impl IntoIterator for ValuePath {
+    type Item = PathSegment;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter().collect::<Vec<_>>().into_iter()
+    }
+}
+
+impl std::fmt::Display for TypePath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Type {}", self.0)
+    }
+}
+
+impl std::fmt::Display for ValuePath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Value {}", self.0)
     }
 }

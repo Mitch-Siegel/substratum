@@ -19,10 +19,10 @@ impl ArithmeticDualOperands {
     }
 }
 
-impl midend::treewalk::Collect for ArithmeticDualOperands {
+impl midend::treewalk::Collect<midend::symtab::ValuePath> for ArithmeticDualOperands {
     fn collect_symbols(
         &self,
-        mut ctx: midend::treewalk::CollectCtx,
+        mut ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
         ctx = self.e1.collect_in_place(ctx)?;
         self.e2.collect_symbols(ctx)
@@ -52,10 +52,10 @@ impl Ast for ComparisonExpressionTree {
     }
 }
 
-impl midend::treewalk::Collect for ComparisonExpressionTree {
+impl midend::treewalk::Collect<midend::symtab::ValuePath> for ComparisonExpressionTree {
     fn collect_symbols(
         &self,
-        ctx: midend::treewalk::CollectCtx,
+        ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
         match self {
             Self::LThan(operands)
@@ -68,12 +68,12 @@ impl midend::treewalk::Collect for ComparisonExpressionTree {
     }
 }
 
-impl midend::treewalk::Linearize for ComparisonExpressionTree {
+impl midend::treewalk::Linearize<midend::symtab::ValuePath> for ComparisonExpressionTree {
     type Data = midend::ir::lowered::operands::BinaryComparisonOperands;
-    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
+    #[tracing::instrument(skip(self, ctx), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         match self {
             ComparisonExpressionTree::LThan(operands) => {
@@ -186,10 +186,10 @@ impl Display for ArithmeticExpressionTree {
     }
 }
 
-impl midend::treewalk::Collect for ArithmeticExpressionTree {
+impl midend::treewalk::Collect<midend::symtab::ValuePath> for ArithmeticExpressionTree {
     fn collect_symbols(
         &self,
-        ctx: midend::treewalk::CollectCtx,
+        ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
         match self {
             Self::Add(operands)
@@ -200,12 +200,12 @@ impl midend::treewalk::Collect for ArithmeticExpressionTree {
     }
 }
 
-impl midend::treewalk::Linearize for ArithmeticExpressionTree {
+impl midend::treewalk::Linearize<midend::symtab::ValuePath> for ArithmeticExpressionTree {
     type Data = midend::ir::lowered::operands::BinaryArithmeticOperands;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         match self {
             ArithmeticExpressionTree::Add(operands) => {

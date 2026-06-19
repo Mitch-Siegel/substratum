@@ -16,22 +16,22 @@ impl Ast for WhileExpressionTree {
     }
 }
 
-impl midend::treewalk::Collect for WhileExpressionTree {
+impl midend::treewalk::Collect<midend::symtab::ValuePath> for WhileExpressionTree {
     fn collect_symbols(
         &self,
-        mut ctx: midend::treewalk::CollectCtx,
+        mut ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
         ctx = self.condition.collect_in_place(ctx)?;
         self.body.collect_symbols(ctx)
     }
 }
 
-impl midend::treewalk::Linearize for WhileExpressionTree {
+impl midend::treewalk::Linearize<midend::symtab::ValuePath> for WhileExpressionTree {
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        mut ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let loc = self.loc();
 

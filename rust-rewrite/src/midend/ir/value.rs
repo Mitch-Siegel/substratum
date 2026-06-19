@@ -24,9 +24,9 @@ impl ValueId {
 #[derive(Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub enum ValueKind {
     Argument(usize),
-    Variable(symtab::DefPath),
+    Variable(symtab::RawPath),
     Temporary(usize),
-    StaticFunction(symtab::DefPath),
+    StaticFunction(symtab::RawPath),
     Constant(usize),
 }
 

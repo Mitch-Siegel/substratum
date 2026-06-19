@@ -54,10 +54,10 @@ impl Ast for Expression {
     }
 }
 
-impl midend::treewalk::Collect for Expression {
+impl midend::treewalk::Collect<midend::symtab::ValuePath> for Expression {
     fn collect_symbols(
         &self,
-        ctx: midend::treewalk::CollectCtx,
+        ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
         match self {
             Self::If(if_expr) => if_expr.collect_symbols(ctx),
@@ -72,12 +72,12 @@ impl midend::treewalk::Collect for Expression {
     }
 }
 
-impl midend::treewalk::Linearize for Expression {
+impl midend::treewalk::Linearize<midend::symtab::ValuePath> for Expression {
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        mut ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let (value, ctx) = match self {
             Self::PathIn(path) => path.linearize(ctx)?,

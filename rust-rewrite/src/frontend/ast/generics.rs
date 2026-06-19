@@ -12,21 +12,33 @@ impl Ast for GenericParamTree {
     }
 }
 
-impl midend::treewalk::Collect for GenericParamTree {
+// symbol collection (type and value)
+impl midend::treewalk::Collect<midend::symtab::TypePath> for GenericParamTree {
     fn collect_symbols(
         &self,
-        mut ctx: midend::treewalk::CollectCtx,
+        mut ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
         ctx.declare_type(self.name.value.clone())?;
         Ok(ctx.take())
     }
 }
 
-impl midend::treewalk::Linearize for GenericParamTree {
+impl midend::treewalk::Collect<midend::symtab::ValuePath> for GenericParamTree {
+    fn collect_symbols(
+        &self,
+        mut ctx: midend::treewalk::ValueCollectCtx,
+    ) -> midend::treewalk::CollectResult {
+        ctx.declare_type(self.name.value.clone())?;
+        Ok(ctx.take())
+    }
+}
+
+// linearization (type and value)
+impl midend::treewalk::Linearize<midend::symtab::RawPath> for GenericParamTree {
     type Data = String;
     fn linearize(
         self,
-        ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         self.name.linearize(ctx)
     }
@@ -100,25 +112,38 @@ impl Display for GenericParamsListTree {
     }
 }
 
-impl midend::treewalk::Collect for GenericParamsListTree {
+impl midend::treewalk::Collect<midend::symtab::TypePath> for GenericParamsListTree {
     fn collect_symbols(
         &self,
-        mut ctx: midend::treewalk::CollectCtx,
+        mut ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
         for param in &self.params {
-            ctx = param.collect_in_place(ctx)?;
+            ctx = <GenericParamTree as midend::treewalk::Collect<midend::symtab::TypePath>>::collect_in_place::<midend::symtab::TypePath>(param, ctx)?;
         }
 
         Ok(ctx.take())
     }
 }
 
-impl midend::treewalk::Linearize for GenericParamsListTree {
+impl midend::treewalk::Collect<midend::symtab::ValuePath> for GenericParamsListTree {
+    fn collect_symbols(
+        &self,
+        mut ctx: midend::treewalk::ValueCollectCtx,
+    ) -> midend::treewalk::CollectResult {
+        for param in &self.params {
+            ctx = <GenericParamTree as midend::treewalk::Collect<midend::symtab::ValuePath>>::collect_in_place::<midend::symtab::ValuePath>(param, ctx)?;
+        }
+
+        Ok(ctx.take())
+    }
+}
+
+impl midend::treewalk::Linearize<midend::symtab::RawPath> for GenericParamsListTree {
     type Data = midend::types::GenericParamsList;
-    #[tracing::instrument(skip(self), level = "trace")]
+    #[tracing::instrument(skip(self, ctx), level = "trace")]
     fn linearize(
         self,
-        ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let mut generic_params_set = BTreeSet::<midend::types::GenericParam>::new();
 
@@ -163,10 +188,10 @@ impl Display for OptionalGenericParamsListTree {
     }
 }
 
-impl midend::treewalk::Collect for OptionalGenericParamsListTree {
+impl midend::treewalk::Collect<midend::symtab::TypePath> for OptionalGenericParamsListTree {
     fn collect_symbols(
         &self,
-        ctx: midend::treewalk::CollectCtx,
+        ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
         if let Some(params) = &self.maybe_params {
             params.collect_symbols(ctx)
@@ -176,11 +201,24 @@ impl midend::treewalk::Collect for OptionalGenericParamsListTree {
     }
 }
 
-impl midend::treewalk::Linearize for OptionalGenericParamsListTree {
+impl midend::treewalk::Collect<midend::symtab::ValuePath> for OptionalGenericParamsListTree {
+    fn collect_symbols(
+        &self,
+        ctx: midend::treewalk::ValueCollectCtx,
+    ) -> midend::treewalk::CollectResult {
+        if let Some(params) = &self.maybe_params {
+            params.collect_symbols(ctx)
+        } else {
+            Ok(ctx.take())
+        }
+    }
+}
+
+impl midend::treewalk::Linearize<midend::symtab::RawPath> for OptionalGenericParamsListTree {
     type Data = midend::types::GenericParamsList;
     fn linearize(
         self,
-        ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let (params, ctx) = match self.maybe_params {
             Some(params) => {
@@ -210,12 +248,12 @@ impl Ast for GenericArgsListTree {
     }
 }
 
-impl midend::treewalk::Linearize for GenericArgsListTree {
+impl midend::treewalk::Linearize<midend::symtab::RawPath> for GenericArgsListTree {
     type Data = Vec<midend::types::ParamSubst>;
     #[tracing::instrument(skip(self), level = "trace")]
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        mut ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let mut generic_args = Vec::<midend::types::ParamSubst>::new();
         for arg in self.args {

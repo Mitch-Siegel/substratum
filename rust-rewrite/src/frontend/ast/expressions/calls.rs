@@ -29,12 +29,12 @@ impl Display for CallParamsTree {
     }
 }
 
-impl midend::treewalk::Linearize for CallParamsTree {
+impl midend::treewalk::Linearize<midend::symtab::ValuePath> for CallParamsTree {
     type Data = Vec<midend::ir::ValueId>;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        mut ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let mut param_values = Vec::new();
 
@@ -63,12 +63,12 @@ impl Ast for CallExpressionTree {
     }
 }
 
-impl midend::treewalk::Linearize for CallExpressionTree {
+impl midend::treewalk::Linearize<midend::symtab::ValuePath> for CallExpressionTree {
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        mut ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let call_start = self.loc().start();
 

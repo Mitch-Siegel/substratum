@@ -16,25 +16,22 @@ pub struct ModuleTree {
 }
 
 impl ModuleTree {
-    fn path_from_prefix_segments(
-        &self,
-        prefix_segments: Vec<midend::symtab::PathSegment>,
-    ) -> midend::symtab::DefPath {
+    fn path_from_parent(&self, parent_path: midend::symtab::TypePath) -> midend::symtab::TypePath {
         let name = self.name.value.clone();
-        midend::symtab::DefPath::new(prefix_segments, midend::symtab::PathSegment::Type(name))
+        parent_path.with_child_type(name)
     }
 
-    #[tracing::instrument(skip(self, ctx), level = "debug", fields(prefix_segments = format!("{:?}", prefix_segments)))]
-    pub fn collect_from_prefix_segments(
+    #[tracing::instrument(skip(self, ctx), level = "debug", fields(parent_path = format!("{:?}", parent_path)))]
+    pub fn collect_from_parent_path(
         &self,
         mut ctx: midend::treewalk::UnpathedCollectCtx,
-        prefix_segments: Vec<midend::symtab::PathSegment>,
+        parent_path: midend::symtab::TypePath,
     ) -> midend::treewalk::CollectResult {
-        let path = self.path_from_prefix_segments(prefix_segments);
+        let path = self.path_from_parent(parent_path);
 
         trace::debug!("collect for module {} ({:?}", self.name, self.module_path);
 
-        let module_path = ctx.declare(path).unwrap();
+        let module_path = ctx.declare_type(path).unwrap();
         let mut module_ctx = ctx.with_path(module_path);
 
         for item in &self.items {
@@ -44,13 +41,15 @@ impl ModuleTree {
         Ok(module_ctx.take())
     }
 
-    #[tracing::instrument(skip(self, ctx), level = "debug", fields(prefix_segments = format!("{:?}", prefix_segments)))]
+    #[tracing::instrument(skip(self, ctx), level = "debug", fields(prefix_segments = format!("{:?}", parent_path)))]
     pub fn linearize_from_prefix_segments(
         self,
         mut ctx: midend::treewalk::UnpathedLinearizeCtx,
-        prefix_segments: Vec<midend::symtab::PathSegment>,
-    ) -> midend::treewalk::LinearizeResult<<Self as midend::treewalk::Linearize>::Data> {
-        let path = self.path_from_prefix_segments(prefix_segments);
+        parent_path: midend::symtab::TypePath,
+    ) -> midend::treewalk::LinearizeResult<
+        <Self as midend::treewalk::Linearize<midend::symtab::TypePath>>::Data,
+    > {
+        let path = self.path_from_parent(parent_path);
 
         let module_name = path.last().raw().into();
 
@@ -61,11 +60,9 @@ impl ModuleTree {
         );
 
         let module_path = ctx
-            .define(
+            .define_type(
                 path,
-                midend::symtab::SymbolDef::from(midend::symtab::Type::from(
-                    midend::symtab::types::Module::new(module_name),
-                )),
+                midend::symtab::Type::from(midend::symtab::types::Module::new(module_name)),
             )
             .unwrap();
 
@@ -96,28 +93,26 @@ impl Ast for ModuleTree {
     }
 }
 
-impl midend::treewalk::Collect for ModuleTree {
+impl midend::treewalk::Collect<midend::symtab::TypePath> for ModuleTree {
     #[tracing::instrument(skip(self, ctx), level = "debug", fields(tree_name = Self::reflect_name()))]
     fn collect_symbols(
         &self,
-        ctx: midend::treewalk::CollectCtx,
+        ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
         let path = ctx.path().clone();
-        let prefix_segments = path.into_iter().collect::<Vec<_>>();
-        self.collect_from_prefix_segments(ctx.take(), prefix_segments)
+        self.collect_from_parent_path(ctx.take(), path)
     }
 }
 
-impl midend::treewalk::Linearize for ModuleTree {
+impl midend::treewalk::Linearize<midend::symtab::TypePath> for ModuleTree {
     type Data = ();
     #[tracing::instrument(skip(self, ctx), level = "debug", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::TypeLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let path = ctx.path().clone();
-        let prefix_segments = path.into_iter().collect::<Vec<_>>();
-        self.linearize_from_prefix_segments(ctx.take(), prefix_segments)
+        self.linearize_from_prefix_segments(ctx.take(), path)
     }
 }
 
@@ -128,5 +123,17 @@ impl Display for ModuleTree {
             writeln!(f, " - {}", item)?;
         }
         Ok(())
+    }
+}
+
+impl Ord for ModuleTree {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.module_path.cmp(&other.module_path)
+    }
+}
+
+impl PartialOrd for ModuleTree {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }

@@ -4,10 +4,10 @@ use crate::midend::symtab::*;
 pub enum SymbolError {
     // TODO: is there any good reason for the path and component to be separated for
     // undeclared/undefined errors?
-    Undeclared(DefPath),
-    Undefined(DefPath),
-    AlreadyDeclared(DefPath),
-    AlreadyDefined(DefPath),
+    Undeclared(RawPath),
+    Undefined(RawPath),
+    AlreadyDeclared(RawPath),
+    AlreadyDefined(RawPath),
     PathError(PathError),
 }
 

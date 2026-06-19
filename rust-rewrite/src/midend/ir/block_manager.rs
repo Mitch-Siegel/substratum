@@ -58,7 +58,7 @@ pub struct BlockManager {
 impl BlockManager {
     // returns (Self, start_block)
     // where start_block is the first basic block in the function
-    pub fn new(unit_type: types::Semantic, def_path: symtab::DefPath) -> (Self, usize) {
+    pub fn new(unit_type: types::Semantic, def_path: symtab::ValuePath) -> (Self, usize) {
         // set up the initlal convergence - must always end up at the end_block
         let start_block = BasicBlock::new(0, def_path.clone());
         let end_block = BasicBlock::new(1, def_path);

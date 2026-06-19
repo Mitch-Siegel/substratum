@@ -37,10 +37,10 @@ impl Display for IfExpressionTree {
     }
 }
 
-impl midend::treewalk::Collect for IfExpressionTree {
+impl midend::treewalk::Collect<midend::symtab::ValuePath> for IfExpressionTree {
     fn collect_symbols(
         &self,
-        mut ctx: midend::treewalk::CollectCtx,
+        mut ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
         ctx = self.true_block.collect_in_place(ctx)?;
         if let Some(else_block) = &self.false_block {
@@ -51,12 +51,12 @@ impl midend::treewalk::Collect for IfExpressionTree {
     }
 }
 
-impl midend::treewalk::Linearize for IfExpressionTree {
+impl midend::treewalk::Linearize<midend::symtab::ValuePath> for IfExpressionTree {
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        mut ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         // FUTURE: optimize condition walk to use different jumps
         let condition_loc = self.condition.loc();

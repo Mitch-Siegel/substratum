@@ -17,7 +17,7 @@ pub fn _find_unlowered_irs(cf: &ControlFlow) -> HashMap<usize, HashSet<usize>> {
 }
 
 pub fn lower_function(
-    def_path: symtab::DefPath,
+    def_path: symtab::RawPath,
     _symtab: symtab::SymbolTable,
 ) -> symtab::SymbolTable {
     let _span = trace::span_auto_debug!("Lower function ", "{}", def_path.last());

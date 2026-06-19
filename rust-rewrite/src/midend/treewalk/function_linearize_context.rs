@@ -11,9 +11,9 @@ impl FunctionLinearizeCtx {
     #[tracing::instrument(level = "debug")]
     pub fn new(
         prototype: symtab::values::function::FunctionPrototype,
-        def_path: symtab::DefPath,
+        def_path: symtab::ValuePath,
         unit_type: types::Semantic,
-        arg_def_paths: Vec<symtab::DefPath>,
+        arg_def_paths: Vec<symtab::RawPath>,
     ) -> Self {
         let (mut block_manager, start_block_label) =
             ir::BlockManager::new(unit_type, def_path.clone());
@@ -64,7 +64,7 @@ impl FunctionLinearizeCtx {
         self.block_manager.get_mut(&old_current).unwrap()
     }
 
-    fn set_current_block(&mut self, label: usize) -> &symtab::DefPath {
+    fn set_current_block(&mut self, label: usize) -> &symtab::ValuePath {
         // sanity check - look up the block to ensure it exists
         self.block_manager.get_mut(&label).unwrap();
 
@@ -106,8 +106,8 @@ impl FunctionLinearizeCtx {
     pub fn unconditional_branch_from_current(
         &mut self,
         loc: SourceLoc,
-        parent_scope_def_path: symtab::DefPath,
-        true_scope_def_path: symtab::DefPath,
+        parent_scope_def_path: symtab::ValuePath,
+        true_scope_def_path: symtab::ValuePath,
     ) -> Result<(), ir::block_manager::BranchError> {
         trace::debug!("create unconditional branch from current block");
 
@@ -133,9 +133,9 @@ impl FunctionLinearizeCtx {
         &mut self,
         loc: SourceLoc,
         condition: ir::lowered::operands::JumpCondition,
-        parent_scope_def_path: symtab::DefPath,
-        true_scope_def_path: symtab::DefPath,
-        false_scope_def_path: symtab::DefPath,
+        parent_scope_def_path: symtab::ValuePath,
+        true_scope_def_path: symtab::ValuePath,
+        false_scope_def_path: symtab::ValuePath,
     ) -> Result<(), ir::block_manager::BranchError> {
         trace::debug!("create conditional branch from current block");
 
@@ -158,8 +158,8 @@ impl FunctionLinearizeCtx {
     pub fn create_loop(
         &mut self,
         loc: SourceLoc,
-        parent_scope_def_path: symtab::DefPath,
-        loop_scope_def_path: symtab::DefPath,
+        parent_scope_def_path: symtab::ValuePath,
+        loop_scope_def_path: symtab::ValuePath,
     ) -> Result<usize, ir::block_manager::BranchError> {
         trace::debug!("create loop");
 
@@ -201,8 +201,8 @@ impl FunctionLinearizeCtx {
     pub fn create_switch(
         &mut self,
         loc: SourceLoc,
-        parent_scope_def_path: symtab::DefPath,
-        switch_scope_def_path: symtab::DefPath,
+        parent_scope_def_path: symtab::ValuePath,
+        switch_scope_def_path: symtab::ValuePath,
     ) -> Result<(), ir::block_manager::BranchError> {
         let switch_block = self.block_manager.create_switch(
             self.current_block,
@@ -219,7 +219,7 @@ impl FunctionLinearizeCtx {
     // returns the label of the first block in the case
     pub fn create_switch_case(
         &mut self,
-        case_scope_def_path: symtab::DefPath,
+        case_scope_def_path: symtab::ValuePath,
     ) -> Result<usize, ir::block_manager::BranchError> {
         let case_label = self
             .block_manager

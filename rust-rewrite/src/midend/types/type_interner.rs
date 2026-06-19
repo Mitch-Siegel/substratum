@@ -8,12 +8,12 @@ pub use monomorphization::*;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 struct DefPathWithParamSubsts {
-    pub def_path: symtab::DefPath,
+    pub def_path: symtab::RawPath,
     pub param_substs: ParamSubstMap,
 }
 
 impl DefPathWithParamSubsts {
-    pub fn new(def_path: symtab::DefPath, param_substs: ParamSubstMap) -> Self {
+    pub fn new(def_path: symtab::RawPath, param_substs: ParamSubstMap) -> Self {
         Self {
             def_path,
             param_substs,
@@ -36,7 +36,7 @@ impl std::fmt::Debug for DefPathWithParamSubsts {
 pub struct Interner {
     id_mappings: HashMap<Semantic, DefPathWithParamSubsts>,
     reverse_id_mappings: HashMap<DefPathWithParamSubsts, Semantic>,
-    generic_instances: HashMap<symtab::DefPath, monomorphization::InstanceSet>,
+    generic_instances: HashMap<symtab::RawPath, monomorphization::InstanceSet>,
 }
 
 impl Interner {
@@ -56,7 +56,7 @@ impl Interner {
 
     pub fn insert_type(
         &mut self,
-        def_path: symtab::DefPath,
+        def_path: symtab::RawPath,
         definition: symtab::types::TypeDecl,
     ) -> Result<Semantic, symtab::SymbolError> {
         assert!(&def_path.is_type());
@@ -81,7 +81,7 @@ impl Interner {
     #[tracing::instrument(skip(self), level = "debug")]
     pub fn semantic_for_defpath(
         &self,
-        def_path: symtab::DefPath,
+        def_path: symtab::RawPath,
         param_substs: ParamSubstMap,
     ) -> Option<Semantic> {
         self.reverse_id_mappings
@@ -92,7 +92,7 @@ impl Interner {
     #[tracing::instrument(skip(self), level = "debug")]
     pub fn record_monomorphization(
         &mut self,
-        def_path: symtab::DefPath,
+        def_path: symtab::RawPath,
         generic_params: ParamSubstMap,
     ) -> Result<Semantic, symtab::SymbolError> {
         let instances = match self.generic_instances.get_mut(&def_path) {
@@ -147,8 +147,8 @@ impl Interner {
         Ok(self.get_type_definition(id)?.syntactic())
     }
 
-    pub fn all_monomorphizations(&self) -> HashMap<symtab::DefPath, HashSet<Vec<&ParamSubst>>> {
-        let mut instances = HashMap::<symtab::DefPath, HashSet<Vec<&ParamSubst>>>::new();
+    pub fn all_monomorphizations(&self) -> HashMap<symtab::RawPath, HashSet<Vec<&ParamSubst>>> {
+        let mut instances = HashMap::<symtab::RawPath, HashSet<Vec<&ParamSubst>>>::new();
 
         for (path, instance_set) in &self.generic_instances {
             let mut queue = Vec::new();

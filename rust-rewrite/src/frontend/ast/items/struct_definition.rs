@@ -1,4 +1,4 @@
-use crate::{frontend::ast::*, midend::symtab::Path};
+use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct StructFieldTree {
@@ -12,11 +12,11 @@ impl Ast for StructFieldTree {
     }
 }
 
-impl midend::treewalk::Linearize for StructFieldTree {
+impl midend::treewalk::Linearize<midend::symtab::TypePath> for StructFieldTree {
     type Data = (String, midend::types::Syntactic);
     fn linearize(
         self,
-        ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::TypeLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let (maybe_field_type, ctx) = self.type_.linearize_in_place(ctx)?;
 
@@ -63,36 +63,40 @@ impl Display for StructDefinitionTree {
     }
 }
 
-impl midend::treewalk::Collect for StructDefinitionTree {
+impl midend::treewalk::Collect<midend::symtab::TypePath> for StructDefinitionTree {
     fn collect_symbols(
         &self,
-        mut ctx: midend::treewalk::CollectCtx,
+        mut ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
-        let struct_path = ctx.declare_type(self.name.value.clone())?;
+        let _struct_path = ctx.declare_type(self.name.value.clone())?;
 
-        self.generic_params.collect_symbols(
-            ctx.with_segment(struct_path.last().clone())
-                .expect("invalid path for struct"),
-        )
+        let struct_ctx = ctx
+            .with_child_type(self.name.value.clone())
+            .expect("invalid path for struct");
+
+        self.generic_params.collect_symbols(struct_ctx)
     }
 }
 
-impl midend::treewalk::Linearize for StructDefinitionTree {
+impl midend::treewalk::Linearize<midend::symtab::TypePath> for StructDefinitionTree {
     type Data = (
         midend::symtab::types::StructRepr,
-        <generics::OptionalGenericParamsListTree as midend::treewalk::Linearize>::Data,
+        <generics::OptionalGenericParamsListTree as midend::treewalk::Linearize<
+            midend::symtab::RawPath,
+        >>::Data,
     );
     #[tracing::instrument(skip(self, ctx), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        mut ctx: midend::treewalk::TypeLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
-        let struct_name;
-        (struct_name, ctx) = self.name.linearize_in_place(ctx)?;
+        let struct_name: String;
 
-        ctx = ctx
-            .with_segment(midend::symtab::PathSegment::Type(struct_name.clone()))
-            .unwrap();
+        (struct_name, ctx) = <ast::IdentifierTree as midend::treewalk::Linearize<
+            midend::symtab::TypePath,
+        >>::linearize_in_place(self.name, ctx)?;
+
+        ctx = ctx.with_child_type(struct_name.clone()).unwrap();
 
         let mut fields = Vec::new();
         for field in self.fields {
@@ -104,7 +108,7 @@ impl midend::treewalk::Linearize for StructDefinitionTree {
         // TODO: struct duplicate field error
         let struct_repr = midend::symtab::types::StructRepr::new(struct_name, fields).unwrap();
 
-        let (params, ctx) = self.generic_params.linearize(ctx)?;
+        let (params, ctx) = self.generic_params.linearize(ctx.into())?;
 
         ctx.into_result((struct_repr, params))
     }

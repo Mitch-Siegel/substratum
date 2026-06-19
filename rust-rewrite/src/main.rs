@@ -210,7 +210,7 @@ fn main() {
     let mut module_worklist = BTreeSet::<String>::new();
     let (_, worklist_item) = file_path_to_module_name(std::path::Path::new(&input_file));
     module_worklist.insert(worklist_item.to_str().unwrap().into());
-    let mut modules = Vec::<frontend::ast::ModuleTree>::new();
+    let mut modules = BTreeSet::<frontend::ast::ModuleTree>::new();
 
     while let Some(filename_to_parse) = module_worklist.pop_last() {
         let filepath_to_parse = std::path::Path::new(&filename_to_parse);
@@ -282,7 +282,7 @@ fn main() {
 
         module_worklist.append(&mut parsed_worklist);
 
-        modules.push(module_tree);
+        assert!(modules.insert(module_tree));
     }
 
     let _symtab = midend::symbol_table_from_modules(modules);

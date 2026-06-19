@@ -1,5 +1,7 @@
 use crate::{frontend, trace};
 
+use std::collections::BTreeSet;
+
 #[allow(unused)]
 mod idfa;
 pub mod ir;
@@ -32,7 +34,9 @@ fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
     );
 }
 
-pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> symtab::SymbolTable {
+pub fn symbol_table_from_modules(
+    modules: BTreeSet<frontend::ast::ModuleTree>,
+) -> symtab::SymbolTable {
     let _ = trace::span_auto!(trace::Level::DEBUG, "Generate symbol table from AST");
 
     tracing::debug!("Walk AST");

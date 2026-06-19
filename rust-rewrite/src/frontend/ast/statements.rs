@@ -21,25 +21,27 @@ impl Ast for StatementTree {
     }
 }
 
-impl midend::treewalk::Collect for StatementTree {
+impl midend::treewalk::Collect<midend::symtab::ValuePath> for StatementTree {
     fn collect_symbols(
         &self,
-        ctx: midend::treewalk::CollectCtx,
+        ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
         match self {
             StatementTree::Let(let_stmt) => let_stmt.collect_symbols(ctx),
-            StatementTree::Item(item) => item.collect_symbols(ctx),
+            // FUTURE: support items in statements
+            StatementTree::Item(_) => unimplemented!("items in statements not yet supported"),
+            // StatementTree::Item(item) => item.collect_symbols(ctx),
             StatementTree::Expression(expr) => expr.collect_symbols(ctx),
         }
     }
 }
 
-impl midend::treewalk::Linearize for StatementTree {
+impl midend::treewalk::Linearize<midend::symtab::ValuePath> for StatementTree {
     type Data = Option<midend::ir::ValueId>;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let (maybe_value, ctx) = match self {
             Self::Item(_) => unimplemented!(),

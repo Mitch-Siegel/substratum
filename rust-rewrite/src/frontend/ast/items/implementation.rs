@@ -19,21 +19,21 @@ impl Ast for ImplementationTree {
     }
 }
 
-impl midend::treewalk::Collect for ImplementationTree {
+impl midend::treewalk::Collect<midend::symtab::TypePath> for ImplementationTree {
     fn collect_symbols(
         &self,
-        ctx: midend::treewalk::CollectCtx,
+        ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
         Ok(ctx.take())
     }
 }
 
-impl midend::treewalk::Linearize for ImplementationTree {
+impl midend::treewalk::Linearize<midend::symtab::TypePath> for ImplementationTree {
     type Data = ();
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::TypeLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         unimplemented!();
         /*

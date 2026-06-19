@@ -42,10 +42,10 @@ impl Ast for ItemTree {
     }
 }
 
-impl midend::treewalk::Collect for ItemTree {
+impl midend::treewalk::Collect<midend::symtab::TypePath> for ItemTree {
     fn collect_symbols(
         &self,
-        ctx: midend::treewalk::CollectCtx,
+        ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
         match self {
             ItemTree::FunctionDeclaration(function_declaration) => {
@@ -68,11 +68,11 @@ impl midend::treewalk::Collect for ItemTree {
     }
 }
 
-impl midend::treewalk::Linearize for ItemTree {
+impl midend::treewalk::Linearize<midend::symtab::TypePath> for ItemTree {
     type Data = ();
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        mut ctx: midend::treewalk::TypeLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         let ctx = match self {
             ItemTree::FunctionDeclaration(function_declaration) => {

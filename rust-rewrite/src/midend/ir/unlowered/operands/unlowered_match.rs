@@ -1,7 +1,7 @@
 use crate::midend::{ir::unlowered::*, treewalk::Linearize};
 
 struct _MatchArmContext {
-    pub ctx: treewalk::LinearizeCtx,
+    pub ctx: treewalk::ValueLinearizeCtx,
     pub scrutinee: ValueId,
 }
 
@@ -155,7 +155,7 @@ pub struct MatchOperands {
 }
 
 impl Lowerable for MatchOperands {
-    fn lower(self, _ctx: &mut treewalk::LinearizeCtx, _loc: SourceLoc) {
+    fn lower(self, _ctx: &mut treewalk::ValueLinearizeCtx, _loc: SourceLoc) {
         // TODO: implement actual match decision tree logic
         unimplemented!();
 

@@ -100,14 +100,14 @@ where
     }
 }
 
-impl<T> midend::treewalk::Linearize for PathSegmentTree<T>
+impl<T> midend::treewalk::Linearize<midend::symtab::RawPath> for PathSegmentTree<T>
 where
     T: Ast,
 {
     type Data = PathSegmentAction<T>;
     fn linearize(
         self,
-        ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<PathSegmentAction<T>> {
         let (action, ctx) = match self.ident {
             IdentSegment::Super(_) => (PathSegmentAction::Super(self.data), ctx.take()),
@@ -275,24 +275,24 @@ mod path_walk {
             {
                 if let Some(data) = maybe_data {
                     let data_path =
-                        midend::symtab::DefPath::new(prefix_segments.clone(), segment.clone());
+                        midend::symtab::RawPath::new(prefix_segments.clone(), segment.clone());
                     pathed_data.insert(data_path, data);
                 }
 
                 prefix_segments.push(segment);
             }
 
-            let type_path = midend::symtab::DefPath::new(
+            let type_path = midend::symtab::RawPath::new(
                 prefix_segments.clone(),
                 midend::symtab::PathSegment::Type(segment_name.clone()),
             );
 
-            let value_path = midend::symtab::DefPath::new(
+            let value_path = midend::symtab::RawPath::new(
                 prefix_segments.clone(),
                 midend::symtab::PathSegment::Value(segment_name.clone()),
             );
 
-            let macro_path = midend::symtab::DefPath::new(
+            let macro_path = midend::symtab::RawPath::new(
                 prefix_segments.clone(),
                 midend::symtab::PathSegment::Macro(segment_name.clone()),
             );
@@ -335,12 +335,12 @@ where
 {
     loc: sourceloc::SourceSpan,
     prefix_segments: Vec<midend::symtab::PathSegment>,
-    pathed_data: HashMap<midend::symtab::DefPath, T>,
+    pathed_data: HashMap<midend::symtab::RawPath, T>,
     last_ident: String,
     last_segment_data: Option<T>,
-    type_path: Option<midend::symtab::DefPath>,
-    value_path: Option<midend::symtab::DefPath>,
-    macro_path: Option<midend::symtab::DefPath>,
+    type_path: Option<midend::symtab::RawPath>,
+    value_path: Option<midend::symtab::RawPath>,
+    macro_path: Option<midend::symtab::RawPath>,
 }
 
 impl<T> FinishedPathWalk<T>
@@ -348,10 +348,10 @@ where
     T: std::fmt::Debug,
 {
     fn handle_last_segment_data(
-        mut pathed_data: HashMap<midend::symtab::DefPath, T>,
-        path: &midend::symtab::DefPath,
+        mut pathed_data: HashMap<midend::symtab::RawPath, T>,
+        path: &midend::symtab::RawPath,
         maybe_data: Option<T>,
-    ) -> HashMap<midend::symtab::DefPath, T> {
+    ) -> HashMap<midend::symtab::RawPath, T> {
         if let Some(data) = maybe_data {
             pathed_data.insert(path.clone(), data);
         }
@@ -360,10 +360,10 @@ where
 
     pub fn into_type(
         self,
-    ) -> Result<(midend::symtab::DefPath, HashMap<midend::symtab::DefPath, T>), String> {
+    ) -> Result<(midend::symtab::RawPath, HashMap<midend::symtab::RawPath, T>), String> {
         let path = self.type_path.ok_or(format!(
             "path {} (@{}) is not valid as type",
-            midend::symtab::DefPath::new(
+            midend::symtab::RawPath::new(
                 self.prefix_segments,
                 midend::symtab::PathSegment::Value(self.last_ident),
             ),
@@ -377,10 +377,10 @@ where
 
     pub fn into_value(
         self,
-    ) -> Result<(midend::symtab::DefPath, HashMap<midend::symtab::DefPath, T>), String> {
+    ) -> Result<(midend::symtab::RawPath, HashMap<midend::symtab::RawPath, T>), String> {
         let path = self.value_path.ok_or(format!(
             "path {} (@{}) is not valid as value",
-            midend::symtab::DefPath::new(
+            midend::symtab::RawPath::new(
                 self.prefix_segments,
                 midend::symtab::PathSegment::Value(self.last_ident),
             ),
@@ -394,10 +394,10 @@ where
 
     pub fn into_macro(
         self,
-    ) -> Result<(midend::symtab::DefPath, HashMap<midend::symtab::DefPath, T>), String> {
+    ) -> Result<(midend::symtab::RawPath, HashMap<midend::symtab::RawPath, T>), String> {
         let path = self.macro_path.ok_or(format!(
             "path {} is not valid as macro",
-            midend::symtab::DefPath::new(
+            midend::symtab::RawPath::new(
                 self.prefix_segments,
                 midend::symtab::PathSegment::Macro(self.last_ident)
             )
@@ -509,16 +509,16 @@ where
     }
 }
 
-impl<T> midend::treewalk::Linearize for PathTree<T>
+impl<T> midend::treewalk::Linearize<midend::symtab::RawPath> for PathTree<T>
 where
     T: Ast + std::fmt::Display + std::fmt::Debug,
 {
     type Data = FinishedPathWalk<T>;
     fn linearize(
         self,
-        mut ctx: midend::treewalk::LinearizeCtx,
+        mut ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
-        let ctx_path = ctx.path().clone();
+        let ctx_path: midend::symtab::RawPath = ctx.path().clone();
         let ctx_segments = ctx_path.clone().into_iter().collect::<Vec<_>>();
         let mut walk_state = if self.starts_global.is_some() {
             PathWalkState::<T>::start_global()

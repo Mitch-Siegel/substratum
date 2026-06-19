@@ -26,7 +26,7 @@ impl std::fmt::Display for ValueError {
 pub struct ValueInterner {
     values: Vec<Value>,
     ids: HashMap<Value, ValueId>,
-    pathed_ids: HashMap<symtab::DefPath, ValueId>,
+    pathed_ids: HashMap<symtab::RawPath, ValueId>,
     temp_count: usize,
 }
 
@@ -84,7 +84,7 @@ impl ValueInterner {
 
     /// given the DefPath, return its ValueID. Requires &mut self as this method may
     /// generate a new ValueId if one does not already exist for the variable
-    pub fn id_for_path(&mut self, def_path: symtab::DefPath) -> ValueId {
+    pub fn id_for_path(&mut self, def_path: symtab::RawPath) -> ValueId {
         match self.pathed_ids.get(&def_path) {
             Some(id) => *id,
             None => self
@@ -96,7 +96,7 @@ impl ValueInterner {
     /// given a ValueId, return an option containing the DefPath of the associated variable, or
     /// None if the backing value has a kind other than Variable. Returns NoSuchValueId in
     /// error cases
-    pub fn def_path_for_id(&self, id: &ValueId) -> Result<Option<&symtab::DefPath>, ValueError> {
+    pub fn def_path_for_id(&self, id: &ValueId) -> Result<Option<&symtab::RawPath>, ValueError> {
         match &self.value_for_id(id)?.kind {
             ValueKind::Variable(def_path) => Ok(Some(def_path)),
             _ => Ok(None),

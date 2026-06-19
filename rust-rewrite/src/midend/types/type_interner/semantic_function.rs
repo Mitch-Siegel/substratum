@@ -44,7 +44,7 @@ impl
     TryFrom<(
         Syntactic,
         ParamSubstMap,
-        &symtab::DefPath,
+        &symtab::RawPath,
         &symtab::SymbolTable,
     )> for SemanticFunction
 {
@@ -53,7 +53,7 @@ impl
         value: (
             Syntactic,
             ParamSubstMap,
-            &symtab::DefPath,
+            &symtab::RawPath,
             &symtab::SymbolTable,
         ),
     ) -> Result<Self, Self::Error> {

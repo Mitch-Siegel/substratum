@@ -6,7 +6,7 @@ use operands::*;
 #[allow(unused)]
 #[enum_delegate::register]
 pub trait Lowerable {
-    fn lower(self, context: &mut treewalk::LinearizeCtx, loc: SourceLoc);
+    fn lower(self, context: &mut treewalk::ValueLinearizeCtx, loc: SourceLoc);
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

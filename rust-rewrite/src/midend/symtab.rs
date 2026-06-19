@@ -26,18 +26,26 @@ pub use visitor::*;
 pub trait Symtab {
     fn insert(
         &mut self,
-        path: DefPath,
+        path: RawPath,
         maybe_symbol: Option<SymbolDef>,
-    ) -> Result<DefPath, SymbolError>;
+    ) -> Result<RawPath, SymbolError>;
 
     // declare 'path' to exist
-    fn declare(&mut self, path: DefPath) -> Result<DefPath, SymbolError> {
+    fn declare(&mut self, path: RawPath) -> Result<RawPath, SymbolError> {
         trace::trace!("declare {}", path);
         self.insert(path, None)
     }
 
+    fn declare_type(&mut self, path: TypePath) -> Result<TypePath, SymbolError> {
+        self.declare(path.0).map(TypePath::from)
+    }
+
+    fn declare_value(&mut self, path: ValuePath) -> Result<ValuePath, SymbolError> {
+        self.declare(path.0).map(ValuePath::from)
+    }
+
     // define 'symbol' as a child of 'path', returning path::symbol or error
-    fn define(&mut self, path: DefPath, symbol: SymbolDef) -> Result<DefPath, SymbolError> {
+    fn define(&mut self, path: RawPath, symbol: SymbolDef) -> Result<RawPath, SymbolError> {
         match symbol {
             SymbolDef::Type(_) => assert!(path.is_type()),
             SymbolDef::Value(_) => assert!(path.is_value()),
@@ -66,16 +74,26 @@ pub trait Symtab {
         self.insert(path, Some(symbol))
     }
 
-    fn lookup_at(&self, path: &DefPath) -> Result<Option<&SymbolDef>, SymbolError>;
+    fn define_type(&mut self, path: TypePath, symbol: Type) -> Result<TypePath, SymbolError> {
+        self.define(path.0, SymbolDef::Type(symbol))
+            .map(TypePath::from)
+    }
 
-    fn lookup_decl_at(&self, path: &DefPath) -> Result<(), SymbolError> {
+    fn define_value(&mut self, path: ValuePath, symbol: Value) -> Result<ValuePath, SymbolError> {
+        self.define(path.0, SymbolDef::Value(symbol))
+            .map(ValuePath::from)
+    }
+
+    fn lookup_at(&self, path: &RawPath) -> Result<Option<&SymbolDef>, SymbolError>;
+
+    fn lookup_decl_at(&self, path: &RawPath) -> Result<(), SymbolError> {
         match self.lookup_at(path) {
             Ok(_) => Ok(()),
             Err(e) => Err(e),
         }
     }
 
-    fn lookup_def_at(&self, path: &DefPath) -> Result<&SymbolDef, SymbolError> {
+    fn lookup_def_at(&self, path: &RawPath) -> Result<&SymbolDef, SymbolError> {
         match self.lookup_at(path) {
             Ok(Some(symbol)) => Ok(symbol),
             Ok(None) => Err(SymbolError::Undefined(path.clone())),
@@ -85,9 +103,9 @@ pub trait Symtab {
 
     fn lookup_def(
         &self,
-        search_path: DefPath,
-        lookup_path: DefPath,
-    ) -> Result<(&SymbolDef, DefPath), SymbolError> {
+        search_path: RawPath,
+        lookup_path: RawPath,
+    ) -> Result<(&SymbolDef, RawPath), SymbolError> {
         let mut search_segments = search_path.clone().into_iter().collect::<Vec<_>>();
         let lookup_segments = lookup_path.clone().into_iter().collect::<Vec<_>>();
         let (symbol_segment, lookup_segments) = lookup_segments.split_last().unwrap();
@@ -97,7 +115,7 @@ pub trait Symtab {
                 .into_iter()
                 .chain(lookup_segments.to_owned())
                 .collect::<Vec<_>>();
-            let search_path = DefPath::new(all_prefix_segments, symbol_segment.to_owned());
+            let search_path = RawPath::new(all_prefix_segments, symbol_segment.to_owned());
             match self.lookup_at(&search_path) {
                 Ok(Some(symbol)) => {
                     return Ok((symbol, search_path));
@@ -113,9 +131,9 @@ pub trait Symtab {
 
     fn lookup_decl(
         &self,
-        search_path: DefPath,
-        lookup_path: DefPath,
-    ) -> Result<DefPath, SymbolError> {
+        search_path: RawPath,
+        lookup_path: RawPath,
+    ) -> Result<RawPath, SymbolError> {
         let mut search_segments = search_path.clone().into_iter().collect::<Vec<_>>();
         let lookup_segments = lookup_path.clone().into_iter().collect::<Vec<_>>();
         let (symbol_segment, lookup_segments) = lookup_segments.split_last().unwrap();
@@ -125,7 +143,7 @@ pub trait Symtab {
                 .into_iter()
                 .chain(lookup_segments.to_owned())
                 .collect::<Vec<_>>();
-            let search_path = DefPath::new(all_prefix_segments, symbol_segment.to_owned());
+            let search_path = RawPath::new(all_prefix_segments, symbol_segment.to_owned());
             match self.lookup_at(&search_path) {
                 Ok(Some(_)) | Ok(None) => {
                     return Ok(search_path);
@@ -139,21 +157,21 @@ pub trait Symtab {
         Err(SymbolError::Undeclared(lookup_path))
     }
 
-    fn get_impls_for(&self, path: &DefPath) -> Result<&HashSet<DefPath>, SymbolError>;
+    fn get_impls_for(&self, path: &RawPath) -> Result<&HashSet<RawPath>, SymbolError>;
 
     fn create_impl(
         &mut self,
-        impl_parent_path: DefPath,
-        impl_for_path: DefPath,
-    ) -> Result<DefPath, SymbolError>;
+        impl_parent_path: RawPath,
+        impl_for_path: RawPath,
+    ) -> Result<RawPath, SymbolError>;
 }
 
 pub struct SymbolTable {
     pub types: midend::types::Interner,
     // mapping of symbols to declarations (None) or definitions (Some)
-    symbols: BTreeMap<DefPath, Option<SymbolDef>>,
-    children: BTreeMap<DefPath, HashSet<DefPath>>,
-    impls: BTreeMap<DefPath, HashSet<DefPath>>,
+    symbols: BTreeMap<RawPath, Option<SymbolDef>>,
+    children: BTreeMap<RawPath, HashSet<RawPath>>,
+    impls: BTreeMap<RawPath, HashSet<RawPath>>,
 }
 
 impl Default for SymbolTable {
@@ -190,55 +208,36 @@ impl SymbolTable {
         symtab
     }
 
-    pub fn children(&self, def_path: &DefPath) -> HashSet<&DefPath> {
+    pub fn children(&self, def_path: &RawPath) -> HashSet<&RawPath> {
         match self.children.get(def_path) {
             Some(paths) => paths.iter().collect(),
             None => HashSet::new(),
         }
     }
 
-    pub fn decls(&self) -> impl Iterator<Item = &DefPath> {
+    pub fn decls(&self) -> impl Iterator<Item = &RawPath> {
         self.symbols.keys()
     }
 
-    pub fn defs(&self) -> impl Iterator<Item = (&DefPath, &SymbolDef)> {
+    pub fn defs(&self) -> impl Iterator<Item = (&RawPath, &SymbolDef)> {
         self.symbols
             .iter()
             .filter_map(|(path, maybe_def)| maybe_def.as_ref().map(|def| (path, def)))
     }
 
-    pub fn defs_mut(&mut self) -> impl Iterator<Item = (&DefPath, &mut SymbolDef)> {
+    pub fn defs_mut(&mut self) -> impl Iterator<Item = (&RawPath, &mut SymbolDef)> {
         self.symbols
             .iter_mut()
             .filter_map(|(path, maybe_def)| maybe_def.as_mut().map(|def| (path, def)))
-    }
-
-    pub fn define_type<S>(
-        &mut self,
-        parent_path: DefPath,
-        symbol: S,
-    ) -> Result<DefPath, SymbolError>
-    where
-        S: Into<Type>,
-    {
-        self.define(parent_path, symbol.into().into())
-    }
-
-    pub fn define_value(
-        &mut self,
-        parent_path: DefPath,
-        symbol: Value,
-    ) -> Result<DefPath, SymbolError> {
-        self.define(parent_path, SymbolDef::Value(symbol))
     }
 }
 
 impl Symtab for SymbolTable {
     fn insert(
         &mut self,
-        path: DefPath,
+        path: RawPath,
         maybe_symbol: Option<SymbolDef>,
-    ) -> Result<DefPath, SymbolError> {
+    ) -> Result<RawPath, SymbolError> {
         let allow_definition = maybe_symbol.is_some();
         if path.len() > 1 {
             let (parent_path, _) = path.clone().without_last().unwrap();
@@ -266,14 +265,14 @@ impl Symtab for SymbolTable {
         }
     }
 
-    fn lookup_at(&self, path: &DefPath) -> Result<Option<&SymbolDef>, SymbolError> {
+    fn lookup_at(&self, path: &RawPath) -> Result<Option<&SymbolDef>, SymbolError> {
         match self.symbols.get(path) {
             Some(maybe_symbol) => Ok(maybe_symbol.as_ref()),
             None => Err(SymbolError::Undeclared(path.clone())),
         }
     }
 
-    fn get_impls_for(&self, path: &DefPath) -> Result<&HashSet<DefPath>, SymbolError> {
+    fn get_impls_for(&self, path: &RawPath) -> Result<&HashSet<RawPath>, SymbolError> {
         self.impls
             .get(path)
             .ok_or(SymbolError::Undeclared(path.clone()))
@@ -281,9 +280,9 @@ impl Symtab for SymbolTable {
 
     fn create_impl(
         &mut self,
-        _impl_parent_path: DefPath,
-        _impl_for_path: DefPath,
-    ) -> Result<DefPath, SymbolError> {
+        _impl_parent_path: RawPath,
+        _impl_for_path: RawPath,
+    ) -> Result<RawPath, SymbolError> {
         unimplemented!();
     }
 }
@@ -293,7 +292,7 @@ impl SymbolTable {
     #[tracing::instrument(skip(self), level = "debug")]
     pub fn semantic_type_for_syntactic(
         &self,
-        search_def_path: &DefPath,
+        search_def_path: &RawPath,
         generic_params: midend::types::ParamSubstMap,
         ty_: &midend::types::Syntactic,
     ) -> Result<midend::types::Semantic, SymbolError> {
@@ -322,8 +321,8 @@ mod tests {
         let mut symtab = SymbolTable::new();
 
         assert_eq!(
-            symtab.define(DefPath::empty(), Module::new("test_mod".into())),
-            Ok(DefPath::empty()
+            symtab.define(RawPath::empty(), Module::new("test_mod".into())),
+            Ok(RawPath::empty()
                 .with_component(PathSegment::Module(ModuleName {
                     name: "test_mod".into()
                 }))

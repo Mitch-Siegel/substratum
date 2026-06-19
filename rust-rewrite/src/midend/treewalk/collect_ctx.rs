@@ -21,31 +21,31 @@ impl PathableContext for UnpathedCollectCtx {}
 impl Symtab for UnpathedCollectCtx {
     fn insert(
         &mut self,
-        path: symtab::DefPath,
+        path: symtab::RawPath,
         maybe_symbol: Option<symtab::SymbolDef>,
-    ) -> Result<symtab::DefPath, symtab::SymbolError> {
+    ) -> Result<symtab::RawPath, symtab::SymbolError> {
         self.symtab.insert(path, maybe_symbol)
     }
 
     fn lookup_at(
         &self,
-        path: &symtab::DefPath,
+        path: &symtab::RawPath,
     ) -> Result<Option<&symtab::SymbolDef>, symtab::SymbolError> {
         self.symtab.lookup_at(path)
     }
 
     fn get_impls_for(
         &self,
-        path: &symtab::DefPath,
-    ) -> Result<&HashSet<symtab::DefPath>, symtab::SymbolError> {
+        path: &symtab::RawPath,
+    ) -> Result<&HashSet<symtab::RawPath>, symtab::SymbolError> {
         self.symtab.get_impls_for(path)
     }
 
     fn create_impl(
         &mut self,
-        impl_parent_path: symtab::DefPath,
-        impl_for_path: symtab::DefPath,
-    ) -> Result<symtab::DefPath, symtab::SymbolError> {
+        impl_parent_path: symtab::RawPath,
+        impl_for_path: symtab::RawPath,
+    ) -> Result<symtab::RawPath, symtab::SymbolError> {
         self.symtab.create_impl(impl_parent_path, impl_for_path)
     }
 }

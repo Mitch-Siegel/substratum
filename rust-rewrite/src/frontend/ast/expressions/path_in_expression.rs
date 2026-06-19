@@ -19,20 +19,20 @@ impl Ast for PathInExpressionTree {
     }
 }
 
-impl midend::treewalk::Collect for PathInExpressionTree {
+impl midend::treewalk::Collect<midend::symtab::ValuePath> for PathInExpressionTree {
     fn collect_symbols(
         &self,
-        ctx: midend::treewalk::CollectCtx,
+        ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
         Ok(ctx.take())
     }
 }
 
-impl midend::treewalk::Linearize for PathInExpressionTree {
+impl midend::treewalk::Linearize<midend::symtab::ValuePath> for PathInExpressionTree {
     type Data = midend::ir::ValueId;
     fn linearize(
         self,
-        mut _ctx: midend::treewalk::LinearizeCtx,
+        mut _ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         unimplemented!();
         /*

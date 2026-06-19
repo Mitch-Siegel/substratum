@@ -36,22 +36,22 @@ impl Display for LetTree {
     }
 }
 
-impl midend::treewalk::Collect for LetTree {
+impl midend::treewalk::Collect<midend::symtab::ValuePath> for LetTree {
     fn collect_symbols(
         &self,
-        mut ctx: midend::treewalk::CollectCtx,
+        mut ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
         ctx.declare_value(self.name.value.clone())?;
         Ok(ctx.take())
     }
 }
 
-impl midend::treewalk::Linearize for LetTree {
+impl midend::treewalk::Linearize<midend::symtab::ValuePath> for LetTree {
     type Data = ();
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        ctx: midend::treewalk::LinearizeCtx,
+        ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         unimplemented!();
         /*

@@ -8,7 +8,7 @@ pub struct FieldPointerOperands {
 }
 
 impl Lowerable for FieldPointerOperands {
-    fn lower(self, _ctx: &mut treewalk::LinearizeCtx, _loc: SourceLoc) {
+    fn lower(self, _ctx: &mut treewalk::ValueLinearizeCtx, _loc: SourceLoc) {
         unimplemented!();
     }
 }
