@@ -342,7 +342,7 @@ impl UnpathedLinearizeCtx {
     }
 }
 
-impl symtab::Symtab for UnpathedLinearizeCtx {
+impl symtab::SymtabBase for UnpathedLinearizeCtx {
     fn insert(
         &mut self,
         path: symtab::RawPath,
@@ -358,6 +358,15 @@ impl symtab::Symtab for UnpathedLinearizeCtx {
         self.symtab.lookup_at(path)
     }
 
+    fn lookup_at_mut(
+        &mut self,
+        path: &symtab::RawPath,
+    ) -> Result<Option<&mut symtab::SymbolDef>, symtab::SymbolError> {
+        self.symtab.lookup_at_mut(path)
+    }
+}
+
+impl symtab::Symtab for UnpathedLinearizeCtx {
     fn get_impls_for(
         &self,
         path: &symtab::RawPath,

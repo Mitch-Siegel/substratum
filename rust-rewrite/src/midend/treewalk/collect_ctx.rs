@@ -1,4 +1,4 @@
-use crate::midend::{symtab::Symtab, treewalk::*};
+use crate::midend::treewalk::*;
 
 use std::collections::HashSet;
 
@@ -18,7 +18,7 @@ impl UnpathedCollectCtx {
 
 impl PathableContext for UnpathedCollectCtx {}
 
-impl Symtab for UnpathedCollectCtx {
+impl symtab::SymtabBase for UnpathedCollectCtx {
     fn insert(
         &mut self,
         path: symtab::RawPath,
@@ -34,6 +34,15 @@ impl Symtab for UnpathedCollectCtx {
         self.symtab.lookup_at(path)
     }
 
+    fn lookup_at_mut(
+        &mut self,
+        path: &symtab::RawPath,
+    ) -> Result<Option<&mut symtab::SymbolDef>, symtab::SymbolError> {
+        self.symtab.lookup_at_mut(path)
+    }
+}
+
+impl symtab::Symtab for UnpathedCollectCtx {
     fn get_impls_for(
         &self,
         path: &symtab::RawPath,

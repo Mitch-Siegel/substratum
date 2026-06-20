@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use crate::{
     frontend::ast::*,
-    midend::{self, treewalk::PathableContext},
+    midend::{self, symtab::SymtabBase, treewalk::PathableContext},
 };
 
 pub enum PathSegmentAction<T> {
@@ -190,7 +190,7 @@ where
 mod path_walk {
     use crate::{
         frontend::ast::path::*,
-        midend::{self, symtab::Symtab},
+        midend::{self},
     };
     use std::collections::HashMap;
 

@@ -138,6 +138,8 @@ pub trait Path:
         }
         true
     }
+
+    fn split_last(self) -> (Option<RawPath>, PathSegment);
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -179,20 +181,22 @@ impl RawPath {
             Err(PathError::CantOwn(self.last.clone(), segment))
         }
     }
-
-    pub fn without_last(mut self) -> Result<(RawPath, PathSegment), PathError> {
-        if self.prefix_segments.is_empty() {
-            return Err(PathError::WithoutLastSingleSegment(self));
-        }
-
-        let last = std::mem::replace(&mut self.last, self.prefix_segments.pop().unwrap());
-        Ok((self, last))
-    }
 }
 
 impl Path for RawPath {
     fn len(&self) -> usize {
         self.prefix_segments.len() + 1
+    }
+
+    fn split_last(mut self) -> (Option<RawPath>, PathSegment) {
+        let prefix_path = if !self.prefix_segments.is_empty() {
+            let new_last = self.prefix_segments.pop().unwrap();
+            Some(RawPath::new(self.prefix_segments, new_last))
+        } else {
+            None
+        };
+
+        (prefix_path, self.last)
     }
 }
 
@@ -355,6 +359,10 @@ impl Path for TypePath {
     fn len(&self) -> usize {
         self.0.len()
     }
+
+    fn split_last(self) -> (Option<RawPath>, PathSegment) {
+        self.0.split_last()
+    }
 }
 
 impl From<TypePath> for RawPath {
@@ -383,6 +391,10 @@ impl std::ops::Index<usize> for ValuePath {
 impl Path for ValuePath {
     fn len(&self) -> usize {
         self.0.len()
+    }
+
+    fn split_last(self) -> (Option<RawPath>, PathSegment) {
+        self.0.split_last()
     }
 }
 
