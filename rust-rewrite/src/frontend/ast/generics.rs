@@ -268,11 +268,7 @@ impl midend::treewalk::Linearize<midend::symtab::RawPath> for GenericArgsListTre
                     ))
                 }
                 _ => midend::types::ParamSubst::Concrete(
-                    ctx.semantic_type_for_syntactic(
-                        param_type,
-                        midend::types::ParamSubstMap::empty(),
-                    )
-                    .unwrap(),
+                    ctx.semantic_type_for_syntactic(&param_type).unwrap(),
                 ),
             };
             generic_args.push(param);

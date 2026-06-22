@@ -28,16 +28,59 @@ impl std::fmt::Debug for PathError {
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TypeSegment(String);
+pub struct TypeSegment(pub String);
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ValueSegment(String);
+pub struct ValueSegment(pub String);
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct MacroSegment(String);
+pub struct MacroSegment(pub String);
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ImplSegment(pub ImplId);
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct ImplId(pub u32);
+pub struct ImplId(pub usize);
+
+impl TryFrom<PathSegment> for TypeSegment {
+    type Error = ();
+    fn try_from(value: PathSegment) -> Result<Self, Self::Error> {
+        match value {
+            PathSegment::Type(data) => Ok(Self(data)),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<PathSegment> for ValueSegment {
+    type Error = ();
+    fn try_from(value: PathSegment) -> Result<Self, Self::Error> {
+        match value {
+            PathSegment::Value(data) => Ok(Self(data)),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<PathSegment> for MacroSegment {
+    type Error = ();
+    fn try_from(value: PathSegment) -> Result<Self, Self::Error> {
+        match value {
+            PathSegment::Macro(data) => Ok(Self(data)),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<PathSegment> for ImplSegment {
+    type Error = ();
+    fn try_from(value: PathSegment) -> Result<Self, Self::Error> {
+        match value {
+            PathSegment::Impl(data) => Ok(Self(data)),
+            _ => Err(()),
+        }
+    }
+}
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PathSegment {
@@ -114,6 +157,7 @@ pub trait Path:
     + std::ops::Index<usize, Output = PathSegment>
     + IntoIterator<Item = PathSegment>
     + Sized
+    + Ord
     + Into<RawPath>
 {
     fn len(&self) -> usize;
@@ -200,6 +244,43 @@ impl Path for RawPath {
     }
 }
 
+pub trait TypeOwner: Path {
+    #[allow(unused)]
+    fn with_child_type(self, name: String) -> TypePath {
+        self.into()
+            .with_segment(PathSegment::Type(name))
+            .unwrap()
+            .into()
+    }
+}
+pub trait ValueOwner: Path {
+    fn with_child_value(self, name: String) -> ValuePath {
+        self.into()
+            .with_segment(PathSegment::Value(name))
+            .unwrap()
+            .into()
+    }
+}
+pub trait MacroOwner: Path {
+    #[allow(unused)]
+    fn with_child_macro(self, name: String) -> MacroPath {
+        self.into()
+            .with_segment(PathSegment::Macro(name))
+            .unwrap()
+            .into()
+    }
+}
+
+pub trait ImplOwner {
+    #[allow(unused)]
+    fn with_child_impl(self, id: ImplId) -> ImplPath {
+        self.into()
+            .with_segment(PathSegment::Impl(id))
+            .unwrap()
+            .into()
+    }
+}
+
 impl std::ops::Index<usize> for RawPath {
     type Output = PathSegment;
     fn index(&self, index: usize) -> &Self::Output {
@@ -249,17 +330,24 @@ impl std::fmt::Debug for RawPath {
 }
 
 #[allow(unused)]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TypePath(pub(in crate::midend::symtab) RawPath);
 #[allow(unused)]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ValuePath(pub(in crate::midend::symtab) RawPath);
 #[allow(unused)]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MacroPath(pub(in crate::midend::symtab) RawPath);
 #[allow(unused)]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ImplPath(pub(in crate::midend::symtab) RawPath);
+
+impl TypeOwner for TypePath {}
+impl ValueOwner for TypePath {}
+
+impl ValueOwner for ValuePath {}
+
+impl ValueOwner for ImplPath {}
 
 impl TypePath {
     pub fn new(parent: Option<impl Path>, name: String) -> Self {
@@ -267,55 +355,6 @@ impl TypePath {
             Some(parent) => Self(parent.into().with_segment(PathSegment::Type(name)).unwrap()),
             None => Self(RawPath::new(Vec::new(), PathSegment::Type(name))),
         }
-    }
-
-    #[allow(unused)]
-    pub fn with_child_type(self, name: String) -> Self {
-        Self(self.0.with_segment(PathSegment::Type(name)).unwrap())
-    }
-
-    #[allow(unused)]
-    pub fn with_child_value(self, name: String) -> ValuePath {
-        ValuePath(self.0.with_segment(PathSegment::Value(name)).unwrap())
-    }
-
-    #[allow(unused)]
-    pub fn with_child_macro(self, name: String) -> MacroPath {
-        MacroPath(self.0.with_segment(PathSegment::Macro(name)).unwrap())
-    }
-
-    #[allow(unused)]
-    pub fn with_child_impl(self, id: ImplId) -> ImplPath {
-        ImplPath(self.0.with_segment(PathSegment::Impl(id)).unwrap())
-    }
-}
-
-impl ValuePath {
-    #[allow(unused)]
-    pub fn with_child_value(self, name: String) -> Self {
-        Self(self.0.with_segment(PathSegment::Value(name)).unwrap())
-    }
-
-    #[allow(unused)]
-    pub fn with_child_type(self, name: String) -> TypePath {
-        TypePath(self.0.with_segment(PathSegment::Type(name)).unwrap())
-    }
-
-    #[allow(unused)]
-    pub fn with_child_macro(self, name: String) -> MacroPath {
-        MacroPath(self.0.with_segment(PathSegment::Macro(name)).unwrap())
-    }
-
-    #[allow(unused)]
-    pub fn with_child_impl(self, id: ImplId) -> ImplPath {
-        ImplPath(self.0.with_segment(PathSegment::Impl(id)).unwrap())
-    }
-}
-
-impl ImplPath {
-    #[allow(unused)]
-    pub fn with_child_value(self, name: String) -> ValuePath {
-        ValuePath(self.0.with_segment(PathSegment::Value(name)).unwrap())
     }
 }
 
@@ -413,6 +452,39 @@ impl IntoIterator for ValuePath {
     }
 }
 
+impl std::ops::Index<usize> for ImplPath {
+    type Output = PathSegment;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+impl Path for ImplPath {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn split_last(self) -> (Option<RawPath>, PathSegment) {
+        self.0.split_last()
+    }
+}
+
+impl From<ImplPath> for RawPath {
+    fn from(value: ImplPath) -> Self {
+        value.0
+    }
+}
+
+impl IntoIterator for ImplPath {
+    type Item = PathSegment;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter().collect::<Vec<_>>().into_iter()
+    }
+}
+
 impl std::fmt::Display for TypePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Type {}", self.0)
@@ -422,5 +494,11 @@ impl std::fmt::Display for TypePath {
 impl std::fmt::Display for ValuePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Value {}", self.0)
+    }
+}
+
+impl std::fmt::Display for ImplPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Impl {}", self.0)
     }
 }

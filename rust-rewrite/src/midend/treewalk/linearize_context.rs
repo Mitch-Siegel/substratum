@@ -369,16 +369,26 @@ impl symtab::SymtabBase for UnpathedLinearizeCtx {
 impl symtab::Symtab for UnpathedLinearizeCtx {
     fn get_impls_for(
         &self,
-        path: &symtab::RawPath,
-    ) -> Result<&HashSet<symtab::RawPath>, symtab::SymbolError> {
+        path: &symtab::TypePath,
+    ) -> Result<&HashSet<symtab::ImplPath>, symtab::SymbolError> {
         self.symtab.get_impls_for(path)
     }
 
     fn create_impl(
         &mut self,
         impl_parent_path: symtab::RawPath,
-        impl_for_path: symtab::RawPath,
-    ) -> Result<symtab::RawPath, symtab::SymbolError> {
+        impl_for_path: symtab::TypePath,
+    ) -> Result<symtab::ImplPath, symtab::SymbolError> {
         self.symtab.create_impl(impl_parent_path, impl_for_path)
+    }
+
+    fn semantic_type_for_syntactic(
+        &self,
+        search_def_path: &impl symtab::Path,
+        generic_params: crate::midend::types::ParamSubstMap,
+        ty_: &crate::midend::types::Syntactic,
+    ) -> Result<crate::midend::types::Semantic, symtab::SymbolError> {
+        self.symtab
+            .semantic_type_for_syntactic(search_def_path, generic_params, ty_)
     }
 }

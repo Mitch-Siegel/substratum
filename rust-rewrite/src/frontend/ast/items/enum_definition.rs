@@ -1,4 +1,10 @@
-use crate::frontend::ast::*;
+use crate::{
+    frontend::ast::*,
+    midend::{
+        symtab::{Symtab, ValueOwner},
+        treewalk::PathableContext,
+    },
+};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TupleDataTree {
@@ -61,41 +67,20 @@ impl midend::treewalk::Linearize<midend::symtab::TypePath> for EnumVariantDataTr
 }
 
 fn create_enum_variant_constructor(
-    _ctx: &midend::treewalk::TypeLinearizeCtx,
-    _enum_name: &String,
-    _variant_name: &String,
-    _arg_types: Vec<midend::types::Syntactic>,
-    _loc: sourceloc::SourceLoc,
-) -> midend::symtab::values::Function {
-    unimplemented!();
+    ctx: midend::treewalk::ImplLinearizeCtx,
+    enum_name: &String,
+    variant_name: &String,
+    arg_types: Vec<midend::types::Syntactic>,
+    loc: sourceloc::SourceLoc,
+) -> midend::treewalk::LinearizeResult<midend::symtab::values::Function> {
     // create variables for each argument, named by index
-    /*let args: Vec<midend::symtab::Variable> = arg_types
+    let args: Vec<midend::symtab::values::Variable> = arg_types
         .into_iter()
         .enumerate()
         .map(|(arg_idx, arg_type)| {
-            midend::symtab::Variable::new(format!("{}", arg_idx), Some(arg_type))
+            midend::symtab::values::Variable::new(format!("{}", arg_idx), Some(arg_type))
         })
         .collect();
-
-    // construct a defpath for the function (under an impl block at the same depth as the type decl
-    // itself)
-    let mut function_path = enum_path.clone();
-    function_path.pop().unwrap();
-    function_path
-        .push(midend::symtab::DefPathComponent::Implementation(
-            ImplementationName::new(
-                Vec::new(),
-                midend::types::Syntactic::Named(enum_name.clone()),
-                Vec::new(),
-            ),
-        ))
-        .unwrap();
-
-    function_path
-        .push(midend::symtab::DefPathComponent::Value(
-            variant_name.clone(),
-        ))
-        .unwrap();
 
     // create the function prototype, declare the function, and set up to create IR
     let prototype = midend::symtab::values::function::FunctionPrototype::new(
@@ -105,25 +90,21 @@ fn create_enum_variant_constructor(
         midend::types::Syntactic::_Self,
     );
 
-    symtab.declare(function_path.clone()).unwrap();
+    let ctor_function_path = ctx.path().clone().with_child_value(variant_name.clone());
+    ctx.declare_value(ctor_function_path.clone())?;
 
     let (mut block_mgr, current_block) = midend::ir::BlockManager::new(
-        symtab
-            .semantic_type_for_syntactic(
-                &enum_path,
-                midend::types::ParamSubstMap::empty(),
-                &midend::types::Syntactic::Unit,
-            )
+        ctx.semantic_type_for_syntactic(&midend::types::Syntactic::Unit)
             .unwrap(),
-        function_path.clone(),
+        ctor_function_path.clone(),
     );
 
     // define a variable for the object we are building
-    let constructed_object =
-        midend::symtab::Variable::new("constructed".into(), Some(midend::types::Syntactic::_Self));
-    let constructed_object_path = symtab
-        .define(function_path.clone(), constructed_object)
-        .unwrap();
+    let constructed_object = midend::symtab::values::Variable::new(
+        "constructed".into(),
+        Some(midend::types::Syntactic::_Self),
+    );
+    let constructed_object_path = ctx.define_value(constructed_object).unwrap();
 
     let constructed_object_value = block_mgr.values_mut().id_for_path(constructed_object_path);
 
@@ -135,7 +116,7 @@ fn create_enum_variant_constructor(
      * store the argument into the field
      */
     for arg in &prototype.arguments {
-        let arg_def_path = symtab.define(function_path.clone(), arg.clone()).unwrap();
+        let arg_def_path = ctx.define_value(arg.clone()).unwrap();
         let arg_value = block_mgr.values_mut().id_for_path(arg_def_path);
         let field_temp = block_mgr.values_mut().next_temp();
         let field_get_line = midend::ir::IrLine::new_get_field_pointer(
@@ -159,10 +140,8 @@ fn create_enum_variant_constructor(
         prototype,
         Some(midend::ir::ControlFlow::from(block_mgr)),
     );
-    symtab
-        .define(function_path.parent().unwrap(), ctor_function)
-        .unwrap();
-    */
+
+    ctx.define_value(ctor_function).unwrap();
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -283,26 +262,30 @@ impl midend::treewalk::Linearize<midend::symtab::TypePath> for EnumDefinitionTre
         ctx = ctx
             .with_child_type(enum_name.clone())
             .expect("path error during enum path creation");
+        let enum_path = ctx.path().clone();
 
         let mut variants: Vec<(String, midend::symtab::types::EnumVariantRepr)> = Vec::new();
+        let constructor_impl_path =
+            ctx.create_impl(midend::types::Syntactic::Named(enum_name.clone()))?;
 
         for variant in self.variants {
             let variant_loc = variant.loc();
-            let ((variant_name, variant_repr), variant_ctx) =
-                variant.linearize_in_place::<midend::symtab::TypePath>(ctx)?;
+            let ((variant_name, variant_repr), variant_ctx) = variant.linearize(ctx)?;
             let arg_types = match &variant_repr {
                 midend::symtab::types::EnumVariantRepr::Tuple(types) => types.clone(),
                 midend::symtab::types::EnumVariantRepr::Unit => Vec::new(),
             };
 
-            create_enum_variant_constructor(
-                &variant_ctx,
+            let (variant_ctor, variant_ctx) = create_enum_variant_constructor(
+                variant_ctx.with_path(constructor_impl_path.clone()),
                 &enum_name,
                 &variant_name,
                 arg_types,
                 variant_loc.start(),
-            );
-            ctx = variant_ctx;
+            )?;
+
+            ctx = variant_ctx.with_path(enum_path.clone());
+            ctx.define_value(variant_ctor)?;
 
             variants.push((variant_name, variant_repr));
         }

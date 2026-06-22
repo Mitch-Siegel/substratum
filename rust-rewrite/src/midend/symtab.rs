@@ -7,6 +7,7 @@ use crate::{
 pub use errors::*;
 
 mod def_path;
+
 mod errors;
 pub mod intrinsics;
 pub mod symbols;
@@ -16,7 +17,7 @@ pub mod implementation;
 pub mod types;
 pub mod values;
 
-pub use def_path::*;
+pub use def_path::{ImplOwner, MacroOwner, Path, TypeOwner, ValueOwner, *};
 pub use implementation::Implementation;
 pub use symbols::*;
 pub use types::Type;
@@ -259,13 +260,20 @@ pub trait Symtab: SymtabBase + private::SymtabBaseInternal {
         }
     }
 
-    fn get_impls_for(&self, path: &RawPath) -> Result<&HashSet<RawPath>, SymbolError>;
+    fn get_impls_for(&self, path: &TypePath) -> Result<&HashSet<ImplPath>, SymbolError>;
 
     fn create_impl(
         &mut self,
         impl_parent_path: RawPath,
-        impl_for_path: RawPath,
-    ) -> Result<RawPath, SymbolError>;
+        impl_for_path: TypePath,
+    ) -> Result<ImplPath, SymbolError>;
+
+    fn semantic_type_for_syntactic(
+        &self,
+        search_def_path: &impl Path,
+        generic_params: midend::types::ParamSubstMap,
+        ty_: &midend::types::Syntactic,
+    ) -> Result<midend::types::Semantic, SymbolError>;
 }
 
 pub struct SymbolTable {
@@ -273,7 +281,8 @@ pub struct SymbolTable {
     // mapping of symbols to declarations (None) or definitions (Some)
     symbols: BTreeMap<RawPath, Option<SymbolDef>>,
     children: BTreeMap<RawPath, HashSet<RawPath>>,
-    impls: BTreeMap<RawPath, HashSet<RawPath>>,
+    // mapping from type definitions to implementations that match them
+    impls: BTreeMap<TypePath, HashSet<ImplPath>>,
 }
 
 impl Default for SymbolTable {
@@ -385,27 +394,25 @@ impl SymtabBase for SymbolTable {
 }
 
 impl Symtab for SymbolTable {
-    fn get_impls_for(&self, path: &RawPath) -> Result<&HashSet<RawPath>, SymbolError> {
+    fn get_impls_for(&self, path: &TypePath) -> Result<&HashSet<ImplPath>, SymbolError> {
         self.impls
             .get(path)
-            .ok_or(SymbolError::Undeclared(path.clone()))
+            .ok_or(SymbolError::Undeclared(path.clone().into()))
     }
 
     fn create_impl(
         &mut self,
-        _impl_parent_path: RawPath,
-        _impl_for_path: RawPath,
-    ) -> Result<RawPath, SymbolError> {
+        impl_parent_path: RawPath,
+        impl_for_path: TypePath,
+    ) -> Result<ImplPath, SymbolError> {
+        let id = ImplId(self.impls.entry(impl_for_path).or_default().len());
+
         unimplemented!();
     }
-}
 
-/// Type handling helper functions
-impl SymbolTable {
-    #[tracing::instrument(skip(self), level = "debug")]
-    pub fn semantic_type_for_syntactic(
+    fn semantic_type_for_syntactic(
         &self,
-        search_def_path: &RawPath,
+        search_def_path: &impl Path,
         generic_params: midend::types::ParamSubstMap,
         ty_: &midend::types::Syntactic,
     ) -> Result<midend::types::Semantic, SymbolError> {

@@ -1,4 +1,8 @@
-use crate::{frontend, midend::*, trace};
+use crate::{
+    frontend,
+    midend::{symtab, *},
+    trace,
+};
 
 use std::collections::BTreeSet;
 
@@ -19,26 +23,40 @@ where
     path: P,
 }
 
-impl<T, P> std::ops::Deref for PathedCtx<T, P>
+impl<T, P> PathedCtx<T, P>
 where
     T: symtab::Symtab,
     P: symtab::Path,
 {
-    type Target = T;
-    fn deref(&self) -> &Self::Target {
-        &self.unpathed
+    pub fn semantic_type_for_syntactic(
+        &self,
+        ty_: &types::Syntactic,
+    ) -> Result<types::Semantic, symtab::SymbolError> {
+        self.unpathed
+            .semantic_type_for_syntactic(&self.path, types::ParamSubstMap::empty(), ty_)
     }
 }
 
-impl<T, P> std::ops::DerefMut for PathedCtx<T, P>
-where
-    T: symtab::Symtab,
-    P: symtab::Path,
-{
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.unpathed
-    }
-}
+// impl<T, P> std::ops::Deref for PathedCtx<T, P>
+// where
+//     T: symtab::Symtab,
+//     P: symtab::Path,
+// {
+//     type Target = T;
+//     fn deref(&self) -> &Self::Target {
+//         &self.unpathed
+//     }
+// }
+
+// impl<T, P> std::ops::DerefMut for PathedCtx<T, P>
+// where
+//     T: symtab::Symtab,
+//     P: symtab::Path,
+// {
+//     fn deref_mut(&mut self) -> &mut Self::Target {
+//         &mut self.unpathed
+//     }
+// }
 
 impl<T, P> PathedCtx<T, P>
 where
@@ -109,6 +127,19 @@ where
                 .with_child_value(String::from(symbol.name())),
             symtab::Value::from(symbol),
         )
+    }
+
+    pub fn create_impl(
+        &mut self,
+        for_type: types::Syntactic,
+    ) -> Result<symtab::ImplPath, symtab::SymbolError> {
+        let (_, for_type_path) = self.lookup_type_def(&symtab::TypePath::new(
+            None::<symtab::RawPath>,
+            for_type.clone().to_string(),
+        ))?;
+
+        self.unpathed
+            .create_impl(self.path.clone().into(), for_type_path)
     }
 }
 
@@ -308,6 +339,7 @@ pub type LinearizeCtx<P> = PathedCtx<UnpathedLinearizeCtx, P>;
 pub type RawLinearizeCtx = LinearizeCtx<symtab::RawPath>;
 pub type TypeLinearizeCtx = LinearizeCtx<symtab::TypePath>;
 pub type ValueLinearizeCtx = LinearizeCtx<symtab::ValuePath>;
+pub type ImplLinearizeCtx = LinearizeCtx<symtab::ImplPath>;
 pub type LinearizeResult<T> = Result<(T, UnpathedLinearizeCtx), LinearizeError>;
 
 impl<P> LinearizeCtx<P>
