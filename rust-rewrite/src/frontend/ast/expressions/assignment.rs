@@ -30,7 +30,7 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for AssignmentTree {
 impl midend::treewalk::Linearize<midend::symtab::ValuePath> for AssignmentTree {
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(
+    fn linearize_inner(
         self,
         mut ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
@@ -40,7 +40,7 @@ impl midend::treewalk::Linearize<midend::symtab::ValuePath> for AssignmentTree {
             Expression::Field(field_expression_tree) => {
                 let field_loc = field_expression_tree.loc();
                 let (receiver, field);
-                ((receiver, field), ctx) = field_expression_tree.linearize_in_place(ctx)?;
+                ((receiver, field), ctx) = field_expression_tree.linearize(ctx)?;
                 let field_pointer_temp = ctx.function_mut().values_mut().next_temp();
 
                 let field_pointer_line = midend::ir::IrLine::new_get_field_pointer(
@@ -66,7 +66,7 @@ impl midend::treewalk::Linearize<midend::symtab::ValuePath> for AssignmentTree {
             }
             _ => {
                 let assignee_start = self.assignee.loc().start();
-                let (assignee, ctx) = self.assignee.linearize_in_place(ctx)?;
+                let (assignee, ctx) = self.assignee.linearize(ctx)?;
                 let (stored_value, ctx) = self.value.linearize(ctx)?;
                 (
                     midend::ir::IrLine::new_assignment(assignee_start, assignee, stored_value),

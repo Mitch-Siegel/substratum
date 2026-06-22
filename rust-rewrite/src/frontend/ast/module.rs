@@ -107,7 +107,7 @@ impl midend::treewalk::Collect<midend::symtab::TypePath> for ModuleTree {
 impl midend::treewalk::Linearize<midend::symtab::TypePath> for ModuleTree {
     type Data = ();
     #[tracing::instrument(skip(self, ctx), level = "debug", fields(tree_name = Self::reflect_name()))]
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::TypeLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {

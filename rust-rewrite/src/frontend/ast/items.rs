@@ -70,7 +70,7 @@ impl midend::treewalk::Collect<midend::symtab::TypePath> for ItemTree {
 
 impl midend::treewalk::Linearize<midend::symtab::TypePath> for ItemTree {
     type Data = ();
-    fn linearize(
+    fn linearize_inner(
         self,
         mut ctx: midend::treewalk::TypeLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {

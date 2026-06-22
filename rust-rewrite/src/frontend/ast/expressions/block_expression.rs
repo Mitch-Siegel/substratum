@@ -42,7 +42,7 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for BlockExpressionTre
 impl midend::treewalk::Linearize<midend::symtab::ValuePath> for BlockExpressionTree {
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(
+    fn linearize_inner(
         mut self,
         mut ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {

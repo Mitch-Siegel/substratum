@@ -75,7 +75,7 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for Expression {
 impl midend::treewalk::Linearize<midend::symtab::ValuePath> for Expression {
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(
+    fn linearize_inner(
         self,
         mut ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {

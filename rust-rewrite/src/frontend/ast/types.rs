@@ -15,7 +15,7 @@ impl Ast for TypeTree {
 
 impl midend::treewalk::Linearize<midend::symtab::RawPath> for TypeTree {
     type Data = Option<midend::types::Syntactic>;
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
@@ -51,7 +51,7 @@ impl Ast for ParenthesizedTypeTree {
 
 impl midend::treewalk::Linearize<midend::symtab::RawPath> for ParenthesizedTypeTree {
     type Data = Option<midend::types::Syntactic>;
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
@@ -83,7 +83,7 @@ impl Ast for TupleTypeTree {
 
 impl midend::treewalk::Linearize<midend::symtab::RawPath> for TupleTypeTree {
     type Data = midend::types::Syntactic;
-    fn linearize(
+    fn linearize_inner(
         self,
         mut ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
@@ -128,7 +128,7 @@ impl Ast for InferredTypeTree {
 
 impl midend::treewalk::Linearize<midend::symtab::RawPath> for InferredTypeTree {
     type Data = Option<midend::types::Syntactic>;
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
@@ -161,7 +161,7 @@ impl Ast for TypeNoBoundsTree {
 
 impl midend::treewalk::Linearize<midend::symtab::RawPath> for TypeNoBoundsTree {
     type Data = Option<midend::types::Syntactic>;
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
@@ -220,7 +220,7 @@ impl Ast for TypePath {
 
 impl midend::treewalk::Linearize<midend::symtab::RawPath> for TypePath {
     type Data = midend::types::Syntactic;
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
@@ -254,7 +254,7 @@ impl Ast for PrimitiveTypePathTree {
 
 impl midend::treewalk::Linearize<midend::symtab::RawPath> for PrimitiveTypePathTree {
     type Data = midend::types::Syntactic;
-    fn linearize(
+    fn linearize_inner(
         self,
         _ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
@@ -302,7 +302,7 @@ impl Ast for TypeItemPathTree {
 
 impl midend::treewalk::Linearize<midend::symtab::RawPath> for TypeItemPathTree {
     type Data = midend::types::Syntactic;
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
@@ -344,7 +344,7 @@ impl Ast for ReferenceTypeTree {
 
 impl midend::treewalk::Linearize<midend::symtab::RawPath> for ReferenceTypeTree {
     type Data = midend::types::Syntactic;
-    fn linearize(
+    fn linearize_inner(
         self,
         mut ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
@@ -380,7 +380,7 @@ impl Ast for ArrayTypeTree {
 impl midend::treewalk::Linearize<midend::symtab::RawPath> for ArrayTypeTree {
     type Data = midend::types::Syntactic;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(
+    fn linearize_inner(
         self,
         _ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {

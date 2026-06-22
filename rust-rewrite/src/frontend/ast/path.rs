@@ -105,7 +105,7 @@ where
     T: Ast,
 {
     type Data = PathSegmentAction<T>;
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<PathSegmentAction<T>> {
@@ -514,7 +514,7 @@ where
     T: Ast + std::fmt::Display + std::fmt::Debug,
 {
     type Data = FinishedPathWalk<T>;
-    fn linearize(
+    fn linearize_inner(
         self,
         mut ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {

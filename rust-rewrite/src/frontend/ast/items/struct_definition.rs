@@ -14,11 +14,11 @@ impl Ast for StructFieldTree {
 
 impl midend::treewalk::Linearize<midend::symtab::TypePath> for StructFieldTree {
     type Data = (String, midend::types::Syntactic);
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::TypeLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
-        let (maybe_field_type, ctx) = self.type_.linearize_in_place(ctx)?;
+        let (maybe_field_type, ctx) = self.type_.linearize(ctx)?;
 
         let field_type = maybe_field_type.expect("struct field types may not be '_'");
 
@@ -86,7 +86,7 @@ impl midend::treewalk::Linearize<midend::symtab::TypePath> for StructDefinitionT
         >>::Data,
     );
     #[tracing::instrument(skip(self, ctx), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(
+    fn linearize_inner(
         self,
         mut ctx: midend::treewalk::TypeLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
@@ -94,14 +94,14 @@ impl midend::treewalk::Linearize<midend::symtab::TypePath> for StructDefinitionT
 
         (struct_name, ctx) = <ast::IdentifierTree as midend::treewalk::Linearize<
             midend::symtab::TypePath,
-        >>::linearize_in_place(self.name, ctx)?;
+        >>::linearize(self.name, ctx)?;
 
         ctx = ctx.with_child_type(struct_name.clone()).unwrap();
 
         let mut fields = Vec::new();
         for field in self.fields {
             let linearized_field;
-            (linearized_field, ctx) = field.linearize_in_place(ctx)?;
+            (linearized_field, ctx) = field.linearize(ctx)?;
             fields.push(linearized_field);
         }
 

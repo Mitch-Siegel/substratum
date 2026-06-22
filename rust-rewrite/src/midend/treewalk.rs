@@ -1,6 +1,9 @@
 use crate::{
     frontend,
-    midend::{symtab, *},
+    midend::{
+        symtab::{self, TypeOwner, ValueOwner},
+        *,
+    },
     trace,
 };
 
@@ -79,118 +82,74 @@ where
     }
 }
 
-impl<T> PathedCtx<T, symtab::TypePath>
+impl<T, P> PathedCtx<T, P>
 where
     T: symtab::Symtab,
+    P: symtab::TypeOwner,
 {
-    #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
-    pub fn declare_type(&mut self, name: String) -> Result<symtab::TypePath, symtab::SymbolError> {
-        let full_path: symtab::TypePath = self.path.clone().with_child_type(name);
-        self.unpathed.declare_type(full_path)
+    fn with_child_type(self, child: String) -> PathedCtx<T, symtab::TypePath> {
+        let new_path = self.path.with_child_type(child);
+        PathedCtx {
+            path: new_path,
+            unpathed: self.unpathed,
+        }
     }
 
-    /// declare a symbol in the value namespace
-    #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
-    pub fn declare_value(
+    fn declare_type(&mut self, name: String) -> Result<symtab::TypePath, symtab::SymbolError> {
+        self.unpathed
+            .declare_type(self.path.clone().with_child_type(name))
+    }
+
+    fn define_type(
         &mut self,
-        name: String,
+        type_: symtab::Type,
+    ) -> Result<symtab::TypePath, symtab::SymbolError> {
+        self.unpathed.define_type(self.path, type_)
+    }
+}
+
+impl<T, P> PathedCtx<T, P>
+where
+    T: symtab::Symtab,
+    P: symtab::ValueOwner,
+{
+    fn with_child_value(self, child: String) -> PathedCtx<T, symtab::ValuePath> {
+        let new_path = self.path.with_child_value(child);
+        PathedCtx {
+            path: new_path,
+            unpathed: self.unpathed,
+        }
+    }
+
+    fn declare_value(&mut self, name: String) -> Result<symtab::ValuePath, symtab::SymbolError> {
+        self.unpathed
+            .declare_value(self.path.clone().with_child_value(name))
+    }
+
+    fn define_value(
+        &mut self,
+        type_: symtab::Value,
     ) -> Result<symtab::ValuePath, symtab::SymbolError> {
-        let full_path = self.path.clone().with_child_value(name);
-        self.unpathed.declare_value(full_path)
+        self.unpathed.define_value(self.path, type_)
     }
+}
 
-    /// define a symbol in the type namespace
-    #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
-    pub fn define_type<S>(&mut self, symbol: S) -> Result<symtab::TypePath, symtab::SymbolError>
-    where
-        S: symtab::Symbol + std::fmt::Debug,
-        symtab::Type: From<S>,
-    {
-        self.unpathed.define_type(
-            self.path
-                .clone()
-                .with_child_type(String::from(symbol.name())),
-            symtab::Type::from(symbol),
-        )
-    }
-
-    /// define a symbol in the value namespace
-    #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
-    pub fn define_value<S>(&mut self, symbol: S) -> Result<symtab::ValuePath, symtab::SymbolError>
-    where
-        S: symtab::Symbol + std::fmt::Debug,
-        symtab::Value: From<S>,
-    {
-        self.unpathed.define_value(
-            self.path
-                .clone()
-                .with_child_value(String::from(symbol.name())),
-            symtab::Value::from(symbol),
-        )
-    }
-
+impl<T, P> PathedCtx<T, P>
+where
+    T: symtab::Symtab,
+    P: symtab::ImplOwner,
+{
     pub fn create_impl(
         &mut self,
         for_type: types::Syntactic,
     ) -> Result<symtab::ImplPath, symtab::SymbolError> {
-        let (_, for_type_path) = self.lookup_type_def(&symtab::TypePath::new(
-            None::<symtab::RawPath>,
+        let (_, for_type_path) = self.unpathed.lookup_type_def(&symtab::TypePath::new(
+            Some(self.path.clone()),
             for_type.clone().to_string(),
         ))?;
 
         self.unpathed
             .create_impl(self.path.clone().into(), for_type_path)
-    }
-}
-
-impl<T> PathedCtx<T, symtab::ValuePath>
-where
-    T: symtab::Symtab,
-{
-    #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
-    pub fn declare_type(&mut self, name: String) -> Result<symtab::TypePath, symtab::SymbolError> {
-        let full_path = self.path.clone().with_child_type(name);
-        self.unpathed.declare_type(full_path)
-    }
-
-    /// define a symbol in the type namespace
-    #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
-    pub fn define_type<S>(&mut self, symbol: S) -> Result<symtab::TypePath, symtab::SymbolError>
-    where
-        S: symtab::Symbol + std::fmt::Debug,
-        symtab::Type: From<S>,
-    {
-        self.unpathed.define_type(
-            self.path
-                .clone()
-                .with_child_type(String::from(symbol.name())),
-            symtab::Type::from(symbol),
-        )
-    }
-
-    /// declare a symbol in the value namespace
-    #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
-    pub fn declare_value(
-        &mut self,
-        name: String,
-    ) -> Result<symtab::ValuePath, symtab::SymbolError> {
-        let full_path = self.path.clone().with_child_value(name);
-        self.unpathed.declare_value(full_path)
-    }
-
-    /// define a symbol in the value namespace
-    #[tracing::instrument(skip(self), level = "debug", fields(path = self.path.to_string()))]
-    pub fn define_value<S>(&mut self, symbol: S) -> Result<symtab::ValuePath, symtab::SymbolError>
-    where
-        S: symtab::Symbol + std::fmt::Debug,
-        symtab::Value: From<S>,
-    {
-        self.unpathed.define_value(
-            self.path
-                .clone()
-                .with_child_value(String::from(symbol.name())),
-            symtab::Value::from(symbol),
-        )
     }
 }
 
@@ -218,52 +177,32 @@ where
     }
 }
 
-impl<T> PathedCtx<T, symtab::TypePath>
-where
-    T: symtab::Symtab,
-{
-    pub fn with_child_type(
-        self,
-        name: String,
-    ) -> Result<PathedCtx<T, symtab::TypePath>, symtab::PathError> {
-        Ok(PathedCtx {
-            unpathed: self.unpathed,
-            path: self.path.with_child_type(name),
-        })
-    }
-
-    pub fn with_child_value(
-        self,
-        name: String,
-    ) -> Result<PathedCtx<T, symtab::ValuePath>, symtab::PathError> {
-        Ok(PathedCtx {
-            unpathed: self.unpathed,
-            path: self.path.with_child_value(name),
-        })
-    }
-}
-
-impl<T> PathedCtx<T, symtab::ValuePath>
-where
-    T: symtab::Symtab,
-{
-    pub fn with_child_value(
-        self,
-        name: String,
-    ) -> Result<PathedCtx<T, symtab::ValuePath>, symtab::PathError> {
-        Ok(PathedCtx {
-            unpathed: self.unpathed,
-            path: self.path.with_child_value(name),
-        })
-    }
-}
-
 impl<P> std::fmt::Debug for PathedCtx<UnpathedLinearizeCtx, P>
 where
     P: symtab::Path,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "PathedLinearizeCtx({:?})", self.path)
+    }
+}
+
+pub struct PathedFunctionContext<T, P>
+where
+    T: symtab::Symtab,
+    P: symtab::Path,
+{
+    unpathed: T,
+    path: P,
+    current_function: symtab::values::Function,
+}
+
+impl<T, P> PathedFunctionContext<T, P>
+where
+    T: symtab::Symtab,
+    P: symtab::Path,
+{
+    fn function_mut(&mut self) -> &mut symtab::values::Function {
+        &self.current_function
     }
 }
 
@@ -366,11 +305,11 @@ where
     P: symtab::Path,
 {
     type Data;
-    fn linearize(self, ctx: LinearizeCtx<P>) -> LinearizeResult<Self::Data>;
+    fn linearize_inner(self, ctx: LinearizeCtx<P>) -> LinearizeResult<Self::Data>;
 
     /// call linearize(), but return a LinearizeCtx with the same path as the one passed in
     /// works as long as we can convert a LinearizeCtx<P2> to a LinearizeCtx<P>
-    fn linearize_in_place<P2>(
+    fn linearize<P2>(
         self,
         ctx: LinearizeCtx<P2>,
     ) -> Result<(Self::Data, LinearizeCtx<P2>), LinearizeError>
@@ -380,7 +319,22 @@ where
     {
         let old_path: P2 = ctx.path().clone();
         let new_ctx: LinearizeCtx<P> = LinearizeCtx::<P>::from(ctx);
-        let (data, unpathed) = self.linearize(new_ctx)?;
+        let (data, unpathed) = self.linearize_inner(new_ctx)?;
+        Ok((data, unpathed.with_path(old_path)))
+    }
+
+    fn linearize_with_type<P2>(
+        self,
+        ctx: LinearizeCtx<P2>,
+        segment: symtab::TypeSegment,
+    ) -> Result<(Self::Data, LinearizeCtx<P2>), LinearizeError>
+    where
+        P2: symtab::Path,
+        LinearizeCtx<P>: From<LinearizeCtx<P2>>,
+    {
+        let old_path: P2 = ctx.path().clone();
+        let new_ctx: LinearizeCtx<P> = LinearizeCtx::<P>::from(ctx);
+        let (data, unpathed) = self.linearize_inner(new_ctx)?;
         Ok((data, unpathed.with_path(old_path)))
     }
 }

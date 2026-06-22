@@ -39,7 +39,7 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for StatementTree {
 impl midend::treewalk::Linearize<midend::symtab::ValuePath> for StatementTree {
     type Data = Option<midend::ir::ValueId>;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {

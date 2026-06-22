@@ -152,14 +152,14 @@ pub trait Symtab: SymtabBase + private::SymtabBaseInternal {
 
     // ===== Definition =====
     // define 'symbol' at 'path', returning path or error
-    fn define_type(&mut self, path: TypePath, symbol: Type) -> Result<TypePath, SymbolError> {
-        self.define(path.0, SymbolDef::Type(symbol))
+    fn define_type(&mut self, path: impl TypeOwner, symbol: Type) -> Result<TypePath, SymbolError> {
+        self.define(path.into(), SymbolDef::Type(symbol))
             .map(TypePath::from)
     }
 
     // define 'symbol' at 'path', returning path or error
-    fn define_value(&mut self, path: ValuePath, symbol: Value) -> Result<ValuePath, SymbolError> {
-        self.define(path.0, SymbolDef::Value(symbol))
+    fn define_value(&mut self, path: impl ValueOwner, symbol: Value) -> Result<ValuePath, SymbolError> {
+        self.define(path.into(), SymbolDef::Value(symbol))
             .map(ValuePath::from)
     }
 

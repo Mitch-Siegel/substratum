@@ -30,7 +30,7 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for PathInExpressionTr
 
 impl midend::treewalk::Linearize<midend::symtab::ValuePath> for PathInExpressionTree {
     type Data = midend::ir::ValueId;
-    fn linearize(
+    fn linearize_inner(
         self,
         mut _ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {

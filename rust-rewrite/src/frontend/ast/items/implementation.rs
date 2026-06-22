@@ -31,7 +31,7 @@ impl midend::treewalk::Collect<midend::symtab::TypePath> for ImplementationTree 
 impl midend::treewalk::Linearize<midend::symtab::TypePath> for ImplementationTree {
     type Data = ();
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::TypeLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {

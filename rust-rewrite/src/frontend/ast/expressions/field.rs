@@ -24,7 +24,7 @@ impl midend::treewalk::Linearize<midend::symtab::ValuePath> for FieldExpressionT
     // receiver is the value id for the receiver of the field access
     // field_info is a value id for the field being accessed
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {

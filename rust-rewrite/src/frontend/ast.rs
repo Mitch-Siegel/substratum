@@ -42,7 +42,7 @@ where
     P: midend::symtab::Path,
 {
     type Data = String;
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::LinearizeCtx<P>,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {

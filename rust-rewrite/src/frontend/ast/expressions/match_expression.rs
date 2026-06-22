@@ -32,7 +32,7 @@ impl Ast for TupleStructTree {
 
 impl midend::treewalk::Linearize<midend::symtab::TypePath> for TupleStructTree {
     type Data = PatternTree;
-    fn linearize(
+    fn linearize_inner(
         self,
         _ctx: midend::treewalk::TypeLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
@@ -98,7 +98,7 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for PatternTree {
 impl midend::treewalk::Linearize<midend::symtab::ValuePath> for PatternTree {
     type Data = PatternTree;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
@@ -154,7 +154,7 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for MatchArmTree {
 impl midend::treewalk::Linearize<midend::symtab::ValuePath> for MatchArmTree {
     type Data = (PatternTree, midend::ir::ValueId);
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(
+    fn linearize_inner(
         self,
         mut ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
@@ -206,7 +206,7 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for MatchExpressionTre
 impl midend::treewalk::Linearize<midend::symtab::ValuePath> for MatchExpressionTree {
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(
+    fn linearize_inner(
         self,
         mut ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {

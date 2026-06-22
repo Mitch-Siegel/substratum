@@ -271,7 +271,7 @@ pub trait MacroOwner: Path {
     }
 }
 
-pub trait ImplOwner {
+pub trait ImplOwner: Path{
     #[allow(unused)]
     fn with_child_impl(self, id: ImplId) -> ImplPath {
         self.into()

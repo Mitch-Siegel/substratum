@@ -36,7 +36,7 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for GenericParamTree {
 // linearization (type and value)
 impl midend::treewalk::Linearize<midend::symtab::RawPath> for GenericParamTree {
     type Data = String;
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
@@ -141,7 +141,7 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for GenericParamsListT
 impl midend::treewalk::Linearize<midend::symtab::RawPath> for GenericParamsListTree {
     type Data = midend::types::GenericParamsList;
     #[tracing::instrument(skip(self, ctx), level = "trace")]
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
@@ -216,7 +216,7 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for OptionalGenericPar
 
 impl midend::treewalk::Linearize<midend::symtab::RawPath> for OptionalGenericParamsListTree {
     type Data = midend::types::GenericParamsList;
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
@@ -251,7 +251,7 @@ impl Ast for GenericArgsListTree {
 impl midend::treewalk::Linearize<midend::symtab::RawPath> for GenericArgsListTree {
     type Data = Vec<midend::types::ParamSubst>;
     #[tracing::instrument(skip(self), level = "trace")]
-    fn linearize(
+    fn linearize_inner(
         self,
         mut ctx: midend::treewalk::RawLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {

@@ -71,13 +71,13 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for ComparisonExpressi
 impl midend::treewalk::Linearize<midend::symtab::ValuePath> for ComparisonExpressionTree {
     type Data = midend::ir::lowered::operands::BinaryComparisonOperands;
     #[tracing::instrument(skip(self, ctx), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         match self {
             ComparisonExpressionTree::LThan(operands) => {
-                let (lhs, ctx) = operands.e1.linearize_in_place(ctx)?;
+                let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(
                     midend::ir::lowered::operands::BinaryComparisonOperands::new(
@@ -88,7 +88,7 @@ impl midend::treewalk::Linearize<midend::symtab::ValuePath> for ComparisonExpres
                 )
             }
             ComparisonExpressionTree::GThan(operands) => {
-                let (lhs, ctx) = operands.e1.linearize_in_place(ctx)?;
+                let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(
                     midend::ir::lowered::operands::BinaryComparisonOperands::new(
@@ -99,7 +99,7 @@ impl midend::treewalk::Linearize<midend::symtab::ValuePath> for ComparisonExpres
                 )
             }
             ComparisonExpressionTree::LThanE(operands) => {
-                let (lhs, ctx) = operands.e1.linearize_in_place(ctx)?;
+                let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(
                     midend::ir::lowered::operands::BinaryComparisonOperands::new(
@@ -110,7 +110,7 @@ impl midend::treewalk::Linearize<midend::symtab::ValuePath> for ComparisonExpres
                 )
             }
             ComparisonExpressionTree::GThanE(operands) => {
-                let (lhs, ctx) = operands.e1.linearize_in_place(ctx)?;
+                let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(
                     midend::ir::lowered::operands::BinaryComparisonOperands::new(
@@ -121,7 +121,7 @@ impl midend::treewalk::Linearize<midend::symtab::ValuePath> for ComparisonExpres
                 )
             }
             ComparisonExpressionTree::Equals(operands) => {
-                let (lhs, ctx) = operands.e1.linearize_in_place(ctx)?;
+                let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(
                     midend::ir::lowered::operands::BinaryComparisonOperands::new(
@@ -132,7 +132,7 @@ impl midend::treewalk::Linearize<midend::symtab::ValuePath> for ComparisonExpres
                 )
             }
             ComparisonExpressionTree::NotEquals(operands) => {
-                let (lhs, ctx) = operands.e1.linearize_in_place(ctx)?;
+                let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(
                     midend::ir::lowered::operands::BinaryComparisonOperands::new(
@@ -203,13 +203,13 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for ArithmeticExpressi
 impl midend::treewalk::Linearize<midend::symtab::ValuePath> for ArithmeticExpressionTree {
     type Data = midend::ir::lowered::operands::BinaryArithmeticOperands;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(
+    fn linearize_inner(
         self,
         ctx: midend::treewalk::ValueLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data> {
         match self {
             ArithmeticExpressionTree::Add(operands) => {
-                let (lhs, ctx) = operands.e1.linearize_in_place(ctx)?;
+                let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(
                     midend::ir::lowered::operands::BinaryArithmeticOperands::new(
@@ -220,7 +220,7 @@ impl midend::treewalk::Linearize<midend::symtab::ValuePath> for ArithmeticExpres
                 )
             }
             ArithmeticExpressionTree::Subtract(operands) => {
-                let (lhs, ctx) = operands.e1.linearize_in_place(ctx)?;
+                let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(
                     midend::ir::lowered::operands::BinaryArithmeticOperands::new(
@@ -231,7 +231,7 @@ impl midend::treewalk::Linearize<midend::symtab::ValuePath> for ArithmeticExpres
                 )
             }
             ArithmeticExpressionTree::Multiply(operands) => {
-                let (lhs, ctx) = operands.e1.linearize_in_place(ctx)?;
+                let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(
                     midend::ir::lowered::operands::BinaryArithmeticOperands::new(
@@ -242,7 +242,7 @@ impl midend::treewalk::Linearize<midend::symtab::ValuePath> for ArithmeticExpres
                 )
             }
             ArithmeticExpressionTree::Divide(operands) => {
-                let (lhs, ctx) = operands.e1.linearize_in_place(ctx)?;
+                let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(
                     midend::ir::lowered::operands::BinaryArithmeticOperands::new(
