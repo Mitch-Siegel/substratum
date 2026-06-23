@@ -1,4 +1,4 @@
-use crate::frontend::ast::*;
+use crate::{frontend::ast::*, midend::symtab::ValuePath};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct AssignmentTree {
@@ -18,22 +18,24 @@ impl Display for AssignmentTree {
     }
 }
 
-impl midend::treewalk::Collect<midend::symtab::ValuePath> for AssignmentTree {
-    fn collect_symbols(
+impl midend::treewalk::Collect<ValuePath> for AssignmentTree {
+    fn collect_inner(
         &self,
         ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
-        self.value.collect_symbols(ctx)
+        self.value.collect_inner(ctx)
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::ValuePath> for AssignmentTree {
+impl midend::treewalk::Linearize<midend::treewalk::FunctionLinearizeCtx<midend::symtab::ValuePath>>
+    for AssignmentTree
+{
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        mut ctx: midend::treewalk::ValueLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        mut ctx: midend::treewalk::FunctionLinearizeCtx<midend::symtab::ValuePath>,
+    ) -> <midend::treewalk::FunctionLinearizeCtx<midend::symtab::ValuePath> as midend::treewalk::PathedLinearizeCtxTrait>::Result::<Self::Data>{
         let assignment_start = self.loc().start();
 
         let (assignment_ir, mut ctx) = match *self.assignee {

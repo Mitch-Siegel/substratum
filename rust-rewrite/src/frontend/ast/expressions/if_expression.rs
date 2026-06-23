@@ -1,4 +1,4 @@
-use crate::frontend::ast::expressions::*;
+use crate::{frontend::ast::expressions::*, midend::{symtab::ValuePath, treewalk::PathedCtxTrait}};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct IfExpressionTree {
@@ -37,32 +37,32 @@ impl Display for IfExpressionTree {
     }
 }
 
-impl midend::treewalk::Collect<midend::symtab::ValuePath> for IfExpressionTree {
-    fn collect_symbols(
+impl midend::treewalk::Collect<ValuePath> for IfExpressionTree {
+    fn collect_inner(
         &self,
         mut ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
-        ctx = self.true_block.collect_in_place(ctx)?;
+        ctx = self.true_block.collect_symbols(ctx)?;
         if let Some(else_block) = &self.false_block {
-            else_block.collect_symbols(ctx)
+            else_block.collect_symbols(ctx)?.into_result()
         } else {
-            Ok(ctx.take())
+            ctx.into_result()
         }
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::ValuePath> for IfExpressionTree {
+impl midend::treewalk::Linearize<midend::treewalk::ValueFunctionLinearizeCtx> for IfExpressionTree {
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        mut ctx: midend::treewalk::ValueLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        mut ctx: midend::treewalk::ValueFunctionLinearizeCtx,
+    ) -> <midend::treewalk::ValueFunctionLinearizeCtx as midend::treewalk::PathedLinearizeCtxTrait>::Result::<Self::Data> {
         // FUTURE: optimize condition walk to use different jumps
         let condition_loc = self.condition.loc();
         let if_loc = self.loc();
         let condition_value;
-        (condition_value, ctx) = self.condition.linearize_in_place(ctx)?;
+        (condition_value, ctx) = self.condition.linearize(ctx)?;
 
         let if_condition = midend::ir::lowered::operands::JumpCondition::Conditional(
             midend::ir::lowered::operands::BinaryComparisonOperands::new(
@@ -88,7 +88,7 @@ impl midend::treewalk::Linearize<midend::symtab::ValuePath> for IfExpressionTree
 
         let true_loc = self.true_block.loc();
         let if_value_id;
-        (if_value_id, ctx) = self.true_block.linearize_in_place(ctx)?;
+        (if_value_id, ctx) = self.true_block.linearize(ctx)?;
 
         // create a separate, mutable value which contains the true result
         let result_value_id = if_value_id;
@@ -112,7 +112,7 @@ impl midend::treewalk::Linearize<midend::symtab::ValuePath> for IfExpressionTree
         if let Some(else_block) = self.false_block {
             let else_loc = else_block.loc();
             let else_value_id;
-            (else_value_id, ctx) = else_block.linearize_in_place(ctx)?;
+            (else_value_id, ctx) = else_block.linearize(ctx)?;
 
             // if the 'else' value exists (have already passed check to assert types are the same)
             // copy the 'else' result to the common result_value at the end of the 'else' block

@@ -1,4 +1,4 @@
-use crate::frontend::ast::*;
+use crate::{frontend::ast::*, midend::{symtab::ValuePath, treewalk::{CollectCtx, PathedLinearizeCtxTrait, ValueCollectCtx, ValueFunctionLinearizeCtx}}};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ArithmeticDualOperands {
@@ -20,12 +20,12 @@ impl ArithmeticDualOperands {
 }
 
 impl midend::treewalk::Collect<midend::symtab::ValuePath> for ArithmeticDualOperands {
-    fn collect_symbols(
+    fn collect_inner(
         &self,
-        mut ctx: midend::treewalk::ValueCollectCtx,
+        mut ctx: CollectCtx<ValuePath>,
     ) -> midend::treewalk::CollectResult {
-        ctx = self.e1.collect_in_place(ctx)?;
-        self.e2.collect_symbols(ctx)
+        ctx = self.e1.collect_symbols(ctx)?;
+        self.e2.collect_inner(ctx)
     }
 }
 
@@ -52,8 +52,8 @@ impl Ast for ComparisonExpressionTree {
     }
 }
 
-impl midend::treewalk::Collect<midend::symtab::ValuePath> for ComparisonExpressionTree {
-    fn collect_symbols(
+impl midend::treewalk::Collect<ValuePath> for ComparisonExpressionTree {
+    fn collect_inner(
         &self,
         ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
@@ -63,23 +63,25 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for ComparisonExpressi
             | Self::LThanE(operands)
             | Self::GThanE(operands)
             | Self::Equals(operands)
-            | Self::NotEquals(operands) => operands.collect_symbols(ctx),
+            | Self::NotEquals(operands) => operands.collect_inner(ctx),
         }
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::ValuePath> for ComparisonExpressionTree {
+impl midend::treewalk::Linearize<ValueFunctionLinearizeCtx>
+    for ComparisonExpressionTree
+{
     type Data = midend::ir::lowered::operands::BinaryComparisonOperands;
     #[tracing::instrument(skip(self, ctx), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        ctx: midend::treewalk::ValueLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        ctx: ValueFunctionLinearizeCtx,
+    ) -> <ValueFunctionLinearizeCtx as PathedLinearizeCtxTrait>::Result::<Self::Data>{
         match self {
             ComparisonExpressionTree::LThan(operands) => {
                 let (lhs, ctx) = operands.e1.linearize(ctx)?;
-                let (rhs, unpathed) = operands.e2.linearize(ctx)?;
-                unpathed.into_result(
+                let (rhs, ctx) = operands.e2.linearize(ctx)?;
+                ctx.into_result(
                     midend::ir::lowered::operands::BinaryComparisonOperands::new(
                         lhs,
                         rhs,
@@ -186,8 +188,8 @@ impl Display for ArithmeticExpressionTree {
     }
 }
 
-impl midend::treewalk::Collect<midend::symtab::ValuePath> for ArithmeticExpressionTree {
-    fn collect_symbols(
+impl midend::treewalk::Collect<ValuePath> for ArithmeticExpressionTree {
+    fn collect_inner(
         &self,
         ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
@@ -195,18 +197,20 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for ArithmeticExpressi
             Self::Add(operands)
             | Self::Subtract(operands)
             | Self::Multiply(operands)
-            | Self::Divide(operands) => operands.collect_symbols(ctx),
+            | Self::Divide(operands) => operands.collect_inner(ctx),
         }
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::ValuePath> for ArithmeticExpressionTree {
+impl midend::treewalk::Linearize<ValueFunctionLinearizeCtx>
+    for ArithmeticExpressionTree
+{
     type Data = midend::ir::lowered::operands::BinaryArithmeticOperands;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        ctx: midend::treewalk::ValueLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        ctx: ValueFunctionLinearizeCtx,
+    ) -> <ValueFunctionLinearizeCtx as PathedLinearizeCtxTrait>::Result::<Self::Data>{
         match self {
             ArithmeticExpressionTree::Add(operands) => {
                 let (lhs, ctx) = operands.e1.linearize(ctx)?;

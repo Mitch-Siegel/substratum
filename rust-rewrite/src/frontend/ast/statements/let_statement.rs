@@ -1,4 +1,4 @@
-use crate::frontend::ast::*;
+use crate::{frontend::ast::*, midend::treewalk::{CollectCtx, PathedCtxTrait, PathedLinearizeCtxTrait, ValueCollectCtx, ValueFunctionLinearizeCtx}};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct LetTree {
@@ -37,22 +37,22 @@ impl Display for LetTree {
 }
 
 impl midend::treewalk::Collect<midend::symtab::ValuePath> for LetTree {
-    fn collect_symbols(
+    fn collect_inner(
         &self,
-        mut ctx: midend::treewalk::ValueCollectCtx,
+        mut ctx: ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
         ctx.declare_value(self.name.value.clone())?;
-        Ok(ctx.take())
+        ctx.into_result()
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::ValuePath> for LetTree {
+impl midend::treewalk::Linearize<ValueFunctionLinearizeCtx> for LetTree {
     type Data = ();
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        ctx: midend::treewalk::ValueLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        ctx: ValueFunctionLinearizeCtx,
+    ) -> <ValueFunctionLinearizeCtx as PathedLinearizeCtxTrait>::Result::<Self::Data> {
         unimplemented!();
         /*
         let variable_type = match self.type_ {

@@ -140,6 +140,8 @@ mod private {
         }
     }
 }
+
+// TODO: pub(in crate::midend)
 pub trait Symtab: SymtabBase + private::SymtabBaseInternal {
     // ===== Declaration =====
     fn declare_type(&mut self, path: TypePath) -> Result<TypePath, SymbolError> {

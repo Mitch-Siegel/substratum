@@ -1,4 +1,4 @@
-use crate::{frontend::ast::expressions::*, trace};
+use crate::{frontend::ast::expressions::*, midend::{symtab::ValuePath, treewalk::PathedCtxTrait}, trace};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TupleStructTree {
@@ -30,12 +30,12 @@ impl Ast for TupleStructTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::TypePath> for TupleStructTree {
+impl midend::treewalk::Linearize<midend::treewalk::TypeLinearizeCtx> for TupleStructTree {
     type Data = PatternTree;
     fn linearize_inner(
         self,
         _ctx: midend::treewalk::TypeLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+    ) -> <midend::treewalk::TypeLinearizeCtx as midend::treewalk::PathedLinearizeCtxTrait>::Result::<Self::Data>{
         unimplemented!();
         /*
         PatternTree::TupleStruct(self)
@@ -74,34 +74,34 @@ impl std::fmt::Display for PatternTree {
     }
 }
 
-impl midend::treewalk::Collect<midend::symtab::ValuePath> for PatternTree {
-    fn collect_symbols(
+impl midend::treewalk::Collect<ValuePath> for PatternTree {
+    fn collect_inner(
         &self,
         mut ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
         match self {
-            Self::Literal(expr) => expr.collect_symbols(ctx),
+            Self::Literal(expr) => expr.collect_inner(ctx),
             Self::Identifier(ident) => {
                 ctx.declare_value(ident.value.clone())?;
-                Ok(ctx.take())
+                ctx.into_result()
             }
             Self::TupleStruct(t) => {
                 for pattern in &t.subpatterns {
-                    ctx = pattern.collect_in_place(ctx)?;
+                    ctx = pattern.collect_symbols(ctx)?;
                 }
-                Ok(ctx.take())
+                ctx.into_result()
             }
         }
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::ValuePath> for PatternTree {
+impl midend::treewalk::Linearize<midend::treewalk::ValueFunctionLinearizeCtx> for PatternTree {
     type Data = PatternTree;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        ctx: midend::treewalk::ValueLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        ctx: midend::treewalk::ValueFunctionLinearizeCtx,
+    ) -> <midend::treewalk::ValueFunctionLinearizeCtx as midend::treewalk::PathedLinearizeCtxTrait>::Result::<Self::Data>{
         unimplemented!("patterns");
         // match self.clone() {
         //     Self::Literal(_) => (),
@@ -136,8 +136,8 @@ impl Display for MatchArmTree {
     }
 }
 
-impl midend::treewalk::Collect<midend::symtab::ValuePath> for MatchArmTree {
-    fn collect_symbols(
+impl midend::treewalk::Collect<ValuePath> for MatchArmTree {
+    fn collect_inner(
         &self,
         mut _ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
@@ -151,16 +151,16 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for MatchArmTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::ValuePath> for MatchArmTree {
+impl midend::treewalk::Linearize<midend::treewalk::ValueFunctionLinearizeCtx> for MatchArmTree {
     type Data = (PatternTree, midend::ir::ValueId);
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        mut ctx: midend::treewalk::ValueLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        mut ctx: midend::treewalk::ValueFunctionLinearizeCtx,
+    ) -> <midend::treewalk::ValueFunctionLinearizeCtx as midend::treewalk::PathedLinearizeCtxTrait>::Result::<Self::Data>{
         let pattern;
         let _arm_value: midend::ir::ValueId;
-        (pattern, ctx) = self.pattern.linearize_in_place(ctx)?;
+        (pattern, ctx) = self.pattern.linearize(ctx)?;
         let (arm_value, ctx) = self.expression.linearize(ctx)?;
         ctx.into_result((pattern, arm_value))
     }
@@ -189,27 +189,27 @@ impl Ast for MatchExpressionTree {
     }
 }
 
-impl midend::treewalk::Collect<midend::symtab::ValuePath> for MatchExpressionTree {
-    fn collect_symbols(
+impl midend::treewalk::Collect<ValuePath> for MatchExpressionTree {
+    fn collect_inner(
         &self,
         mut ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
-        ctx = self.scrutinee_expression.collect_in_place(ctx)?;
+        ctx = self.scrutinee_expression.collect_symbols(ctx)?;
         for arm in &self.arms {
-            ctx = arm.collect_in_place(ctx)?;
+            ctx = arm.collect_symbols(ctx)?;
         }
 
-        Ok(ctx.take())
+        ctx.into_result()
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::ValuePath> for MatchExpressionTree {
+impl midend::treewalk::Linearize<midend::treewalk::ValueFunctionLinearizeCtx> for MatchExpressionTree {
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        mut ctx: midend::treewalk::ValueLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        mut ctx: midend::treewalk::ValueFunctionLinearizeCtx,
+    ) -> <midend::treewalk::ValueFunctionLinearizeCtx as midend::treewalk::PathedLinearizeCtxTrait>::Result::<Self::Data> {
         let match_loc = self.loc();
 
         let parent_scope_def_path = ctx.path().clone();
@@ -224,7 +224,7 @@ impl midend::treewalk::Linearize<midend::symtab::ValuePath> for MatchExpressionT
             .unwrap();
 
         let scrutinee_value;
-        (scrutinee_value, ctx) = self.scrutinee_expression.linearize_in_place(ctx)?;
+        (scrutinee_value, ctx) = self.scrutinee_expression.linearize(ctx)?;
 
         // TODO: consolidate each arm's result into result_value
         let result_value = ctx.function_mut().values_mut().next_temp();
@@ -241,7 +241,7 @@ impl midend::treewalk::Linearize<midend::symtab::ValuePath> for MatchExpressionT
                 .create_switch_case(case_scope_def_path)
                 .unwrap();
             let (pattern, result_value);
-            ((pattern, result_value), ctx) = arm.linearize_in_place(ctx)?;
+            ((pattern, result_value), ctx) = arm.linearize(ctx)?;
             ctx.function_mut()
                 .finish_switch_case(arm_loc.end())
                 .unwrap();

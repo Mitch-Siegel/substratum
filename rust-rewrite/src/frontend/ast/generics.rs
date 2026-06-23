@@ -1,4 +1,4 @@
-use crate::frontend::ast::*;
+use crate::{frontend::ast::*, midend::{symtab::TypePath, treewalk::{PathedCtxTrait, PathedLinearizeCtxTrait}}};
 use std::collections::BTreeSet;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -13,34 +13,25 @@ impl Ast for GenericParamTree {
 }
 
 // symbol collection (type and value)
-impl midend::treewalk::Collect<midend::symtab::TypePath> for GenericParamTree {
-    fn collect_symbols(
+impl midend::treewalk::Collect<TypePath> for GenericParamTree {
+    fn collect_inner(
         &self,
         mut ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
         ctx.declare_type(self.name.value.clone())?;
-        Ok(ctx.take())
-    }
-}
-
-impl midend::treewalk::Collect<midend::symtab::ValuePath> for GenericParamTree {
-    fn collect_symbols(
-        &self,
-        mut ctx: midend::treewalk::ValueCollectCtx,
-    ) -> midend::treewalk::CollectResult {
-        ctx.declare_type(self.name.value.clone())?;
-        Ok(ctx.take())
+        ctx.into_result()
     }
 }
 
 // linearization (type and value)
-impl midend::treewalk::Linearize<midend::symtab::RawPath> for GenericParamTree {
+impl<C> midend::treewalk::Linearize<C> for GenericParamTree
+where
+    C: PathedLinearizeCtxTrait,
+{
     type Data = String;
-    fn linearize_inner(
-        self,
-        ctx: midend::treewalk::RawLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
-        self.name.linearize(ctx)
+    fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, C> {
+        let (name, ctx) = self.name.linearize(ctx)?;
+        ctx.into_result(name)
     }
 }
 
@@ -112,39 +103,26 @@ impl Display for GenericParamsListTree {
     }
 }
 
-impl midend::treewalk::Collect<midend::symtab::TypePath> for GenericParamsListTree {
-    fn collect_symbols(
+impl midend::treewalk::Collect<TypePath> for GenericParamsListTree {
+    fn collect_inner(
         &self,
         mut ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
         for param in &self.params {
-            ctx = <GenericParamTree as midend::treewalk::Collect<midend::symtab::TypePath>>::collect_in_place::<midend::symtab::TypePath>(param, ctx)?;
+            ctx = param.collect_symbols(ctx)?;
         }
 
-        Ok(ctx.take())
+        ctx.into_result()
     }
 }
 
-impl midend::treewalk::Collect<midend::symtab::ValuePath> for GenericParamsListTree {
-    fn collect_symbols(
-        &self,
-        mut ctx: midend::treewalk::ValueCollectCtx,
-    ) -> midend::treewalk::CollectResult {
-        for param in &self.params {
-            ctx = <GenericParamTree as midend::treewalk::Collect<midend::symtab::ValuePath>>::collect_in_place::<midend::symtab::ValuePath>(param, ctx)?;
-        }
-
-        Ok(ctx.take())
-    }
-}
-
-impl midend::treewalk::Linearize<midend::symtab::RawPath> for GenericParamsListTree {
+impl<C> midend::treewalk::Linearize<C> for GenericParamsListTree
+where
+    C: PathedLinearizeCtxTrait,
+{
     type Data = midend::types::GenericParamsList;
     #[tracing::instrument(skip(self, ctx), level = "trace")]
-    fn linearize_inner(
-        self,
-        ctx: midend::treewalk::RawLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+    fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, C> {
         let mut generic_params_set = BTreeSet::<midend::types::GenericParam>::new();
 
         let ctxless = self.linearize_ctxless();
@@ -188,44 +166,34 @@ impl Display for OptionalGenericParamsListTree {
     }
 }
 
-impl midend::treewalk::Collect<midend::symtab::TypePath> for OptionalGenericParamsListTree {
-    fn collect_symbols(
+impl midend::treewalk::Collect<TypePath> for OptionalGenericParamsListTree {
+    fn collect_inner(
         &self,
         ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
         if let Some(params) = &self.maybe_params {
-            params.collect_symbols(ctx)
+            params.collect_symbols(ctx)?.into_result()
         } else {
-            Ok(ctx.take())
+            ctx.into_result()
         }
     }
 }
 
-impl midend::treewalk::Collect<midend::symtab::ValuePath> for OptionalGenericParamsListTree {
-    fn collect_symbols(
-        &self,
-        ctx: midend::treewalk::ValueCollectCtx,
-    ) -> midend::treewalk::CollectResult {
-        if let Some(params) = &self.maybe_params {
-            params.collect_symbols(ctx)
-        } else {
-            Ok(ctx.take())
-        }
-    }
-}
-
-impl midend::treewalk::Linearize<midend::symtab::RawPath> for OptionalGenericParamsListTree {
+impl<C> midend::treewalk::Linearize<C> for OptionalGenericParamsListTree
+where
+    C: PathedLinearizeCtxTrait,
+{
     type Data = midend::types::GenericParamsList;
     fn linearize_inner(
         self,
-        ctx: midend::treewalk::RawLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        ctx: C,
+    ) -> LinearizeResult<Self::Data, C> {
         let (params, ctx) = match self.maybe_params {
             Some(params) => {
                 let (params_result, ctx) = params.linearize(ctx)?;
                 (params_result, ctx)
             }
-            None => (midend::types::GenericParamsList::new(), ctx.take()),
+            None => (midend::types::GenericParamsList::new(), ctx),
         };
 
         ctx.into_result(params)
@@ -248,17 +216,17 @@ impl Ast for GenericArgsListTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::RawPath> for GenericArgsListTree {
+impl <C: PathedLinearizeCtxTrait> midend::treewalk::Linearize<C> for GenericArgsListTree {
     type Data = Vec<midend::types::ParamSubst>;
     #[tracing::instrument(skip(self), level = "trace")]
     fn linearize_inner(
         self,
-        mut ctx: midend::treewalk::RawLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        mut ctx: C,
+    ) -> LinearizeResult<Self::Data, C> {
         let mut generic_args = Vec::<midend::types::ParamSubst>::new();
         for arg in self.args {
             let maybe_type;
-            (maybe_type, ctx) = arg.linearize_in_place(ctx)?;
+            (maybe_type, ctx) = arg.linearize(ctx)?;
             let param_type = maybe_type.expect("generic params must have a type");
 
             let param = match param_type {

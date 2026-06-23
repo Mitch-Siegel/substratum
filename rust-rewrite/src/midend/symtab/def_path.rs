@@ -170,7 +170,7 @@ pub trait Path:
         &self[self.len() - 1]
     }
 
-    fn _is_prefix_of(&self, other: Self) -> bool {
+    fn is_prefix_of(&self, other: &impl Path) -> bool {
         if self.len() >= other.len() {
             return false;
         }

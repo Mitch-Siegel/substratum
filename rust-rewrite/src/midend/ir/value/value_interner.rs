@@ -26,7 +26,7 @@ impl std::fmt::Display for ValueError {
 pub struct ValueInterner {
     values: Vec<Value>,
     ids: HashMap<Value, ValueId>,
-    pathed_ids: HashMap<symtab::RawPath, ValueId>,
+    pathed_ids: HashMap<symtab::ValuePath, ValueId>,
     temp_count: usize,
 }
 
@@ -84,7 +84,7 @@ impl ValueInterner {
 
     /// given the DefPath, return its ValueID. Requires &mut self as this method may
     /// generate a new ValueId if one does not already exist for the variable
-    pub fn id_for_path(&mut self, def_path: symtab::RawPath) -> ValueId {
+    pub fn id_for_path(&mut self, def_path: symtab::ValuePath) -> ValueId {
         match self.pathed_ids.get(&def_path) {
             Some(id) => *id,
             None => self

@@ -1,4 +1,4 @@
-use crate::frontend::ast::*;
+use crate::{frontend::ast::*, midend::treewalk::{PathedCtxTrait, PathedLinearizeCtxTrait, TypeLinearizeCtx}};
 use std::collections::BTreeSet;
 
 pub mod enum_definition;
@@ -43,11 +43,11 @@ impl Ast for ItemTree {
 }
 
 impl midend::treewalk::Collect<midend::symtab::TypePath> for ItemTree {
-    fn collect_symbols(
+    fn collect_inner(
         &self,
         ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
-        match self {
+        ctx = match self {
             ItemTree::FunctionDeclaration(function_declaration) => {
                 unimplemented!(
                     "Function declaration without definitions not yet supported: {}",
@@ -62,18 +62,20 @@ impl midend::treewalk::Collect<midend::symtab::TypePath> for ItemTree {
             ItemTree::Implementation(implementation) => implementation.collect_symbols(ctx),
             ItemTree::Module((module, _)) => match module {
                 Ok(m) => m.collect_symbols(ctx),
-                Err(_) => Ok(ctx.take()),
+                Err(_) => Ok(ctx),
             },
-        }
+        }?;
+
+        ctx.into_result()
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::TypePath> for ItemTree {
+impl midend::treewalk::Linearize<TypeLinearizeCtx> for ItemTree {
     type Data = ();
     fn linearize_inner(
         self,
         mut ctx: midend::treewalk::TypeLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+    ) -> <TypeLinearizeCtx as PathedLinearizeCtxTrait>::Result::<Self::Data> {
         let ctx = match self {
             ItemTree::FunctionDeclaration(function_declaration) => {
                 unimplemented!(
@@ -83,33 +85,33 @@ impl midend::treewalk::Linearize<midend::symtab::TypePath> for ItemTree {
             }
             ItemTree::FunctionDefinition(function_definition) => {
                 let function;
-                (function, ctx) = function_definition.linearize_in_place(ctx)?;
-                ctx.define_value(function)?;
-                ctx.take()
+                (function, ctx) = function_definition.linearize(ctx)?;
+                ctx.define_value(midend::symtab::Value::Function(Box::new(function)))?;
+                ctx
             }
             ItemTree::StructDefinition(struct_tree) => {
                 let struct_repr;
                 let generic_params;
-                ((struct_repr, generic_params), ctx) = struct_tree.linearize_in_place(ctx)?;
+                ((struct_repr, generic_params), ctx) = struct_tree.linearize(ctx)?;
                 ctx.define_type(midend::symtab::Type::Decl(
                     midend::symtab::types::TypeDecl {
                         declared_type: struct_repr.into(),
                         generic_params,
                     },
                 ))?;
-                ctx.take()
+                ctx
             }
             ItemTree::EnumDefinition(enum_tree) => {
                 let enum_repr;
                 let generic_params;
-                ((enum_repr, generic_params), ctx) = enum_tree.linearize_in_place(ctx)?;
+                ((enum_repr, generic_params), ctx) = enum_tree.linearize(ctx)?;
                 ctx.define_type(midend::symtab::Type::Decl(
                     midend::symtab::types::TypeDecl {
                         declared_type: enum_repr.into(),
                         generic_params,
                     },
                 ))?;
-                ctx.take()
+                ctx
             }
             ItemTree::Implementation(_implementation) => {
                 unimplemented!();
@@ -118,7 +120,7 @@ impl midend::treewalk::Linearize<midend::symtab::TypePath> for ItemTree {
             }
             ItemTree::Module((module, _)) => match module {
                 Ok(m) => m.linearize(ctx)?.1,
-                Err(_) => ctx.take(),
+                Err(_) => ctx
             },
         };
         ctx.into_result(())

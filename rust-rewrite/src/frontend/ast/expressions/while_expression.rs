@@ -1,4 +1,6 @@
-use crate::frontend::ast::expressions::*;
+use crate::{
+    frontend::ast::expressions::*, midend::{symtab::ValuePath, treewalk::{PathedCtxTrait, PathedLinearizeCtxTrait, ValueFunctionLinearizeCtx}},
+};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct WhileExpressionTree {
@@ -16,23 +18,23 @@ impl Ast for WhileExpressionTree {
     }
 }
 
-impl midend::treewalk::Collect<midend::symtab::ValuePath> for WhileExpressionTree {
-    fn collect_symbols(
+impl midend::treewalk::Collect<ValuePath> for WhileExpressionTree {
+    fn collect_inner(
         &self,
         mut ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
-        ctx = self.condition.collect_in_place(ctx)?;
-        self.body.collect_symbols(ctx)
+        ctx = self.condition.collect_symbols(ctx)?;
+        self.body.collect_symbols(ctx)?.into_result()
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::ValuePath> for WhileExpressionTree {
+impl midend::treewalk::Linearize<ValueFunctionLinearizeCtx> for WhileExpressionTree {
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        mut ctx: midend::treewalk::ValueLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        mut ctx: ValueFunctionLinearizeCtx,
+    ) -> <ValueFunctionLinearizeCtx as PathedLinearizeCtxTrait>::Result<Self::Data> {
         let loc = self.loc();
 
         let parent_scope_def_path = ctx.path().clone();
@@ -48,7 +50,7 @@ impl midend::treewalk::Linearize<midend::symtab::ValuePath> for WhileExpressionT
 
         let condition_loc = self.condition.loc();
         let condition;
-        (condition, ctx) = self.condition.linearize_in_place(ctx)?;
+        (condition, ctx) = self.condition.linearize(ctx)?;
         let loop_condition_jump = midend::ir::IrLine::new_jump(
             condition_loc.end(),
             loop_done_label,

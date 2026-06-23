@@ -1,20 +1,96 @@
-use crate::midend::treewalk::*;
+use crate::{
+    frontend::ast::Expression::PathIn,
+    midend::{symtab::Path, treewalk::*},
+};
 
 use std::collections::{HashMap, HashSet};
 
+pub mod function_linearize_context;
+
+pub use function_linearize_context::{UnpathedFunctionLinearizeCtx, WipFunction};
+
+
 pub struct UnpathedLinearizeCtx {
     symtab: symtab::SymbolTable,
-    _functions: HashMap<symtab::RawPath, FunctionLinearizeCtx>,
 }
 
-impl PathableContext for UnpathedLinearizeCtx {}
+
+impl symtab::SymtabBase for UnpathedFunctionLinearizeCtx {
+    fn insert(
+        &mut self,
+        path: symtab::RawPath,
+        maybe_symbol: Option<symtab::SymbolDef>,
+    ) -> Result<symtab::RawPath, symtab::SymbolError> {
+        self.symtab.insert(path, maybe_symbol)
+    }
+
+    fn lookup_at(
+        &self,
+        path: &symtab::RawPath,
+    ) -> Result<Option<&symtab::SymbolDef>, symtab::SymbolError> {
+        self.symtab.lookup_at(path)
+    }
+
+    fn lookup_at_mut(
+        &mut self,
+        path: &symtab::RawPath,
+    ) -> Result<Option<&mut symtab::SymbolDef>, symtab::SymbolError> {
+        self.symtab.lookup_at_mut(path)
+    }
+}
+
+impl symtab::Symtab for UnpathedFunctionLinearizeCtx {
+    fn semantic_type_for_syntactic(
+        &self,
+        search_def_path: &impl symtab::Path,
+        generic_params: crate::midend::types::ParamSubstMap,
+        ty_: &crate::midend::types::Syntactic,
+    ) -> Result<crate::midend::types::Semantic, symtab::SymbolError> {
+        self.symtab
+            .semantic_type_for_syntactic(search_def_path, generic_params, ty_)
+    }
+
+    fn create_impl(
+        &mut self,
+        impl_parent_path: symtab::RawPath,
+        impl_for_path: symtab::TypePath,
+    ) -> Result<symtab::ImplPath, symtab::SymbolError> {
+        self.symtab.create_impl(impl_parent_path, impl_for_path)
+    }
+
+    fn get_impls_for(
+        &self,
+        path: &symtab::TypePath,
+    ) -> Result<&HashSet<symtab::ImplPath>, symtab::SymbolError> {
+        self.symtab.get_impls_for(path)
+    }
+}
+
+impl UnpathedCtxTrait for UnpathedLinearizeCtx {
+    fn with_path<P: symtab::Path>(self, path: P) -> PathedCtx<Self, P> {
+        PathedCtx {
+            unpathed: self,
+            path,
+        }
+    }
+}
+
+impl UnpathedCtxTrait for UnpathedFunctionLinearizeCtx {
+    fn with_path<P: symtab::Path>(self, path: P) -> PathedCtx<Self, P> {
+        if !self.function_path.is_prefix_of(&path) {
+            panic!("Required for function path to be prefix of function context path");
+        }
+
+        PathedCtx {
+            unpathed: self,
+            path,
+        }
+    }
+}
 
 impl UnpathedLinearizeCtx {
     pub fn new(symtab: symtab::SymbolTable) -> Self {
-        Self {
-            symtab,
-            _functions: HashMap::new(),
-        }
+        Self { symtab }
     }
 
     pub fn from_existing(
@@ -29,28 +105,21 @@ impl UnpathedLinearizeCtx {
         ))
         .collect();
 
-        Self {
-            symtab,
-            _functions: functions,
-        }
-    }
-
-    pub fn into_result<T>(self, data: T) -> LinearizeResult<T> {
-        LinearizeResult::<T>::Ok((data, self))
+        Self { symtab }
     }
 
     pub fn take(self) -> symtab::SymbolTable {
         self.symtab
     }
 
-    //fn def_path_mut(&mut self) -> &mut DefPath
-    //
+}
 
-    pub fn create_function(
-        &mut self,
-        _prototype: symtab::values::function::FunctionPrototype,
-    ) -> Result<(), symtab::SymbolError> {
-        unimplemented!();
+impl<P: symtab::Path> PathedCtx<UnpathedFunctionLinearizeCtx, P> {
+    // pub fn create_function(
+    //     &mut self,
+    //     _prototype: symtab::values::function::FunctionPrototype,
+    // ) -> Result<(), symtab::SymbolError> {
+    //     unimplemented!();
         /*
         let unit_type_id = self
             .symtab()
@@ -94,14 +163,14 @@ impl UnpathedLinearizeCtx {
             None => Ok(()),
         }
         */
-    }
+    // }
 
-    pub fn finish_function(
-        &mut self,
-        _expected_name: String,
-        _return_value: ir::ValueId,
-    ) -> Result<symtab::values::Function, LinearizeError> {
-        unimplemented!();
+    // pub fn finish_function(
+    //     &mut self,
+    //     _expected_name: String,
+    //     _return_value: ir::ValueId,
+    // ) -> Result<symtab::values::Function, LinearizeError> {
+    //     unimplemented!();
         /*
             let def_path = self.def_path().clone();
             self.function_mut().resolve_final_convergence();
@@ -132,94 +201,8 @@ impl UnpathedLinearizeCtx {
                 .unwrap();
             Ok(())
         */
-    }
+    // }
 
-    pub fn function(&self) -> &FunctionLinearizeCtx {
-        unimplemented!();
-        /*
-        let mut scan_def_path = self.def_path().clone();
-        while scan_def_path.len() > 0 {
-            if self.functions.contains_key(&scan_def_path) {
-                break;
-            } else {
-                scan_def_path.pop().unwrap();
-            }
-        }
-
-        if scan_def_path.len() > 0 {
-            self.functions.get(&scan_def_path).unwrap()
-        } else {
-            panic!("DefContext::function() called with no active function!");
-        }
-        */
-    }
-
-    pub fn function_mut(&mut self) -> &mut FunctionLinearizeCtx {
-        unimplemented!();
-        /*
-        let mut scan_def_path = self.def_path().clone();
-        while scan_def_path.len() > 0 {
-            if self.functions.contains_key(&scan_def_path) {
-                break;
-            } else {
-                scan_def_path.pop().unwrap();
-            }
-        }
-
-        if scan_def_path.len() > 0 {
-            self.functions.get_mut(&scan_def_path).unwrap()
-        } else {
-            panic!("DefContext::function_mut() called with no active function!");
-        }
-        */
-    }
-
-    pub fn push_def_path(
-        &mut self,
-        _component: symtab::PathSegment,
-        _generic_params: &types::GenericParamsList,
-    ) {
-        unimplemented!();
-        /*
-        let params_set = generic_params
-            .iter()
-            .map(|param| param.clone())
-            .collect::<BTreeSet<types::GenericParam>>();
-        assert_eq!(
-            params_set.len(),
-            generic_params.len(),
-            "Unchecked duplicate generic param"
-        );
-
-        trace::debug!("push {:?} to defcontext defpath", component);
-        self.definition_path.push(component).unwrap();
-        let new_def_path = self.def_path().clone();
-        self.generics_mut()
-            .add_params_at_path(new_def_path, params_set)
-            .unwrap();
-        */
-    }
-
-    // FUTURE: error type for pop def path here and in symbol collection context?
-    pub fn pop_def_path(
-        &mut self,
-        _expect: symtab::PathSegment,
-    ) -> Result<(), (symtab::PathSegment, symtab::PathSegment)> {
-        unimplemented!();
-        /*
-        let def_path = self.def_path().clone();
-        self.generics_mut().remove_params_at_path(def_path).unwrap();
-        let popped = self.definition_path.pop().unwrap();
-
-        trace::debug!("pop {:?} from defcontext defpath", popped);
-
-        if popped == expect {
-            Ok(())
-        } else {
-            Err((popped, expect))
-        }
-        */
-    }
 
     // reserves a subscope, returning its defpath
     pub fn reserve_subscope(&mut self) -> symtab::ValuePath {
@@ -295,22 +278,6 @@ impl UnpathedLinearizeCtx {
             self.def_path().clone(),
             DefPathComponent::Type(types::Syntactic::Named(name.into())),
         ))
-        */
-    }
-
-    pub fn semantic_type_for_syntactic(
-        &self,
-        _ty: types::Syntactic,
-        _params: types::ParamSubstMap,
-    ) -> Result<types::Semantic, symtab::SymbolError> {
-        unimplemented!();
-        /*
-        let (_, type_path) = self.lookup_with_path::<symtab::TypeDefinition>(&ty)?;
-        Ok(self
-            .symtab()
-            .types
-            .semantic_for_defpath(type_path, params)
-            .unwrap())
         */
     }
 
@@ -390,5 +357,93 @@ impl symtab::Symtab for UnpathedLinearizeCtx {
     ) -> Result<crate::midend::types::Semantic, symtab::SymbolError> {
         self.symtab
             .semantic_type_for_syntactic(search_def_path, generic_params, ty_)
+    }
+}
+
+#[derive(Debug)]
+pub enum LinearizeError {
+    Symbol(symtab::SymbolError),
+}
+
+impl From<symtab::SymbolError> for LinearizeError {
+    fn from(value: symtab::SymbolError) -> Self {
+        Self::Symbol(value)
+    }
+}
+
+trait UnpathedLinearizeCtxTrait: UnpathedCtxTrait {}
+impl UnpathedLinearizeCtxTrait for UnpathedLinearizeCtx {}
+impl UnpathedLinearizeCtxTrait for UnpathedFunctionLinearizeCtx {}
+
+trait LinearizeCtxTrait {
+    type Unpathed: UnpathedCtxTrait;
+    type Path: symtab::Path;
+}
+
+pub type LinearizeCtx<P: symtab::Path> = PathedCtx<UnpathedLinearizeCtx, P>;
+pub type FunctionLinearizeCtx<P: symtab::Path> = PathedCtx<UnpathedFunctionLinearizeCtx, P>;
+
+pub type RawLinearizeCtx = LinearizeCtx<symtab::RawPath>;
+pub type TypeLinearizeCtx = LinearizeCtx<symtab::TypePath>;
+pub type ValueLinearizeCtx = LinearizeCtx<symtab::ValuePath>;
+pub type ImplLinearizeCtx = LinearizeCtx<symtab::ImplPath>;
+pub type LinearizeResult<D, C: PathedLinearizeCtxTrait> = Result<(D, C::Unpathed), LinearizeError>;
+
+pub type ValueFunctionLinearizeCtx = FunctionLinearizeCtx<symtab::ValuePath>;
+
+impl<P> PathedCtx<UnpathedLinearizeCtx, P>
+where
+    P: symtab::Path,
+{
+    pub fn into_result<T>(self, result_data: T) -> LinearizeResult<T, Self> {
+        Ok((result_data, self.unpathed))
+    }
+}
+impl<P> PathedCtx<UnpathedFunctionLinearizeCtx, P>
+where
+    P: symtab::Path,
+{
+    pub fn into_result<T>(
+        self,
+        result_data: T,
+    ) -> LinearizeResult<T, Self> {
+        Ok((result_data, self.unpathed))
+    }
+
+    pub fn function_mut(&mut self) -> &mut treewalk::linearize_context::WipFunction {
+        unimplemented!();
+    }
+}
+
+pub trait PathedLinearizeCtxTrait: PathedCtxTrait {
+    type Result<D>;
+
+    fn into_result<D>(self, data: D) -> LinearizeResult<D, Self>;
+}
+impl<U, P> PathedLinearizeCtxTrait for PathedCtx<U, P>
+where
+    U: UnpathedCtxTrait + UnpathedLinearizeCtxTrait,
+    P: symtab::Path,
+{
+    type Result<D> = LinearizeResult<D, Self>;
+
+    fn into_result<D>(self, data: D) -> Self::Result<D> {
+        Self::Result::Ok((data, self.unpathed))
+    }
+}
+
+pub trait Linearize<C>: Sized
+where
+    C: PathedLinearizeCtxTrait,
+{
+    type Data;
+    fn linearize_inner(self, ctx: C) -> Result<(Self::Data, C::Unpathed), LinearizeError>;
+
+    /// call linearize(), but return a LinearizeCtx with the same path as the one passed in
+    /// works as long as we can convert a LinearizeCtx<P2> to a LinearizeCtx<P>
+    fn linearize(self, ctx: C) -> Result<(Self::Data, C), LinearizeError> {
+        let old_path: C::Path = ctx.path().clone();
+        let (data, unpathed) = self.linearize_inner(ctx)?;
+        Ok((data, unpathed.with_path(old_path)))
     }
 }

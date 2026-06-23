@@ -1,4 +1,4 @@
-use crate::frontend::ast::*;
+use crate::{frontend::ast::*, midend::treewalk::{PathedLinearizeCtxTrait, TypeLinearizeCtx}};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ImplementationTree {
@@ -20,21 +20,21 @@ impl Ast for ImplementationTree {
 }
 
 impl midend::treewalk::Collect<midend::symtab::TypePath> for ImplementationTree {
-    fn collect_symbols(
+    fn collect_inner(
         &self,
         ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
-        Ok(ctx.take())
+        ctx.into_result()
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::TypePath> for ImplementationTree {
+impl midend::treewalk::Linearize<TypeLinearizeCtx> for ImplementationTree {
     type Data = ();
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        ctx: midend::treewalk::TypeLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        ctx: TypeLinearizeCtx,
+    ) -> <TypeLinearizeCtx as PathedLinearizeCtxTrait>::Result::<Self::Data> {
         unimplemented!();
         /*
         let for_name = self.for_.linearize(ctx);

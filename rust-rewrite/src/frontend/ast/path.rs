@@ -2,8 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::{
-    frontend::ast::*,
-    midend::{self, symtab::SymtabBase, treewalk::PathableContext},
+    frontend::ast::*, midend::{self, symtab::SymtabBase, treewalk::UnpathedCtxTrait as _},
 };
 
 pub enum PathSegmentAction<T> {
@@ -100,23 +99,23 @@ where
     }
 }
 
-impl<T> midend::treewalk::Linearize<midend::symtab::RawPath> for PathSegmentTree<T>
+impl<T, C: midend::treewalk::PathedLinearizeCtxTrait> midend::treewalk::Linearize<C> for PathSegmentTree<T>
 where
     T: Ast,
 {
     type Data = PathSegmentAction<T>;
     fn linearize_inner(
         self,
-        ctx: midend::treewalk::RawLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<PathSegmentAction<T>> {
+        ctx: C,
+    ) -> LinearizeResult<Self::Data, C> {
         let (action, ctx) = match self.ident {
-            IdentSegment::Super(_) => (PathSegmentAction::Super(self.data), ctx.take()),
+            IdentSegment::Super(_) => (PathSegmentAction::Super(self.data), ctx),
             IdentSegment::Ident(ident) => {
                 let (name, ctx) = ident.linearize(ctx)?;
                 (PathSegmentAction::Ident(name, self.data), ctx)
             }
-            IdentSegment::SelfLower(_) => (PathSegmentAction::SelfLower(self.data), ctx.take()),
-            IdentSegment::SelfUpper(_) => (PathSegmentAction::SelfUpper(self.data), ctx.take()),
+            IdentSegment::SelfLower(_) => (PathSegmentAction::SelfLower(self.data), ctx),
+            IdentSegment::SelfUpper(_) => (PathSegmentAction::SelfUpper(self.data), ctx),
         };
 
         ctx.into_result(action)
@@ -262,7 +261,7 @@ mod path_walk {
         pub fn finish(
             self,
             loc: &sourceloc::SourceSpan,
-            symtab: &midend::symtab::SymbolTable,
+            symtab: &impl midend::symtab::Symtab,
             segment_name: String,
             maybe_data: Option<T>,
         ) -> FinishedPathWalk<T> {
@@ -448,7 +447,7 @@ where
         ident: String,
         maybe_data: Option<T>,
         size_hint: usize,
-        symtab: &midend::symtab::SymbolTable,
+        symtab: &impl midend::symtab::Symtab,
     ) -> Self {
         if size_hint > 0 {
             ctx.add_segment(midend::symtab::PathSegment::Type(ident), maybe_data);
@@ -465,7 +464,7 @@ where
         action: PathSegmentAction<T>,
         size_hint: usize,
         loc: sourceloc::SourceSpan,
-        symtab: &midend::symtab::SymbolTable,
+        symtab: &impl midend::symtab::Symtab,
     ) -> Result<Self, String> {
         match self {
             PathWalkState::Start(mut ctx) => match action {
@@ -509,16 +508,17 @@ where
     }
 }
 
-impl<T> midend::treewalk::Linearize<midend::symtab::RawPath> for PathTree<T>
+impl<T, C: midend::treewalk::PathedLinearizeCtxTrait> midend::treewalk::Linearize<C> for PathTree<T>
 where
     T: Ast + std::fmt::Display + std::fmt::Debug,
 {
     type Data = FinishedPathWalk<T>;
     fn linearize_inner(
         self,
-        mut ctx: midend::treewalk::RawLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
-        let ctx_path: midend::symtab::RawPath = ctx.path().clone();
+        mut ctx: C,
+    ) -> LinearizeResult<Self::Data, C> {
+        let ctx_path: midend::symtab::RawPath = ctx.path().clone().into();
+        let ctx = ctx.into_result(())?.1.with_path(ctx_path);
         let ctx_segments = ctx_path.clone().into_iter().collect::<Vec<_>>();
         let mut walk_state = if self.starts_global.is_some() {
             PathWalkState::<T>::start_global()
@@ -532,18 +532,17 @@ where
         while let Some(segment) = segments.next() {
             let segment_loc = segment.loc();
             path_span = path_span.merge(&segment_loc).unwrap();
-            let (action, unpathed_ctx) = segment.linearize(ctx)?;
-            let symtab = unpathed_ctx.take();
+            let (action, unpathed_ctx) = segment.linearize_inner(ctx)?;
             walk_state = walk_state
                 .transition(
                     &path_span,
                     action,
                     segments.size_hint().0,
                     segment_loc,
-                    &symtab,
+                    &unpathed_ctx,
                 )
                 .unwrap();
-            ctx = midend::treewalk::UnpathedLinearizeCtx::new(symtab).with_path(ctx_path.clone());
+            ctx = unpathed_ctx.with_path(ctx_path.clone());
         }
 
         let finished = walk_state.finish().unwrap();

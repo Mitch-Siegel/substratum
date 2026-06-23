@@ -16,7 +16,20 @@ impl UnpathedCollectCtx {
     }
 }
 
-impl PathableContext for UnpathedCollectCtx {}
+impl UnpathedCtxTrait for UnpathedCollectCtx {
+    fn with_path<P: symtab::Path>(self, path: P) -> PathedCtx<Self, P> {
+        CollectCtx {
+            unpathed: self,
+            path,
+        }
+    }
+}
+
+impl<P: symtab::Path> PathedCtx<UnpathedCollectCtx, P> {
+    pub fn into_result(self) -> CollectResult {
+        Ok(self.unpathed)
+    }
+}
 
 impl symtab::SymtabBase for UnpathedCollectCtx {
     fn insert(

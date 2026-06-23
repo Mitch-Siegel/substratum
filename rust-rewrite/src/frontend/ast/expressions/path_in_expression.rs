@@ -4,8 +4,7 @@ use crate::{
     frontend::{
         ast::{self, Ast},
         sourceloc,
-    },
-    midend::{self},
+    }, midend::{self, symtab::ValuePath},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -19,21 +18,25 @@ impl Ast for PathInExpressionTree {
     }
 }
 
-impl midend::treewalk::Collect<midend::symtab::ValuePath> for PathInExpressionTree {
-    fn collect_symbols(
+impl midend::treewalk::Collect<ValuePath> for PathInExpressionTree {
+    fn collect_inner(
         &self,
         ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
-        Ok(ctx.take())
+        ctx.into_result()
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::ValuePath> for PathInExpressionTree {
+impl<P> midend::treewalk::Linearize<midend::treewalk::FunctionLinearizeCtx<P>>
+    for PathInExpressionTree
+where
+    P: midend::symtab::Path,
+{
     type Data = midend::ir::ValueId;
     fn linearize_inner(
         self,
-        mut _ctx: midend::treewalk::ValueLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        mut _ctx: midend::treewalk::FunctionLinearizeCtx<P>,
+    ) -> <midend::treewalk::FunctionLinearizeCtx<P> as midend::treewalk::PathedLinearizeCtxTrait>::Result::<Self::Data>{
         unimplemented!();
         /*
         let _span = trace::span_auto_debug!(

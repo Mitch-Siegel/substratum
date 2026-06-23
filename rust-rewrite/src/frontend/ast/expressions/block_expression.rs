@@ -1,4 +1,4 @@
-use crate::frontend::ast::*;
+use crate::{frontend::ast::*, midend::{symtab::ValuePath, treewalk::PathedCtxTrait}};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct BlockExpressionTree {
@@ -26,26 +26,28 @@ impl Display for BlockExpressionTree {
     }
 }
 
-impl midend::treewalk::Collect<midend::symtab::ValuePath> for BlockExpressionTree {
-    fn collect_symbols(
+impl midend::treewalk::Collect<ValuePath> for BlockExpressionTree {
+    fn collect_inner(
         &self,
         mut ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
         for stmt in &self.statements {
-            ctx = stmt.collect_in_place(ctx)?;
+            ctx = stmt.collect_symbols(ctx)?;
         }
 
-        Ok(ctx.take())
+        ctx.into_result()
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::ValuePath> for BlockExpressionTree {
+impl midend::treewalk::Linearize<midend::treewalk::ValueFunctionLinearizeCtx>
+    for BlockExpressionTree
+{
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         mut self,
-        mut ctx: midend::treewalk::ValueLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        mut ctx: midend::treewalk::ValueFunctionLinearizeCtx,
+    ) -> <midend::treewalk::ValueFunctionLinearizeCtx as midend::treewalk::PathedLinearizeCtxTrait>::Result::<Self::Data>{
         let parent_def_path = ctx.path().clone();
         let true_scope_def_path = ctx.reserve_subscope();
         ctx.function_mut()
@@ -58,13 +60,13 @@ impl midend::treewalk::Linearize<midend::symtab::ValuePath> for BlockExpressionT
 
         let last_statement = self.statements.pop();
         for statement in self.statements {
-            (_, ctx) = statement.linearize_in_place(ctx)?;
+            (_, ctx) = statement.linearize(ctx)?;
         }
 
         let last_statement_value = match last_statement {
             Some(statement_tree) => {
                 let maybe_value;
-                (maybe_value, ctx) = statement_tree.linearize_in_place(ctx)?;
+                (maybe_value, ctx) = statement_tree.linearize(ctx)?;
                 maybe_value.unwrap_or(midend::ir::ValueInterner::unit_value_id())
             }
             None => midend::ir::ValueInterner::unit_value_id(),

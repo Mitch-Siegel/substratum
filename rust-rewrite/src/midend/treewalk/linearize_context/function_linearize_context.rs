@@ -1,13 +1,41 @@
-use crate::{frontend::sourceloc::SourceLoc, midend::*, trace};
+use std::collections::BTreeMap;
 
-pub struct FunctionLinearizeCtx {
-    // definition path from the root of the symbol table to this function
+use crate::{
+    frontend::sourceloc::SourceLoc,
+    midend::{treewalk::PathedLinearizeCtxTrait, *},
+    trace,
+};
+
+pub struct UnpathedFunctionLinearizeCtx {
+    symtab: symtab::SymbolTable,
+    function_path: symtab::ValuePath,
+    function: WipFunction,
+}
+
+impl UnpathedFunctionLinearizeCtx {
+    #[tracing::instrument(level = "debug")]
+    pub fn new(
+        symtab: symtab::SymbolTable,
+        function_path: symtab::ValuePath,
+        prototype: symtab::values::function::FunctionPrototype,
+        def_path: symtab::ValuePath,
+        unit_type: types::Semantic,
+        arg_def_paths: Vec<symtab::RawPath>,
+    ) -> Self {
+        Self {
+            symtab,
+            function_path,
+            function: WipFunction::new(prototype, def_path, unit_type, arg_def_paths),
+        }
+    }
+}
+
+pub struct WipFunction {
     block_manager: ir::BlockManager,
-    // key for DefPathComponent::BasicBlock from self.def_path
     current_block: usize,
 }
 
-impl FunctionLinearizeCtx {
+impl WipFunction {
     #[tracing::instrument(level = "debug")]
     pub fn new(
         prototype: symtab::values::function::FunctionPrototype,
@@ -278,18 +306,5 @@ impl FunctionLinearizeCtx {
 
     pub fn ensure_finished(&mut self) -> Result<(), ir::block_manager::BranchError> {
         self.block_manager.ensure_finished()
-    }
-}
-
-impl std::fmt::Debug for FunctionLinearizeCtx {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Function walk context {:?}", self.block_manager)
-    }
-}
-
-impl FunctionLinearizeCtx {
-    // TODO: emplace control flow for function at call site
-    pub fn take(self) -> ir::ControlFlow {
-        ir::ControlFlow::from(self.block_manager)
     }
 }

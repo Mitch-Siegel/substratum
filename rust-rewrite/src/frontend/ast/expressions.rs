@@ -1,6 +1,5 @@
 use crate::{
-    frontend::ast::*,
-    midend::{self},
+    frontend::ast::*, midend::{self, treewalk::{CollectCtx, TypeCollectCtx, ValueCollectCtx, ValueFunctionLinearizeCtx}},
 };
 
 pub mod arithmetic;
@@ -55,9 +54,9 @@ impl Ast for Expression {
 }
 
 impl midend::treewalk::Collect<midend::symtab::ValuePath> for Expression {
-    fn collect_symbols(
+    fn collect_inner(
         &self,
-        ctx: midend::treewalk::ValueCollectCtx,
+        ctx: CollectCtx<midend::symtab::ValuePath>,
     ) -> midend::treewalk::CollectResult {
         match self {
             Self::If(if_expr) => if_expr.collect_symbols(ctx),
@@ -67,18 +66,19 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for Expression {
             Self::Arithmetic(a) => a.collect_symbols(ctx),
             Self::Comparison(c) => c.collect_symbols(ctx),
             Self::Assignment(a) => a.collect_symbols(ctx),
-            Self::Field(_) | Self::UnsignedDecimalConstant(_, _) | Self::Call(_) => Ok(ctx.take()),
-        }
+            Self::Field(_) | Self::UnsignedDecimalConstant(_, _) | Self::Call(_) => Ok(ctx),
+        }?.into_result()
     }
 }
 
-impl midend::treewalk::Linearize<midend::symtab::ValuePath> for Expression {
+impl midend::treewalk::Linearize<ValueFunctionLinearizeCtx> for Expression
+{
     type Data = midend::ir::ValueId;
-    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
+    // #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        mut ctx: midend::treewalk::ValueLinearizeCtx,
-    ) -> midend::treewalk::LinearizeResult<Self::Data> {
+        mut ctx: midend::treewalk::ValueFunctionLinearizeCtx,
+    ) -> <midend::treewalk::ValueFunctionLinearizeCtx as midend::treewalk::PathedLinearizeCtxTrait>::Result<Self::Data>{
         let (value, ctx) = match self {
             Self::PathIn(path) => path.linearize(ctx)?,
             Self::UnsignedDecimalConstant(_, constant) => (
@@ -86,7 +86,7 @@ impl midend::treewalk::Linearize<midend::symtab::ValuePath> for Expression {
                     .values_mut()
                     .id_for_constant(constant)
                     .to_owned(),
-                ctx.take(),
+                ctx,
             ),
             Self::Arithmetic(arith) => {
                 let loc = arith.loc();
