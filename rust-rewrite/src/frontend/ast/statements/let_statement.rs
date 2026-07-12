@@ -7,10 +7,10 @@ use crate::{
 };
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct LetTree {
+pub(crate) struct LetTree {
     pub let_keyword_loc: sourceloc::SourceSpan,
     pub name: IdentifierTree,
-    pub type_: Option<TypeTree>,
+    pub(crate) type_: Option<TypeTree>,
     pub mutable: bool,
     pub value: Expression,
 }

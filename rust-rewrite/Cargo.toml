@@ -20,3 +20,5 @@ tracing-subscriber = { version = "0.3.19", features = ["json",]}
 tracing-print = "0.0.3"
 enum_delegate = "0.1"
 
+[lints.rust]
+unreachable_pub = "deny"

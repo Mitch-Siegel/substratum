@@ -1,7 +1,7 @@
 use crate::midend::symtab::*;
 
 #[derive(Clone, Debug)]
-pub enum BuiltinType {
+pub(crate) enum BuiltinType {
     Unit,
     U8,
     U16,
@@ -14,7 +14,7 @@ pub enum BuiltinType {
 }
 
 impl BuiltinType {
-    pub fn syntactic(&self) -> midend::types::Syntactic {
+    pub(crate) fn syntactic(&self) -> midend::types::Syntactic {
         match self {
             Self::Unit => midend::types::Syntactic::Unit,
             Self::U8 => midend::types::Syntactic::U8,
@@ -28,7 +28,7 @@ impl BuiltinType {
         }
     }
 
-    pub fn generic_params(&self) -> Option<&midend::types::GenericParamsList> {
+    pub(crate) fn generic_params(&self) -> Option<&midend::types::GenericParamsList> {
         None
     }
 }

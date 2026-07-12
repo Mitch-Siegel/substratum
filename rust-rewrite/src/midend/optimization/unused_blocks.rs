@@ -5,7 +5,7 @@
 //     symtab::Function,
 // };
 
-// pub fn remove_unused_blocks(function: &mut Function) {
+// pub(crate) fn remove_unused_blocks(function: &mut Function) {
 //     let mut block_references = HashMap::<usize, usize>::new();
 
 //     for label_num in 0..function.control_flow.blocks.len() {

@@ -3,28 +3,28 @@ use crate::{
     midend::{self, treewalk::CollectCtx},
 };
 
-pub mod arithmetic;
-pub mod assignment;
-pub mod block_expression;
-pub mod calls;
-pub mod field;
-pub mod if_expression;
-pub mod match_expression;
-pub mod path_in_expression;
-pub mod while_expression;
+pub(crate) mod arithmetic;
+pub(crate) mod assignment;
+pub(crate) mod block_expression;
+pub(crate) mod calls;
+pub(crate) mod field;
+pub(crate) mod if_expression;
+pub(crate) mod match_expression;
+pub(crate) mod path_in_expression;
+pub(crate) mod while_expression;
 
-pub use arithmetic::{ArithmeticExpressionTree, ComparisonExpressionTree};
-pub use assignment::AssignmentTree;
-pub use block_expression::BlockExpressionTree;
-pub use calls::CallExpressionTree;
-pub use field::FieldExpressionTree;
-pub use if_expression::IfExpressionTree;
-pub use match_expression::MatchExpressionTree;
-pub use path_in_expression::*;
-pub use while_expression::WhileExpressionTree;
+pub(crate) use arithmetic::{ArithmeticExpressionTree, ComparisonExpressionTree};
+pub(crate) use assignment::AssignmentTree;
+pub(crate) use block_expression::BlockExpressionTree;
+pub(crate) use calls::CallExpressionTree;
+pub(crate) use field::FieldExpressionTree;
+pub(crate) use if_expression::IfExpressionTree;
+pub(crate) use match_expression::MatchExpressionTree;
+pub(crate) use path_in_expression::*;
+pub(crate) use while_expression::WhileExpressionTree;
 
 #[derive(Debug, ReflectName, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum Expression {
+pub(crate) enum Expression {
     PathIn(PathInExpressionTree),
     UnsignedDecimalConstant(sourceloc::SourceSpan, usize),
     Arithmetic(ArithmeticExpressionTree),

@@ -1,7 +1,7 @@
 use crate::midend::ir::block_manager::*;
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum BranchError {
+pub(crate) enum BranchError {
     NotBranched, // not branched but expected a branch
     Convergence(ConvergenceError),
     ConvergenceNotDone(usize), // convergence returned NotDone when expected Done

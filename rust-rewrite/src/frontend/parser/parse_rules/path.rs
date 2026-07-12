@@ -4,7 +4,7 @@ use crate::frontend::{
 };
 
 impl<'a, 'p> PathParser<'a, 'p> {
-    pub fn parse_path<P, D>(
+    pub(crate) fn parse_path<P, D>(
         &mut self,
         try_parse_segment_data: P,
     ) -> Result<ast::path::PathTree<D>, ParseError>

@@ -7,7 +7,7 @@ use crate::{
 };
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct TupleDataTree {
+pub(crate) struct TupleDataTree {
     pub open_paren_loc: sourceloc::SourceSpan,
     pub element_types: Vec<TypeTree>,
     pub close_paren_loc: sourceloc::SourceSpan,
@@ -78,7 +78,7 @@ where
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum EnumVariantDataTree {
+pub(crate) enum EnumVariantDataTree {
     TupleData(TupleDataTree),
 }
 
@@ -227,7 +227,7 @@ fn _create_enum_variant_constructor(
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct EnumVariantTree {
+pub(crate) struct EnumVariantTree {
     pub name: IdentifierTree,
     pub data: Option<EnumVariantDataTree>,
 }
@@ -320,8 +320,8 @@ impl Display for EnumVariantTree {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct EnumDefinitionTree {
-    pub enum_keyword_loc: sourceloc::SourceSpan,
+pub(crate) struct EnumDefinitionTree {
+    pub(crate) enum_keyword_loc: sourceloc::SourceSpan,
     pub name: IdentifierTree,
     pub generic_params: generics::OptionalGenericParamsListTree,
     pub variants: Vec<EnumVariantTree>,

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub enum GenericParam {
+pub(crate) enum GenericParam {
     TypeParam(String),
 }
 
@@ -15,10 +15,10 @@ impl std::fmt::Display for GenericParam {
     }
 }
 
-pub type GenericParamsList = Vec<GenericParam>;
+pub(crate) type GenericParamsList = Vec<GenericParam>;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub enum ParamSubst {
+pub(crate) enum ParamSubst {
     Concrete(types::Semantic),
     Dependent(GenericParam),
 }
@@ -33,24 +33,24 @@ impl std::fmt::Display for ParamSubst {
 }
 
 #[derive(Clone, Default, Hash, PartialEq, Eq)]
-pub struct ParamSubstMap {
+pub(crate) struct ParamSubstMap {
     pub substitutions: BTreeMap<GenericParam, ParamSubst>,
 }
 
 impl ParamSubstMap {
-    pub fn new(substitutions: impl Iterator<Item = (GenericParam, ParamSubst)>) -> Self {
+    pub(crate) fn new(substitutions: impl Iterator<Item = (GenericParam, ParamSubst)>) -> Self {
         Self {
             substitutions: substitutions.collect(),
         }
     }
 
-    pub fn empty() -> Self {
+    pub(crate) fn empty() -> Self {
         Self {
             substitutions: BTreeMap::new(),
         }
     }
 
-    pub fn is_concrete(&self) -> bool {
+    pub(crate) fn is_concrete(&self) -> bool {
         self.substitutions
             .iter()
             .filter_map(|(_, subst)| match subst {
@@ -61,7 +61,7 @@ impl ParamSubstMap {
             == self.substitutions.len()
     }
 
-    pub fn substitutions_in_order(
+    pub(crate) fn substitutions_in_order(
         &self,
         order: &Vec<GenericParam>,
     ) -> Result<Vec<&ParamSubst>, String> {
@@ -82,7 +82,7 @@ impl ParamSubstMap {
 
     // given a set of params, convert this map into a map containing *only* keys for the params, or
     // Err if not all params exist as keys
-    pub fn minimal_over_params(
+    pub(crate) fn minimal_over_params(
         mut self,
         params: HashSet<GenericParam>,
     ) -> Result<Self, &'static str> {
@@ -135,13 +135,13 @@ impl std::fmt::Debug for ParamSubstMap {
 }
 
 #[derive(Debug)]
-pub struct InstanceSet {
+pub(crate) struct InstanceSet {
     underlying_definition: symtab::types::TypeDecl,
     instances: HashSet<ParamSubstMap>,
 }
 
 impl InstanceSet {
-    pub fn new(underlying_definition: symtab::types::TypeDecl) -> Self {
+    pub(crate) fn new(underlying_definition: symtab::types::TypeDecl) -> Self {
         // special case for non-generic types. We must still be able to call get_underlying, which
         // requires lookup to succeed (only) when an empty substitution map is passed
         let instances = if underlying_definition.generic_params().is_empty() {
@@ -155,11 +155,11 @@ impl InstanceSet {
         }
     }
 
-    pub fn insert(&mut self, params: ParamSubstMap) -> bool {
+    pub(crate) fn insert(&mut self, params: ParamSubstMap) -> bool {
         self.instances.insert(params)
     }
 
-    pub fn get_underlying(
+    pub(crate) fn get_underlying(
         &self,
         params: &ParamSubstMap,
     ) -> Result<&symtab::types::TypeDecl, String> {
@@ -174,7 +174,7 @@ impl InstanceSet {
         }
     }
 
-    pub fn instance_iter(&self) -> impl Iterator<Item = &ParamSubstMap> {
+    pub(crate) fn instance_iter(&self) -> impl Iterator<Item = &ParamSubstMap> {
         self.instances.iter()
     }
 }

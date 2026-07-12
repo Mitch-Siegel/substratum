@@ -32,7 +32,7 @@ fn convert_method_to_ssa(
     convert_function_to_ssa(method, context);
 }
 
-pub fn convert_functions_to_ssa(symtab: &mut symtab::SymbolTable) {
+pub(crate) fn convert_functions_to_ssa(symtab: &mut symtab::SymbolTable) {
     let visitor = symtab::MutSymtabVisitor::new(
         None,
         Some(convert_function_to_ssa),
@@ -83,7 +83,7 @@ fn remove_ssa_from_method(
     remove_ssa(method);
 }
 
-pub fn remove_ssa_from_functions(symtab: &mut symtab::SymbolTable) {
+pub(crate) fn remove_ssa_from_functions(symtab: &mut symtab::SymbolTable) {
     let visitor = symtab::MutSymtabVisitor::new(
         None,
         Some(remove_ssa_from_function),

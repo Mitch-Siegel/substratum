@@ -1,7 +1,7 @@
 use crate::frontend::{ast, parser::parse_rules::*};
 
 impl<'a, 'p> ItemParser<'a, 'p> {
-    pub fn parse_function_declaration_or_definition(
+    pub(crate) fn parse_function_declaration_or_definition(
         &mut self,
     ) -> Result<ast::ItemTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("function declaration/definition")?;
@@ -16,7 +16,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         self.finish_parsing(decl_or_def)
     }
 
-    pub fn parse_function_prototype(
+    pub(crate) fn parse_function_prototype(
         &mut self,
         allow_self_param: bool,
     ) -> Result<ast::items::FunctionDeclarationTree, ParseError> {
@@ -182,7 +182,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         self.finish_parsing(self_argument)
     }
 
-    pub fn parse_function_definition(
+    pub(crate) fn parse_function_definition(
         &mut self,
         prototype: ast::items::FunctionDeclarationTree,
     ) -> Result<ast::items::FunctionDefinitionTree, ParseError> {

@@ -6,7 +6,7 @@ struct _MatchArmContext {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct MatchArm {
+pub(crate) struct MatchArm {
     pub pattern: frontend::ast::expressions::match_expression::PatternTree,
     pub arm_label: usize,
     pub result_value: ValueId,
@@ -97,7 +97,7 @@ fn _lower_pattern(
 
 #[allow(unused)]
 #[derive(Debug)]
-pub enum PatternConstructor {
+pub(crate) enum PatternConstructor {
     _EnumVariant {
         ty: types::Semantic,
         variant: String,
@@ -120,7 +120,7 @@ impl std::fmt::Display for PatternConstructor {
 
 #[allow(unused)]
 #[derive(Debug)]
-pub enum LoweredPattern {
+pub(crate) enum LoweredPattern {
     _Constructor(PatternConstructor, Vec<LoweredPattern>), // fields = subpatterns
     _Identifier(String),
     //Wildcard,
@@ -149,7 +149,7 @@ impl std::fmt::Display for LoweredPattern {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct MatchOperands {
+pub(crate) struct MatchOperands {
     pub scrutinee: ValueId,
     pub arms: Vec<MatchArm>,
 }

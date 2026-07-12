@@ -1,16 +1,16 @@
 use crate::midend::symtab::{Symbol, *};
 
-pub mod builtins;
-pub mod declarations;
-pub mod module;
+pub(crate) mod builtins;
+pub(crate) mod declarations;
+pub(crate) mod module;
 
-pub use builtins::*;
-pub use declarations::*;
-pub use module::Module;
+pub(crate) use builtins::*;
+pub(crate) use declarations::*;
+pub(crate) use module::Module;
 
 #[derive(Debug)]
 #[enum_delegate::implement(Symbol)]
-pub enum Type {
+pub(crate) enum Type {
     Module(Module),
     //UseDeclaration
 

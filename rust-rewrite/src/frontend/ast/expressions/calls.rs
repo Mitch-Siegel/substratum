@@ -1,7 +1,7 @@
 use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct CallParamsTree {
+pub(crate) struct CallParamsTree {
     pub open_paren_loc: sourceloc::SourceSpan,
     pub params: Vec<Expression>,
     pub close_paren_loc: sourceloc::SourceSpan,
@@ -55,7 +55,7 @@ impl
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct CallExpressionTree {
+pub(crate) struct CallExpressionTree {
     pub function_operand: Expression,
     pub params: CallParamsTree,
 }

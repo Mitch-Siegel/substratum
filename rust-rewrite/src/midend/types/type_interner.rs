@@ -1,10 +1,10 @@
 use crate::midend::{symtab::Path, types::*, *};
 use std::collections::{HashMap, HashSet};
 
-pub mod monomorphization;
-pub mod semantic_function;
+pub(crate) mod monomorphization;
+pub(crate) mod semantic_function;
 
-pub use monomorphization::*;
+pub(crate) use monomorphization::*;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 struct DefPathWithParamSubsts {
@@ -13,7 +13,7 @@ struct DefPathWithParamSubsts {
 }
 
 impl DefPathWithParamSubsts {
-    pub fn new(def_path: symtab::RawPath, param_substs: ParamSubstMap) -> Self {
+    pub(crate) fn new(def_path: symtab::RawPath, param_substs: ParamSubstMap) -> Self {
         Self {
             def_path,
             param_substs,
@@ -34,14 +34,14 @@ impl std::fmt::Debug for DefPathWithParamSubsts {
 }
 
 #[derive(Default)]
-pub struct Interner {
+pub(crate) struct Interner {
     id_mappings: HashMap<Semantic, DefPathWithParamSubsts>,
     reverse_id_mappings: HashMap<DefPathWithParamSubsts, Semantic>,
     generic_instances: HashMap<symtab::RawPath, monomorphization::InstanceSet>,
 }
 
 impl Interner {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             id_mappings: HashMap::new(),
             reverse_id_mappings: HashMap::new(),
@@ -55,7 +55,7 @@ impl Interner {
         }
     }
 
-    pub fn insert_type(
+    pub(crate) fn insert_type(
         &mut self,
         def_path: symtab::RawPath,
         definition: symtab::types::TypeDecl,
@@ -80,7 +80,7 @@ impl Interner {
     }
 
     #[tracing::instrument(skip(self), level = "debug")]
-    pub fn semantic_for_defpath(
+    pub(crate) fn semantic_for_defpath(
         &self,
         def_path: symtab::RawPath,
         param_substs: ParamSubstMap,
@@ -91,7 +91,7 @@ impl Interner {
     }
 
     #[tracing::instrument(skip(self), level = "debug")]
-    pub fn record_monomorphization(
+    pub(crate) fn record_monomorphization(
         &mut self,
         def_path: symtab::RawPath,
         generic_params: ParamSubstMap,
@@ -129,7 +129,7 @@ impl Interner {
     }
 
     #[tracing::instrument(skip(self))]
-    pub fn get_type_definition(&self, id: &Semantic) -> Result<&symtab::types::TypeDecl, String> {
+    pub(crate) fn get_type_definition(&self, id: &Semantic) -> Result<&symtab::types::TypeDecl, String> {
         let path_with_params = self.id_mappings.get(id).ok_or("no type mapping for ID")?;
         trace::trace!("semantic type {} maps to {:?}", id, path_with_params);
         let instance_set = self
@@ -144,11 +144,11 @@ impl Interner {
         instance_set.get_underlying(&path_with_params.param_substs)
     }
 
-    pub fn get_syntactic(&self, id: &Semantic) -> Result<Syntactic, String> {
+    pub(crate) fn get_syntactic(&self, id: &Semantic) -> Result<Syntactic, String> {
         Ok(self.get_type_definition(id)?.syntactic())
     }
 
-    pub fn all_monomorphizations(&self) -> HashMap<symtab::RawPath, HashSet<Vec<&ParamSubst>>> {
+    pub(crate) fn all_monomorphizations(&self) -> HashMap<symtab::RawPath, HashSet<Vec<&ParamSubst>>> {
         let mut instances = HashMap::<symtab::RawPath, HashSet<Vec<&ParamSubst>>>::new();
 
         for (path, instance_set) in &self.generic_instances {

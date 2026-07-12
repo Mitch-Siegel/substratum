@@ -6,12 +6,12 @@ use crate::{
     },
 };
 
-pub mod let_statement;
+pub(crate) mod let_statement;
 
-pub use let_statement::*;
+pub(crate) use let_statement::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum StatementTree {
+pub(crate) enum StatementTree {
     Item(Box<ItemTree>),
     Let(Box<LetTree>),
     Expression(Expression),

@@ -13,7 +13,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PathInExpressionTree {
+pub(crate) struct PathInExpressionTree {
     pub underlying_path: ast::path::PathTree<ast::generics::GenericArgsListTree>,
 }
 

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialOrd, Ord, PartialEq, Eq, Hash)]
-pub struct Semantic {
+pub(crate) struct Semantic {
     pub id: usize,
 }
 

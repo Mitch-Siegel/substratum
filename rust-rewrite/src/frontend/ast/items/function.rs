@@ -8,9 +8,9 @@ use crate::{
 };
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct ArgumentDeclarationTree {
+pub(crate) struct ArgumentDeclarationTree {
     pub name: IdentifierTree,
-    pub type_: TypeTree,
+    pub(crate) type_: TypeTree,
     pub mutable: bool,
 }
 
@@ -61,8 +61,8 @@ where
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct FunctionDeclarationTree {
-    pub fn_keyword_loc: sourceloc::SourceSpan,
+pub(crate) struct FunctionDeclarationTree {
+    pub(crate) fn_keyword_loc: sourceloc::SourceSpan,
     pub name: IdentifierTree,
     pub generic_params: generics::OptionalGenericParamsListTree,
     pub arguments: Vec<ArgumentDeclarationTree>,
@@ -167,7 +167,7 @@ impl Display for FunctionDeclarationTree {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct FunctionDefinitionTree {
+pub(crate) struct FunctionDefinitionTree {
     pub prototype: FunctionDeclarationTree,
     pub body: expressions::BlockExpressionTree,
 }

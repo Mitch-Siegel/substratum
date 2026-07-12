@@ -3,23 +3,23 @@ use crate::frontend::parser::*;
 mod declarations;
 mod expressions;
 mod items;
-pub mod module;
+pub(crate) mod module;
 mod path;
 mod single_token;
 mod statements;
 mod types;
 
-pub struct ExpressionParser<'a, 'p>(&'p mut Parser<'a>);
+pub(crate) struct ExpressionParser<'a, 'p>(&'p mut Parser<'a>);
 
-pub struct ItemParser<'a, 'p>(&'p mut Parser<'a>);
+pub(crate) struct ItemParser<'a, 'p>(&'p mut Parser<'a>);
 
-pub struct ModuleParser<'a, 'p>(&'p mut Parser<'a>);
+pub(crate) struct ModuleParser<'a, 'p>(&'p mut Parser<'a>);
 
-pub struct StatementParser<'a, 'p>(&'p mut Parser<'a>);
+pub(crate) struct StatementParser<'a, 'p>(&'p mut Parser<'a>);
 
-pub struct TypeParser<'a, 'p>(&'p mut Parser<'a>);
+pub(crate) struct TypeParser<'a, 'p>(&'p mut Parser<'a>);
 
-pub struct PathParser<'a, 'p>(&'p mut Parser<'a>);
+pub(crate) struct PathParser<'a, 'p>(&'p mut Parser<'a>);
 
 impl<'a, 'p> std::ops::Deref for ExpressionParser<'a, 'p> {
     type Target = Parser<'a>;
@@ -95,27 +95,27 @@ impl<'a, 'p> std::ops::DerefMut for PathParser<'a, 'p> {
 }
 
 impl<'a> Parser<'a> {
-    pub fn expression_parser(&mut self) -> ExpressionParser<'a, '_> {
+    pub(crate) fn expression_parser(&mut self) -> ExpressionParser<'a, '_> {
         ExpressionParser(self)
     }
 
-    pub fn item_parser(&mut self) -> ItemParser<'a, '_> {
+    pub(crate) fn item_parser(&mut self) -> ItemParser<'a, '_> {
         ItemParser(self)
     }
 
-    pub fn module_parser(&mut self) -> ModuleParser<'a, '_> {
+    pub(crate) fn module_parser(&mut self) -> ModuleParser<'a, '_> {
         ModuleParser(self)
     }
 
-    pub fn statement_parser(&mut self) -> StatementParser<'a, '_> {
+    pub(crate) fn statement_parser(&mut self) -> StatementParser<'a, '_> {
         StatementParser(self)
     }
 
-    pub fn type_parser(&mut self) -> TypeParser<'a, '_> {
+    pub(crate) fn type_parser(&mut self) -> TypeParser<'a, '_> {
         TypeParser(self)
     }
 
-    pub fn path_parser(&mut self) -> PathParser<'a, '_> {
+    pub(crate) fn path_parser(&mut self) -> PathParser<'a, '_> {
         PathParser(self)
     }
 }

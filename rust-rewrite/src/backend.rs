@@ -1,4 +1,4 @@
-//pub mod arch;
+//pub(crate) mod arch;
 //use crate::{midend, trace};
 /*mod codegen;
 mod regalloc;
@@ -36,7 +36,7 @@ fn do_backend_for_method(
     trace::debug!("Do backend for method {}.{}", method_of, method.name());
 }
 
-pub fn do_backend<'a>(mut symbol_table: midend::symtab::SymbolTable) {
+pub(crate) fn do_backend<'a>(mut symbol_table: midend::symtab::SymbolTable) {
     let visitor = midend::symtab::SymtabVisitor::<()>::new(
         None,
         Some(do_backend_for_function),

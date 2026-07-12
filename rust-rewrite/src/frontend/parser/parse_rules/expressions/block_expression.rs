@@ -1,7 +1,7 @@
 use crate::frontend::parser::parse_rules::*;
 
 impl<'a> Parser<'a> {
-    pub fn parse_block_expression(
+    pub(crate) fn parse_block_expression(
         &mut self,
     ) -> Result<ast::expressions::BlockExpressionTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("compound statement")?;

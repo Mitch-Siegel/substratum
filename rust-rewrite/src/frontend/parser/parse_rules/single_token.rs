@@ -4,7 +4,7 @@ use super::{ParseError, Parser};
 
 // parsing functions which only consume a single token
 impl<'a> Parser<'a> {
-    pub fn parse_identifier(&mut self) -> Result<ast::IdentifierTree, ParseError> {
+    pub(crate) fn parse_identifier(&mut self) -> Result<ast::IdentifierTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("identifier")?;
 
         let identifier = match self.peek_token()? {

@@ -2,7 +2,7 @@ use crate::midend::symtab::{Implementation, PathSegment, Type, Value};
 
 #[enum_delegate::implement(Symbol)]
 #[derive(Debug)]
-pub enum SymbolDef {
+pub(crate) enum SymbolDef {
     Type(Type),
     Value(Value),
     Impl(Implementation),
@@ -19,7 +19,7 @@ impl std::fmt::Display for SymbolDef {
 }
 
 #[enum_delegate::register]
-pub trait Symbol {
+pub(crate) trait Symbol {
     fn name(&self) -> &str;
 
     fn path_segment(&self) -> PathSegment;

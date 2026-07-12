@@ -1,7 +1,7 @@
 use crate::frontend::sourceloc::SourceLoc;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum LexError {
+pub(crate) enum LexError {
     InvalidChar(InvalidCharError),
     UnexpectedEof(UnexpectedEofError),
 }
@@ -20,22 +20,22 @@ impl std::fmt::Display for LexError {
 }
 
 impl LexError {
-    pub fn invalid_char(c: char, pos: SourceLoc) -> Self {
+    pub(crate) fn invalid_char(c: char, pos: SourceLoc) -> Self {
         Self::InvalidChar(InvalidCharError { c, pos })
     }
 
-    pub fn unexpected_eof(pos: SourceLoc) -> Self {
+    pub(crate) fn unexpected_eof(pos: SourceLoc) -> Self {
         Self::UnexpectedEof(UnexpectedEofError { pos })
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct InvalidCharError {
+pub(crate) struct InvalidCharError {
     c: char,
     pos: SourceLoc,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct UnexpectedEofError {
+pub(crate) struct UnexpectedEofError {
     pos: SourceLoc,
 }

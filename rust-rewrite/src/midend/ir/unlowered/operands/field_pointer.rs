@@ -1,7 +1,7 @@
 use crate::midend::ir::unlowered::*;
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct FieldPointerOperands {
+pub(crate) struct FieldPointerOperands {
     pub receiver: ValueId,
     pub field_name: String,
     pub destination: ValueId,

@@ -12,9 +12,9 @@ use crate::{
 use super::block_depths::find_block_depths;
 
 #[derive(Clone, PartialOrd, Ord, PartialEq, Eq, Debug)]
-pub struct Lifetime {
+pub(crate) struct Lifetime {
     pub name: midend::ir::OperandName,
-    pub type_: midend::types::Type,
+    pub(crate) type_: midend::types::Type,
     pub start: ProgramPoint,
     pub end: ProgramPoint,
     pub n_reads: usize,
@@ -22,7 +22,7 @@ pub struct Lifetime {
 }
 
 impl Lifetime {
-    pub fn new(name: midend::ir::OperandName, type_: midend::types::Type) -> Self {
+    pub(crate) fn new(name: midend::ir::OperandName, type_: midend::types::Type) -> Self {
         Lifetime {
             name,
             type_,
@@ -42,21 +42,21 @@ impl Lifetime {
         }
     }
 
-    pub fn record_read(&mut self, at_point: &ProgramPoint) {
+    pub(crate) fn record_read(&mut self, at_point: &ProgramPoint) {
         self.n_reads += 1;
         self.update_range(at_point);
     }
 
-    pub fn record_write(&mut self, at_point: &ProgramPoint) {
+    pub(crate) fn record_write(&mut self, at_point: &ProgramPoint) {
         self.n_writes += 1;
         self.update_range(at_point);
     }
 
-    pub fn live_at(&self, at_point: &ProgramPoint) -> bool {
+    pub(crate) fn live_at(&self, at_point: &ProgramPoint) -> bool {
         (self.start <= *at_point) && (self.end >= *at_point)
     }
 
-    pub fn overlaps(&self, other: &Self) -> bool {
+    pub(crate) fn overlaps(&self, other: &Self) -> bool {
         self.live_at(&other.start)
             || self.live_at(&other.end)
             || other.live_at(&self.start)
@@ -70,12 +70,12 @@ impl std::fmt::Display for Lifetime {
     }
 }
 
-pub struct LifetimeSet {
+pub(crate) struct LifetimeSet {
     lifetimes: HashMap<midend::ir::OperandName, Lifetime>,
 }
 
 impl LifetimeSet {
-    pub fn new<C>(function: &midend::symtab::Function, context: &C) -> Self
+    pub(crate) fn new<C>(function: &midend::symtab::Function, context: &C) -> Self
     where
         C: midend::symtab::VariableSizingContext,
     {
@@ -127,7 +127,7 @@ impl LifetimeSet {
         ))
     }
 
-    pub fn record_read_at_point<C>(
+    pub(crate) fn record_read_at_point<C>(
         &mut self,
         operand: &midend::ir::OperandName,
         context: &C,
@@ -139,7 +139,7 @@ impl LifetimeSet {
             .record_read(point);
     }
 
-    pub fn record_write_at_point<C>(
+    pub(crate) fn record_write_at_point<C>(
         &mut self,
         operand: &midend::ir::OperandName,
         context: &C,
@@ -151,12 +151,12 @@ impl LifetimeSet {
             .record_write(point);
     }
 
-    pub fn lookup_by_variable(&self, variable: &midend::symtab::Variable) -> Option<&Lifetime> {
+    pub(crate) fn lookup_by_variable(&self, variable: &midend::symtab::Variable) -> Option<&Lifetime> {
         self.lifetimes
             .get(&midend::ir::OperandName::new_basic(variable.name.clone()))
     }
 
-    pub fn print_numerical(&self) {
+    pub(crate) fn print_numerical(&self) {
         for lifetime in self.lifetimes.values() {
             println!(
                 "{:>20}: [{}-{}]",

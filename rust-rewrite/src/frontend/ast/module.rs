@@ -8,9 +8,9 @@ use crate::{
 };
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct ModuleTree {
-    pub module_path: Vec<String>,
-    pub mod_keyword_loc: sourceloc::SourceSpan,
+pub(crate) struct ModuleTree {
+    pub(crate) module_path: Vec<String>,
+    pub(crate) mod_keyword_loc: sourceloc::SourceSpan,
     pub name: IdentifierTree,
     pub items: Vec<ItemTree>,
 }
@@ -22,7 +22,7 @@ impl ModuleTree {
     }
 
     #[tracing::instrument(skip(self, ctx), level = "debug")]
-    pub fn collect_from_parent_path(
+    pub(crate) fn collect_from_parent_path(
         &self,
         mut ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
@@ -41,7 +41,7 @@ impl ModuleTree {
     }
 
     #[tracing::instrument(skip(self, ctx), level = "debug", fields(prefix_segments = format!("{:?}", parent_path)))]
-    pub fn linearize_from_prefix_segments<C>(
+    pub(crate) fn linearize_from_prefix_segments<C>(
         self,
         mut ctx: C,
         parent_path: midend::symtab::TypePath,

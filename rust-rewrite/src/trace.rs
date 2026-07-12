@@ -1,12 +1,12 @@
 #![allow(unused_imports, unused_macros)]
 
-pub use tracing::Level;
-pub use tracing_print::Print;
+pub(crate) use tracing::Level;
+pub(crate) use tracing_print::Print;
 
 // TODO: maybe namespace this differently to avoid confusion over shadowing the tracing crate
 // macros directly
 
-pub struct ExitOnDropSpan {
+pub(crate) struct ExitOnDropSpan {
     entered_span: Option<tracing::span::EnteredSpan>,
 }
 

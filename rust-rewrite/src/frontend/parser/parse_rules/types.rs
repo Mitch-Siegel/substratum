@@ -3,7 +3,7 @@ use crate::midend::{self, types};
 use crate::frontend::{ast, parser::parse_rules::*};
 
 impl<'a, 'p> TypeParser<'a, 'p> {
-    pub fn parse_type(&mut self) -> Result<TypeTree, ParseError> {
+    pub(crate) fn parse_type(&mut self) -> Result<TypeTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("type")?;
 
         let type_tree = TypeTree::TypeNoBounds(self.parse_type_no_bounds()?);

@@ -7,9 +7,9 @@ use crate::{
 };
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct StructFieldTree {
+pub(crate) struct StructFieldTree {
     pub name: IdentifierTree,
-    pub type_: TypeTree,
+    pub(crate) type_: TypeTree,
 }
 
 impl Ast for StructFieldTree {
@@ -42,8 +42,8 @@ impl Display for StructFieldTree {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct StructDefinitionTree {
-    pub struct_keyword_loc: sourceloc::SourceSpan,
+pub(crate) struct StructDefinitionTree {
+    pub(crate) struct_keyword_loc: sourceloc::SourceSpan,
     pub name: IdentifierTree,
     pub generic_params: generics::OptionalGenericParamsListTree,
     pub fields: Vec<StructFieldTree>,

@@ -5,7 +5,7 @@ use crate::midend::{
     ir, symtab,
 };
 
-pub fn add_block_arguments(function: &mut symtab::Function) {
+pub(crate) fn add_block_arguments(function: &mut symtab::Function) {
     let mut block_args = idfa::BlockArgs::new(&function.control_flow).take_facts();
 
     loop {

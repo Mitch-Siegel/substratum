@@ -1,7 +1,7 @@
-pub mod ast;
-pub mod lexer;
-pub mod parser;
-pub mod sourceloc;
+pub(crate) mod ast;
+pub(crate) mod lexer;
+pub(crate) mod parser;
+pub(crate) mod sourceloc;
 
-pub use lexer::Lexer;
-pub use parser::Parser;
+pub(crate) use lexer::Lexer;
+pub(crate) use parser::Parser;

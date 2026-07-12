@@ -10,11 +10,11 @@ use crate::frontend::{
 
 use super::types::ReferenceTypeTree;
 
-pub fn test_loc(line: u32, col: u32) -> SourceLoc {
+pub(crate) fn test_loc(line: u32, col: u32) -> SourceLoc {
     SourceLoc::new(String::from(""), SourcePoint::new(line, col))
 }
 
-pub fn test_span(start_line: u32, start_col: u32, end_line: u32, end_col: u32) -> SourceSpan {
+pub(crate) fn test_span(start_line: u32, start_col: u32, end_line: u32, end_col: u32) -> SourceSpan {
     SourceSpan::new(
         String::from(""),
         SourcePoint::new(start_line, start_col),
@@ -28,7 +28,7 @@ fn expand_span(span: SourceSpan, cols: u32) -> SourceSpan {
     span.merge(&end.into()).unwrap()
 }
 
-pub fn identifier(value: &str, start_loc: SourceLoc) -> IdentifierTree {
+pub(crate) fn identifier(value: &str, start_loc: SourceLoc) -> IdentifierTree {
     IdentifierTree {
         value: value.into(),
         loc: expand_span(
@@ -38,7 +38,7 @@ pub fn identifier(value: &str, start_loc: SourceLoc) -> IdentifierTree {
     }
 }
 
-pub fn path_ident_segment<T>(
+pub(crate) fn path_ident_segment<T>(
     value: &str,
     start_point: SourceLoc,
     data: Option<T>,
@@ -52,7 +52,7 @@ where
     }
 }
 
-pub fn path_super_segment<T>(start_loc: SourceLoc, data: Option<T>) -> PathSegmentTree<T>
+pub(crate) fn path_super_segment<T>(start_loc: SourceLoc, data: Option<T>) -> PathSegmentTree<T>
 where
     T: Ast,
 {
@@ -62,7 +62,7 @@ where
     }
 }
 
-pub fn path_self_lower_segment<T>(start_loc: SourceLoc, data: Option<T>) -> PathSegmentTree<T>
+pub(crate) fn path_self_lower_segment<T>(start_loc: SourceLoc, data: Option<T>) -> PathSegmentTree<T>
 where
     T: Ast,
 {
@@ -72,7 +72,7 @@ where
     }
 }
 
-pub fn path_self_upper_segment<T>(start_loc: SourceLoc, data: Option<T>) -> PathSegmentTree<T>
+pub(crate) fn path_self_upper_segment<T>(start_loc: SourceLoc, data: Option<T>) -> PathSegmentTree<T>
 where
     T: Ast,
 {
@@ -82,7 +82,7 @@ where
     }
 }
 
-pub fn path<T>(segments: Vec<PathSegmentTree<T>>, starts_global: Option<SourceSpan>) -> PathTree<T>
+pub(crate) fn path<T>(segments: Vec<PathSegmentTree<T>>, starts_global: Option<SourceSpan>) -> PathTree<T>
 where
     T: Ast,
 {
@@ -92,7 +92,7 @@ where
     }
 }
 
-pub fn id(line: u32, col: u32, name: &str) -> Expression {
+pub(crate) fn id(line: u32, col: u32, name: &str) -> Expression {
     Expression::PathIn(PathInExpressionTree {
         underlying_path: PathTree {
             segments: vec![PathSegmentTree {
@@ -112,7 +112,7 @@ pub fn id(line: u32, col: u32, name: &str) -> Expression {
     })
 }
 
-pub fn unsigned_decimal_constant(line: u32, col: u32, value: usize) -> Expression {
+pub(crate) fn unsigned_decimal_constant(line: u32, col: u32, value: usize) -> Expression {
     Expression::UnsignedDecimalConstant(
         test_span(
             line,
@@ -124,19 +124,19 @@ pub fn unsigned_decimal_constant(line: u32, col: u32, value: usize) -> Expressio
     )
 }
 
-pub fn add(lhs: Expression, rhs: Expression) -> Expression {
+pub(crate) fn add(lhs: Expression, rhs: Expression) -> Expression {
     Expression::Arithmetic(ArithmeticExpressionTree::Add(ArithmeticDualOperands::new(
         lhs, rhs,
     )))
 }
 
-pub fn mul(lhs: Expression, rhs: Expression) -> Expression {
+pub(crate) fn mul(lhs: Expression, rhs: Expression) -> Expression {
     Expression::Arithmetic(ArithmeticExpressionTree::Multiply(
         ArithmeticDualOperands::new(lhs, rhs),
     ))
 }
 
-pub fn primitive_type(
+pub(crate) fn primitive_type(
     start_line: u32,
     start_col: u32,
     type_: midend::types::Syntactic,
@@ -152,7 +152,7 @@ pub fn primitive_type(
     }))
 }
 
-pub fn named_type(start_line: u32, start_col: u32, name: &str) -> TypeTree {
+pub(crate) fn named_type(start_line: u32, start_col: u32, name: &str) -> TypeTree {
     TypeTree::TypeNoBounds(TypeNoBoundsTree::TypePath(TypePath::ItemPath(
         TypeItemPathTree {
             underlying_path: PathTree {
@@ -174,7 +174,7 @@ pub fn named_type(start_line: u32, start_col: u32, name: &str) -> TypeTree {
     )))
 }
 
-pub fn reference_of_type(
+pub(crate) fn reference_of_type(
     line: u32,
     col: u32,
     mutability: midend::types::Mutability,

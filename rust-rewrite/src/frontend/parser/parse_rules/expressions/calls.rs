@@ -1,7 +1,7 @@
 use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ExpressionParser<'a, 'p> {
-    pub fn parse_call_params(
+    pub(crate) fn parse_call_params(
         &mut self,
         _allow_self: bool,
     ) -> Result<ast::expressions::calls::CallParamsTree, ParseError> {
@@ -32,7 +32,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
         self.finish_parsing(params_tree)
     }
 
-    pub fn parse_call_expression(
+    pub(crate) fn parse_call_expression(
         &mut self,
         function_operand: Expression,
     ) -> Result<Expression, ParseError> {

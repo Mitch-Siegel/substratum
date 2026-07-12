@@ -5,7 +5,7 @@ use crate::{
 };
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct TupleStructTree {
+pub(crate) struct TupleStructTree {
     pub name: IdentifierTree,
     pub subpatterns: Vec<PatternTree>,
     pub close_paren_loc: sourceloc::SourceSpan,
@@ -57,7 +57,7 @@ impl
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum PatternTree {
+pub(crate) enum PatternTree {
     Literal(Expression),
     Identifier(IdentifierTree),
     // TODO: PathInExpression
@@ -136,7 +136,7 @@ impl
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct MatchArmTree {
+pub(crate) struct MatchArmTree {
     pub pattern: PatternTree,
     pub expression: BlockExpressionTree,
 }
@@ -191,7 +191,7 @@ impl
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct MatchExpressionTree {
+pub(crate) struct MatchExpressionTree {
     pub match_keyword_loc: sourceloc::SourceSpan,
     pub scrutinee_expression: Expression,
     pub arms: Vec<MatchArmTree>,

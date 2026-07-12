@@ -8,7 +8,7 @@ use crate::{
 use std::collections::BTreeSet;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct GenericParamTree {
+pub(crate) struct GenericParamTree {
     pub name: IdentifierTree,
 }
 
@@ -52,18 +52,18 @@ impl Display for GenericParamTree {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct GenericParamsListTree {
+pub(crate) struct GenericParamsListTree {
     pub open_angle_bracket_loc: sourceloc::SourceSpan,
     pub params: Vec<GenericParamTree>,
     pub close_angle_bracket_loc: sourceloc::SourceSpan,
 }
 
 impl GenericParamsListTree {
-    pub fn into_vec(self) -> Vec<IdentifierTree> {
+    pub(crate) fn into_vec(self) -> Vec<IdentifierTree> {
         self.params.into_iter().map(|param| param.name).collect()
     }
 
-    pub fn into_vec_with_locs(self) -> Vec<(IdentifierTree, sourceloc::SourceSpan)> {
+    pub(crate) fn into_vec_with_locs(self) -> Vec<(IdentifierTree, sourceloc::SourceSpan)> {
         self.params
             .into_iter()
             .map(|param| {
@@ -73,7 +73,7 @@ impl GenericParamsListTree {
             .collect()
     }
 
-    pub fn linearize_ctxless(self) -> Vec<(sourceloc::SourceSpan, midend::types::GenericParam)> {
+    pub(crate) fn linearize_ctxless(self) -> Vec<(sourceloc::SourceSpan, midend::types::GenericParam)> {
         let generic_params_vec = self.into_vec_with_locs();
         generic_params_vec
             .into_iter()
@@ -154,7 +154,7 @@ where
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct OptionalGenericParamsListTree {
+pub(crate) struct OptionalGenericParamsListTree {
     pub start_loc: sourceloc::SourceLoc,
     pub maybe_params: Option<GenericParamsListTree>,
 }
@@ -212,7 +212,7 @@ where
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct GenericArgsListTree {
+pub(crate) struct GenericArgsListTree {
     pub open_angle_bracket_loc: sourceloc::SourceSpan,
     pub args: Vec<TypeTree>,
     pub close_angle_bracket_loc: sourceloc::SourceSpan,

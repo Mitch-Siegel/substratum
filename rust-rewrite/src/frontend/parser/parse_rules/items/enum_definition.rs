@@ -46,7 +46,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         self.finish_parsing(variant_data)
     }
 
-    pub fn parse_enum_variant(
+    pub(crate) fn parse_enum_variant(
         &mut self,
     ) -> Result<ast::items::enum_definition::EnumVariantTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("enum variant")?;
@@ -59,7 +59,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         self.finish_parsing(enum_variant_tree)
     }
 
-    pub fn parse_enum_definition(
+    pub(crate) fn parse_enum_definition(
         &mut self,
     ) -> Result<ast::items::enum_definition::EnumDefinitionTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("enum definition")?;

@@ -2,7 +2,7 @@ use crate::backend::arch::generic::{RegisterPurpose::*, RegisterSaveConvention::
 
 use super::*;
 
-pub fn rv64g_registers() -> ArchitectureRegisters {
+pub(crate) fn rv64g_registers() -> ArchitectureRegisters {
     let mut architecture_registers = ArchitectureRegisters::new();
 
     let riscv_registers = vec![

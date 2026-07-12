@@ -1,7 +1,7 @@
 use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct FieldExpressionTree {
+pub(crate) struct FieldExpressionTree {
     pub receiver: Expression,
     pub field: IdentifierTree,
 }

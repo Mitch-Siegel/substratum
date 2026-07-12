@@ -7,7 +7,7 @@ use crate::{
 };
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct WhileExpressionTree {
+pub(crate) struct WhileExpressionTree {
     pub while_keyword_loc: sourceloc::SourceSpan,
     pub condition: Expression,
     pub body: BlockExpressionTree,

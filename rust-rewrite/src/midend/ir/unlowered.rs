@@ -1,11 +1,11 @@
 use crate::midend::{ir::*, *};
 
-pub mod operands;
+pub(crate) mod operands;
 use operands::*;
 
 #[allow(unused)]
 #[enum_delegate::register]
-pub trait Lowerable {
+pub(crate) trait Lowerable {
     fn lower<P: symtab::Path>(
         self,
         context: &mut treewalk::FunctionLinearizeCtx<P>,
@@ -15,7 +15,7 @@ pub trait Lowerable {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[enum_delegate::implement(Lowerable)]
-pub enum Operation {
+pub(crate) enum Operation {
     Match(MatchOperands),
     Discriminant(DiscriminantOperands),
     GetFieldPointer(FieldPointerOperands),
@@ -46,27 +46,27 @@ impl std::fmt::Display for Operation {
 }
 
 impl Operation {
-    pub fn read_value_ids(&self) -> Vec<ValueId> {
+    pub(crate) fn read_value_ids(&self) -> Vec<ValueId> {
         vec![]
     }
 
-    pub fn write_value_ids(&self) -> Vec<ValueId> {
+    pub(crate) fn write_value_ids(&self) -> Vec<ValueId> {
         vec![]
     }
 }
 
-pub fn new_match(scrutinee: ValueId, arms: Vec<MatchArm>) -> Operation {
+pub(crate) fn new_match(scrutinee: ValueId, arms: Vec<MatchArm>) -> Operation {
     Operation::Match(MatchOperands { scrutinee, arms })
 }
 
-pub fn new_discriminant(destination: ValueId, enum_receiver: ValueId) -> Operation {
+pub(crate) fn new_discriminant(destination: ValueId, enum_receiver: ValueId) -> Operation {
     Operation::Discriminant(DiscriminantOperands {
         destination,
         enum_receiver,
     })
 }
 
-pub fn new_get_field_pointer(
+pub(crate) fn new_get_field_pointer(
     receiver: ValueId,
     field_name: String,
     destination: ValueId,

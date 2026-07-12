@@ -1,16 +1,16 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
-pub mod semantic_types;
-pub mod syntactic_types;
-pub mod type_interner;
+pub(crate) mod semantic_types;
+pub(crate) mod syntactic_types;
+pub(crate) mod type_interner;
 
-pub use semantic_types::Semantic;
-pub use syntactic_types::Syntactic;
-pub use type_interner::{GenericParam, GenericParamsList, Interner, ParamSubst, ParamSubstMap};
+pub(crate) use semantic_types::Semantic;
+pub(crate) use syntactic_types::Syntactic;
+pub(crate) use type_interner::{GenericParam, GenericParamsList, Interner, ParamSubst, ParamSubstMap};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize, Hash)]
-pub enum Mutability {
+pub(crate) enum Mutability {
     Mutable,
     Immutable,
 }

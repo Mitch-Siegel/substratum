@@ -1,6 +1,6 @@
 use crate::midend::{self, types::TypeSizingContext};
 
-pub struct RegallocContext<'a, C>
+pub(crate) struct RegallocContext<'a, C>
 where
     C: midend::types::TypeSizingContext,
 {
@@ -13,7 +13,7 @@ impl<'a, C> RegallocContext<'a, C>
 where
     C: midend::types::TypeSizingContext,
 {
-    pub fn new(
+    pub(crate) fn new(
         parent_modules: &'a C,
         self_type: Option<&'a midend::types::Type>,
         function: &'a midend::symtab::Function,

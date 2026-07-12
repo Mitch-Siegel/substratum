@@ -1,19 +1,19 @@
 use crate::{frontend::sourceloc::*, trace};
-pub use char_source::CharSource;
+pub(crate) use char_source::CharSource;
 
 mod char_source;
-pub mod errors;
+pub(crate) mod errors;
 #[cfg(test)]
 mod integration_tests;
 #[cfg(test)]
 mod tests;
-pub mod token;
+pub(crate) mod token;
 
-pub use errors::LexError;
-pub use token::Token;
+pub(crate) use errors::LexError;
+pub(crate) use token::Token;
 
 #[derive(Debug)]
-pub struct Lexer<'a> {
+pub(crate) struct Lexer<'a> {
     cur_file: String, // TODO: needs to become PathBuf at some point
     char_source: CharSource<'a>,
     cur_line: u32,
@@ -24,7 +24,7 @@ pub struct Lexer<'a> {
 
 // public methods:
 impl<'a> Lexer<'a> {
-    pub fn from_char_source(file: &std::path::Path, mut char_source: CharSource<'a>) -> Self {
+    pub(crate) fn from_char_source(file: &std::path::Path, mut char_source: CharSource<'a>) -> Self {
         let first_char = char_source.next();
 
         let start_line = if first_char == Some('\n') { 2 } else { 1 };
@@ -42,19 +42,19 @@ impl<'a> Lexer<'a> {
         created
     }
 
-    pub fn from_file(file_name: &std::path::Path, f: std::fs::File) -> Self {
+    pub(crate) fn from_file(file_name: &std::path::Path, f: std::fs::File) -> Self {
         Self::from_char_source(file_name, CharSource::from_file(f))
     }
 
     #[allow(dead_code)]
-    pub fn from_string(s: &'a str) -> Self {
+    pub(crate) fn from_string(s: &'a str) -> Self {
         Self::from_char_source(
             std::path::Path::new(&String::new()),
             CharSource::from_str(s),
         )
     }
 
-    pub fn peek(&mut self) -> Result<(Token, SourceSpan), LexError> {
+    pub(crate) fn peek(&mut self) -> Result<(Token, SourceSpan), LexError> {
         if self.current_token.is_none() {
             self.current_token = Some(self.lex()?);
         }
@@ -77,14 +77,14 @@ impl<'a> Lexer<'a> {
     }
 
     // returns the position to which the input has been read
-    pub fn current_loc(&self) -> SourceLoc {
+    pub(crate) fn current_loc(&self) -> SourceLoc {
         SourceLoc::new(
             self.cur_file.clone(),
             SourcePoint::new(self.cur_line, self.cur_col),
         )
     }
 
-    pub fn next(&mut self) -> Result<(Token, SourceSpan), LexError> {
+    pub(crate) fn next(&mut self) -> Result<(Token, SourceSpan), LexError> {
         let _ = trace::span_auto!(tracing::Level::TRACE, "");
         let next_token = self.lex()?;
         Ok(self
@@ -94,7 +94,7 @@ impl<'a> Lexer<'a> {
     }
 
     #[allow(dead_code)]
-    pub fn lex_all(&mut self) -> Result<Vec<(Token, SourceSpan)>, LexError> {
+    pub(crate) fn lex_all(&mut self) -> Result<Vec<(Token, SourceSpan)>, LexError> {
         println!("Lexer::lex_all()");
         let mut tokens: Vec<(Token, SourceSpan)> = Vec::new();
         if self.current_token.is_none() {

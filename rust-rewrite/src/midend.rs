@@ -4,12 +4,12 @@ use std::collections::BTreeSet;
 
 #[allow(unused)]
 mod idfa;
-pub mod ir;
+pub(crate) mod ir;
 mod optimization;
-pub mod treewalk;
+pub(crate) mod treewalk;
 //mod ssa_gen;
-pub mod symtab;
-pub mod types;
+pub(crate) mod symtab;
+pub(crate) mod types;
 
 fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
     let _ = symtab::Visitor::visit_with_starting_data(
@@ -34,7 +34,7 @@ fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
     );
 }
 
-pub fn symbol_table_from_modules(
+pub(crate) fn symbol_table_from_modules(
     modules: BTreeSet<frontend::ast::ModuleTree>,
 ) -> symtab::SymbolTable {
     let _ = trace::span_auto!(trace::Level::DEBUG, "Generate symbol table from AST");

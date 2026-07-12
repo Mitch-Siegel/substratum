@@ -20,13 +20,13 @@ impl Display for SsaWriteConversionMetadata {
 }
 
 impl SsaWriteConversionMetadata {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             variables: HashMap::new(),
         }
     }
 
-    pub fn next_number_for_variable(&mut self, operand_name: &ir::OperandName) -> usize {
+    pub(crate) fn next_number_for_variable(&mut self, operand_name: &ir::OperandName) -> usize {
         let entry = self
             .variables
             .entry(operand_name.base_name.clone())
@@ -37,7 +37,7 @@ impl SsaWriteConversionMetadata {
         returned_write
     }
 
-    pub fn next_number_for_string(&mut self, string: &str) -> usize {
+    pub(crate) fn next_number_for_string(&mut self, string: &str) -> usize {
         let entry = self.variables.entry(String::from(string)).or_insert(0);
         let returned_write = *entry;
         *entry += 1;
@@ -66,7 +66,7 @@ fn convert_block_writes_to_ssa(
     }
 }
 
-pub fn convert_writes_to_ssa(function: &mut symtab::Function) {
+pub(crate) fn convert_writes_to_ssa(function: &mut symtab::Function) {
     let mut write_conversion_metadata = SsaWriteConversionMetadata::new();
     for argument in &function.prototype.arguments {
         write_conversion_metadata.next_number_for_string(argument.name.as_str());

@@ -1,12 +1,12 @@
 use crate::midend::symtab::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Module {
+pub(crate) struct Module {
     pub name: String,
 }
 
 impl Module {
-    pub fn new(name: String) -> Self {
+    pub(crate) fn new(name: String) -> Self {
         assert!(!name.is_empty());
         Self { name }
     }

@@ -2,14 +2,14 @@ use crate::midend::symtab::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct FieldRepr {
+pub(crate) struct FieldRepr {
     pub name: String,
-    pub type_: types::Syntactic,
+    pub(crate) type_: types::Syntactic,
     pub offset: Option<usize>,
 }
 
 impl FieldRepr {
-    pub fn new(name: String, type_: types::Syntactic) -> Self {
+    pub(crate) fn new(name: String, type_: types::Syntactic) -> Self {
         Self {
             name,
             type_,
@@ -28,7 +28,7 @@ impl std::fmt::Display for FieldRepr {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct StructRepr {
+pub(crate) struct StructRepr {
     pub name: String,
     pub generic_params: types::GenericParamsList,
     field_order: Vec<String>,
@@ -38,7 +38,7 @@ pub struct StructRepr {
 }
 
 impl StructRepr {
-    pub fn new(
+    pub(crate) fn new(
         name: String,
         generic_params: types::GenericParamsList,
         field_definitions: Vec<(String, types::Syntactic)>,
@@ -68,7 +68,7 @@ impl StructRepr {
         })
     }
 
-    pub fn lookup_field(&self, name: &str) -> Result<&FieldRepr, String> {
+    pub(crate) fn lookup_field(&self, name: &str) -> Result<&FieldRepr, String> {
         match self.fields.get(name) {
             Some(field) => Ok(field),
             None => Err(name.into()),

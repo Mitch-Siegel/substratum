@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 #[derive(Clone, Debug)]
-pub enum Token {
+pub(crate) enum Token {
     U8,
     U16,
     U32,
@@ -120,7 +120,7 @@ impl PartialEq for Token {
 impl Eq for Token {}
 
 impl Token {
-    pub fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         match self {
             Self::U8 => "u8",
             Self::U16 => "u16",

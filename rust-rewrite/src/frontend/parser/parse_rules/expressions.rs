@@ -13,7 +13,7 @@ mod primary_expression;
 mod while_expression;
 
 impl<'a, 'p> ExpressionParser<'a, 'p> {
-    pub fn parse_expression(&mut self) -> Result<Expression, ParseError> {
+    pub(crate) fn parse_expression(&mut self) -> Result<Expression, ParseError> {
         let (_start_loc, _span) = self.start_parsing("expression")?;
 
         let mut expr = match self.peek_token()? {
@@ -68,7 +68,7 @@ mod tests {
     use crate::frontend::ast::builder as ast_builder;
     use crate::frontend::parser::{parse_rules::*, tests::*};
 
-    pub fn example_expression() -> String {
+    pub(crate) fn example_expression() -> String {
         "(a + b * 2)".into()
     }
 

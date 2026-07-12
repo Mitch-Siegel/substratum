@@ -1,5 +1,5 @@
 #[derive(Clone, PartialEq, Eq)]
-pub enum PathError {
+pub(crate) enum PathError {
     CantOwn(PathSegment, PathSegment),
     PopEmpty,
     WithoutLastSingleSegment(RawPath),
@@ -28,19 +28,19 @@ impl std::fmt::Debug for PathError {
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TypeSegment(pub String);
+pub(crate) struct TypeSegment(pub String);
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ValueSegment(pub String);
+pub(crate) struct ValueSegment(pub String);
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct MacroSegment(pub String);
+pub(crate) struct MacroSegment(pub String);
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ImplSegment(pub ImplId);
+pub(crate) struct ImplSegment(pub ImplId);
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct ImplId(pub usize);
+pub(crate) struct ImplId(pub usize);
 
 impl TryFrom<PathSegment> for TypeSegment {
     type Error = ();
@@ -83,7 +83,7 @@ impl TryFrom<PathSegment> for ImplSegment {
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum PathSegment {
+pub(crate) enum PathSegment {
     Type(String),
     Value(String),
     Macro(String),
@@ -91,14 +91,14 @@ pub enum PathSegment {
 }
 
 impl PathSegment {
-    pub fn can_own(&self, other: &Self) -> bool {
+    pub(crate) fn can_own(&self, other: &Self) -> bool {
         matches!(
             (self, other),
             (Self::Type(_), _) | (Self::Value(_), Self::Value(_)) | (Self::Value(_), Self::Type(_))
         )
     }
 
-    pub fn raw(&self) -> &str {
+    pub(crate) fn raw(&self) -> &str {
         match self {
             Self::Type(name) | Self::Value(name) | Self::Macro(name) => name,
             Self::Impl(_) => panic!("no raw name for Impl segments"),
@@ -150,7 +150,7 @@ impl std::fmt::Debug for PathSegment {
     }
 }
 
-pub trait Path:
+pub(crate) trait Path:
     Clone
     + std::fmt::Debug
     + std::fmt::Display
@@ -187,36 +187,36 @@ pub trait Path:
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct RawPath {
+pub(crate) struct RawPath {
     prefix_segments: Vec<PathSegment>,
     last: PathSegment,
 }
 
 impl RawPath {
-    pub fn new(prefix_segments: Vec<PathSegment>, last: PathSegment) -> Self {
+    pub(crate) fn new(prefix_segments: Vec<PathSegment>, last: PathSegment) -> Self {
         Self {
             prefix_segments,
             last,
         }
     }
 
-    pub fn is_type(&self) -> bool {
+    pub(crate) fn is_type(&self) -> bool {
         matches!(self.last, PathSegment::Type(_))
     }
 
-    pub fn is_value(&self) -> bool {
+    pub(crate) fn is_value(&self) -> bool {
         matches!(self.last, PathSegment::Value(_))
     }
 
-    pub fn is_macro(&self) -> bool {
+    pub(crate) fn is_macro(&self) -> bool {
         matches!(self.last, PathSegment::Macro(_))
     }
 
-    pub fn is_impl(&self) -> bool {
+    pub(crate) fn is_impl(&self) -> bool {
         matches!(self.last, PathSegment::Impl(_))
     }
 
-    pub fn with_segment(mut self, segment: PathSegment) -> Result<Self, PathError> {
+    pub(crate) fn with_segment(mut self, segment: PathSegment) -> Result<Self, PathError> {
         if self.last.can_own(&segment) {
             let old_last = std::mem::replace(&mut self.last, segment);
             self.prefix_segments.push(old_last);
@@ -244,7 +244,7 @@ impl Path for RawPath {
     }
 }
 
-pub trait TypeOwner: Path {
+pub(crate) trait TypeOwner: Path {
     #[allow(unused)]
     fn with_child_type(self, name: String) -> TypePath {
         self.into()
@@ -253,7 +253,7 @@ pub trait TypeOwner: Path {
             .into()
     }
 }
-pub trait ValueOwner: Path {
+pub(crate) trait ValueOwner: Path {
     fn with_child_value(self, name: String) -> ValuePath {
         self.into()
             .with_segment(PathSegment::Value(name))
@@ -261,7 +261,7 @@ pub trait ValueOwner: Path {
             .into()
     }
 }
-pub trait MacroOwner: Path {
+pub(crate) trait MacroOwner: Path {
     #[allow(unused)]
     fn with_child_macro(self, name: String) -> MacroPath {
         self.into()
@@ -271,7 +271,7 @@ pub trait MacroOwner: Path {
     }
 }
 
-pub trait ImplOwner: Path {
+pub(crate) trait ImplOwner: Path {
     #[allow(unused)]
     fn with_child_impl(self, id: ImplId) -> ImplPath {
         self.into()
@@ -331,16 +331,16 @@ impl std::fmt::Debug for RawPath {
 
 #[allow(unused)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct TypePath(pub(in crate::midend::symtab) RawPath);
+pub(crate) struct TypePath(pub(in crate::midend::symtab) RawPath);
 #[allow(unused)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ValuePath(pub(in crate::midend::symtab) RawPath);
+pub(crate) struct ValuePath(pub(in crate::midend::symtab) RawPath);
 #[allow(unused)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct MacroPath(pub(in crate::midend::symtab) RawPath);
+pub(crate) struct MacroPath(pub(in crate::midend::symtab) RawPath);
 #[allow(unused)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ImplPath(pub(in crate::midend::symtab) RawPath);
+pub(crate) struct ImplPath(pub(in crate::midend::symtab) RawPath);
 
 impl TypeOwner for TypePath {}
 impl ValueOwner for TypePath {}
@@ -350,7 +350,7 @@ impl ValueOwner for ValuePath {}
 impl ValueOwner for ImplPath {}
 
 impl TypePath {
-    pub fn new(parent: Option<impl Path>, name: String) -> Self {
+    pub(crate) fn new(parent: Option<impl Path>, name: String) -> Self {
         match parent {
             Some(parent) => Self(parent.into().with_segment(PathSegment::Type(name)).unwrap()),
             None => Self(RawPath::new(Vec::new(), PathSegment::Type(name))),

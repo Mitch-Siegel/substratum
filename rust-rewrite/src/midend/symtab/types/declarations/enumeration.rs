@@ -2,7 +2,7 @@ use crate::midend::symtab::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum EnumVariantRepr {
+pub(crate) enum EnumVariantRepr {
     Unit,
     Tuple(Vec<midend::types::Syntactic>),
     // TODO: struct-like enums
@@ -10,14 +10,14 @@ pub enum EnumVariantRepr {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct EnumVariant {
+pub(crate) struct EnumVariant {
     pub discriminant: usize,
     pub name: String,
     pub data: EnumVariantRepr,
 }
 
 impl EnumVariant {
-    pub fn new(discriminant: usize, name: String, data: EnumVariantRepr) -> Self {
+    pub(crate) fn new(discriminant: usize, name: String, data: EnumVariantRepr) -> Self {
         Self {
             discriminant,
             name,
@@ -25,7 +25,7 @@ impl EnumVariant {
         }
     }
 
-    pub fn new_unit(discriminant: usize, name: String) -> Self {
+    pub(crate) fn new_unit(discriminant: usize, name: String) -> Self {
         Self {
             discriminant,
             name,
@@ -33,7 +33,7 @@ impl EnumVariant {
         }
     }
 
-    pub fn new_tuple(
+    pub(crate) fn new_tuple(
         discriminant: usize,
         name: String,
         elements: Vec<midend::types::Syntactic>,
@@ -45,7 +45,7 @@ impl EnumVariant {
         }
     }
 
-    pub fn syntactic(&self) -> midend::types::Syntactic {
+    pub(crate) fn syntactic(&self) -> midend::types::Syntactic {
         match &self.data {
             EnumVariantRepr::Unit => midend::types::Syntactic::Unit,
             EnumVariantRepr::Tuple(elements) => {
@@ -56,7 +56,7 @@ impl EnumVariant {
         }
     }
 
-    pub fn data(&self) -> &EnumVariantRepr {
+    pub(crate) fn data(&self) -> &EnumVariantRepr {
         &self.data
     }
 }
@@ -72,7 +72,7 @@ impl std::fmt::Display for EnumVariant {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct EnumRepr {
+pub(crate) struct EnumRepr {
     pub name: String,
     variants: BTreeMap<String, EnumVariant>,
     discriminants: BTreeMap<String, usize>,
@@ -81,7 +81,7 @@ pub struct EnumRepr {
 }
 
 impl EnumRepr {
-    pub fn new(
+    pub(crate) fn new(
         name: String,
         variant_definitions: Vec<(String, EnumVariantRepr)>,
     ) -> Result<Self, EnumVariant> {
@@ -107,11 +107,11 @@ impl EnumRepr {
         })
     }
 
-    pub fn variants(&self) -> &BTreeMap<String, EnumVariant> {
+    pub(crate) fn variants(&self) -> &BTreeMap<String, EnumVariant> {
         &self.variants
     }
 
-    pub fn get_variant(&self, variant_name: &String) -> Option<&EnumVariant> {
+    pub(crate) fn get_variant(&self, variant_name: &String) -> Option<&EnumVariant> {
         self.variants.get(variant_name)
     }
 }

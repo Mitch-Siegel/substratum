@@ -3,7 +3,7 @@ use crate::midend::ir::block_manager::*;
 /// Conditional and unconditional branches
 impl BlockManager {
     // returns (branch_target, after_branch)
-    pub fn create_unconditional_branch(
+    pub(crate) fn create_unconditional_branch(
         &mut self,
         from: usize,
         loc: SourceLoc,
@@ -42,7 +42,7 @@ impl BlockManager {
     }
 
     // returns the label of the true branch or BranchError
-    pub fn create_conditional_branch(
+    pub(crate) fn create_conditional_branch(
         &mut self,
         from: usize,
         loc: SourceLoc,
@@ -90,7 +90,7 @@ impl BlockManager {
     }
 
     // returns the label of the false branch or BranchError
-    pub fn finish_true_branch_switch_to_false(
+    pub(crate) fn finish_true_branch_switch_to_false(
         &mut self,
         _true_end_label: usize,
         _loc: SourceLoc,
@@ -123,7 +123,7 @@ impl BlockManager {
         */
     }
 
-    pub fn finish_branch(
+    pub(crate) fn finish_branch(
         &mut self,
         branch_end_label: usize,
         loc: SourceLoc,
@@ -156,7 +156,7 @@ impl BlockManager {
 /// Loops
 impl BlockManager {
     // returns (loop_top, loop_bottom, after_loop)
-    pub fn create_loop(
+    pub(crate) fn create_loop(
         &mut self,
         before_loop: usize,
         loc: SourceLoc,
@@ -226,7 +226,7 @@ impl BlockManager {
         Ok((loop_top_label, after_loop_label))
     }
 
-    pub fn finish_loop_1(
+    pub(crate) fn finish_loop_1(
         &mut self,
         loop_end_pre_bottom: usize,
         loc: SourceLoc,
@@ -250,7 +250,7 @@ impl BlockManager {
         }
     }
 
-    pub fn finish_loop_2(
+    pub(crate) fn finish_loop_2(
         &mut self,
         loop_bottom: usize,
         loc: SourceLoc,
@@ -301,7 +301,7 @@ impl BlockManager {
 impl BlockManager {
     /// Create a switch, returning the label of the block in which the logic for which case to take
     /// will be evaluated
-    pub fn create_switch(
+    pub(crate) fn create_switch(
         &mut self,
         before_switch: usize,
         loc: SourceLoc,
@@ -343,7 +343,7 @@ impl BlockManager {
 
     /// Create a switch case (must be within the switch base label itself), returning the label of
     /// the first block in that case
-    pub fn create_switch_case(
+    pub(crate) fn create_switch_case(
         &mut self,
         switch_label: usize,
         case_def_path: symtab::ValuePath,
@@ -388,7 +388,7 @@ impl BlockManager {
 
     /// Finish a case of a switch, taking the label of the last block within that case and
     /// returning the label of the switch's base label.
-    pub fn finish_switch_case(
+    pub(crate) fn finish_switch_case(
         &mut self,
         last_block_label_in_case: usize,
         loc: SourceLoc,
@@ -411,7 +411,7 @@ impl BlockManager {
 
     /// Finish an entire switch, taking the base label of the switch itself and returning the label
     /// of the first block after the switch
-    pub fn finish_switch(
+    pub(crate) fn finish_switch(
         &mut self,
         switch_label: usize,
         loc: SourceLoc,

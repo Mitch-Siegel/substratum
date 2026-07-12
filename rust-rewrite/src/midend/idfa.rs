@@ -1,6 +1,6 @@
-pub mod block_args;
+pub(crate) mod block_args;
 mod idfa_base;
-pub mod live_vars;
-pub mod reaching_defs;
+pub(crate) mod live_vars;
+pub(crate) mod reaching_defs;
 
-pub use idfa_base::{Facts, IdfaImplementor};
+pub(crate) use idfa_base::{Facts, IdfaImplementor};

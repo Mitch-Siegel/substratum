@@ -13,7 +13,7 @@ use crate::{
     trace,
 };
 
-pub struct UnpathedFunctionLinearizeCtx {
+pub(crate) struct UnpathedFunctionLinearizeCtx {
     base: UnpathedLinearizeCtx,
     function_path: symtab::ValuePath,
     _function: WipFunction,
@@ -21,7 +21,7 @@ pub struct UnpathedFunctionLinearizeCtx {
 
 impl UnpathedFunctionLinearizeCtx {
     #[tracing::instrument(level = "debug")]
-    pub fn new(
+    pub(crate) fn new(
         ctx: PathedCtx<UnpathedLinearizeCtx, impl symtab::ValueOwner>,
         // symtab: symtab::SymbolTable,
         // function_path: symtab::ValuePath,
@@ -107,14 +107,14 @@ impl symtab::Symtab for UnpathedFunctionLinearizeCtx {
     }
 }
 
-pub struct WipFunction {
+pub(crate) struct WipFunction {
     block_manager: ir::BlockManager,
     current_block: usize,
 }
 
 impl WipFunction {
     #[tracing::instrument(level = "debug")]
-    pub fn new(
+    pub(crate) fn new(
         prototype: symtab::values::function::FunctionPrototype,
         def_path: symtab::ValuePath,
         unit_type: types::Semantic,
@@ -139,18 +139,18 @@ impl WipFunction {
         }
     }
 
-    pub fn from_existing(block_manager: ir::BlockManager, current_block: usize) -> Self {
+    pub(crate) fn from_existing(block_manager: ir::BlockManager, current_block: usize) -> Self {
         Self {
             block_manager,
             current_block,
         }
     }
 
-    pub fn values(&self) -> &ir::ValueInterner {
+    pub(crate) fn values(&self) -> &ir::ValueInterner {
         self.block_manager.values()
     }
 
-    pub fn values_mut(&mut self) -> &mut ir::ValueInterner {
+    pub(crate) fn values_mut(&mut self) -> &mut ir::ValueInterner {
         self.block_manager.values_mut()
     }
 
@@ -186,7 +186,7 @@ impl WipFunction {
         self.block_manager.get_mut(&self.current_block).unwrap()
     }
 
-    pub fn finish_true_branch_switch_to_false(
+    pub(crate) fn finish_true_branch_switch_to_false(
         &mut self,
         loc: SourceLoc,
     ) -> Result<(), ir::block_manager::BranchError> {
@@ -200,7 +200,7 @@ impl WipFunction {
         Ok(())
     }
 
-    pub fn finish_branch(&mut self, loc: SourceLoc) -> Result<(), ir::block_manager::BranchError> {
+    pub(crate) fn finish_branch(&mut self, loc: SourceLoc) -> Result<(), ir::block_manager::BranchError> {
         let after_branch = self.block_manager.finish_branch(self.current_block, loc)?;
         self.replace_current_block(after_branch);
         Ok(())
@@ -208,7 +208,7 @@ impl WipFunction {
 
     // create an unconditional branch from the current block, transparently setting the current
     // block to the target. Inserts the current block (before call) into the current scope
-    pub fn unconditional_branch_from_current(
+    pub(crate) fn unconditional_branch_from_current(
         &mut self,
         loc: SourceLoc,
         parent_scope_def_path: symtab::ValuePath,
@@ -234,7 +234,7 @@ impl WipFunction {
     // create a conditional branch from the current block, transparently setting the current block
     // to the true branch. Inserts the current block (before call) into the current scope, and
     // creates a new subscope for the true branch
-    pub fn conditional_branch_from_current(
+    pub(crate) fn conditional_branch_from_current(
         &mut self,
         loc: SourceLoc,
         condition: ir::lowered::operands::JumpCondition,
@@ -260,7 +260,7 @@ impl WipFunction {
         Ok(())
     }
 
-    pub fn create_loop(
+    pub(crate) fn create_loop(
         &mut self,
         loc: SourceLoc,
         parent_scope_def_path: symtab::ValuePath,
@@ -282,7 +282,7 @@ impl WipFunction {
         Ok(after_loop_label)
     }
 
-    pub fn finish_loop(
+    pub(crate) fn finish_loop(
         &mut self,
         loc: SourceLoc,
         loop_bottom_actions: Vec<ir::IrLine>,
@@ -303,7 +303,7 @@ impl WipFunction {
         Ok(())
     }
 
-    pub fn create_switch(
+    pub(crate) fn create_switch(
         &mut self,
         loc: SourceLoc,
         parent_scope_def_path: symtab::ValuePath,
@@ -322,7 +322,7 @@ impl WipFunction {
     }
 
     // returns the label of the first block in the case
-    pub fn create_switch_case(
+    pub(crate) fn create_switch_case(
         &mut self,
         case_scope_def_path: symtab::ValuePath,
     ) -> Result<usize, ir::block_manager::BranchError> {
@@ -335,7 +335,7 @@ impl WipFunction {
         Ok(case_label)
     }
 
-    pub fn finish_switch_case(
+    pub(crate) fn finish_switch_case(
         &mut self,
         loc: SourceLoc,
     ) -> Result<(), ir::block_manager::BranchError> {
@@ -347,7 +347,7 @@ impl WipFunction {
         Ok(())
     }
 
-    pub fn finish_switch(&mut self, loc: SourceLoc) -> Result<(), ir::block_manager::BranchError> {
+    pub(crate) fn finish_switch(&mut self, loc: SourceLoc) -> Result<(), ir::block_manager::BranchError> {
         let after_switch = self.block_manager.finish_switch(self.current_block, loc)?;
 
         self.replace_current_block(after_switch);
@@ -355,7 +355,7 @@ impl WipFunction {
         Ok(())
     }
 
-    pub fn append_jump_to_current_block(&mut self, statement: ir::IrLine) -> Result<(), ()> {
+    pub(crate) fn append_jump_to_current_block(&mut self, statement: ir::IrLine) -> Result<(), ()> {
         match &statement.operation {
             ir::Operation::Lowered(ir::lowered::Operation::Jump(_)) => {
                 self.current_block_mut().push(statement);
@@ -365,7 +365,7 @@ impl WipFunction {
         }
     }
 
-    pub fn append_statement_to_current_block(&mut self, statement: ir::IrLine) -> Result<(), ()> {
+    pub(crate) fn append_statement_to_current_block(&mut self, statement: ir::IrLine) -> Result<(), ()> {
         match &statement.operation {
             ir::Operation::Lowered(ir::lowered::Operation::Jump(_)) => Err(()),
             _ => {
@@ -375,13 +375,13 @@ impl WipFunction {
         }
     }
 
-    pub fn resolve_final_convergence(&mut self) {
+    pub(crate) fn resolve_final_convergence(&mut self) {
         self.block_manager
             .resolve_final_convergence(self.current_block)
             .unwrap();
     }
 
-    pub fn ensure_finished(&mut self) -> Result<(), ir::block_manager::BranchError> {
+    pub(crate) fn ensure_finished(&mut self) -> Result<(), ir::block_manager::BranchError> {
         self.block_manager.ensure_finished()
     }
 }

@@ -1,13 +1,13 @@
 use crate::midend::symtab::{Symbol, *};
 
-pub mod enumeration;
-pub mod structure;
+pub(crate) mod enumeration;
+pub(crate) mod structure;
 
-pub use enumeration::*;
-pub use structure::*;
+pub(crate) use enumeration::*;
+pub(crate) use structure::*;
 
 #[derive(Clone, Debug)]
-pub enum DeclaredType {
+pub(crate) enum DeclaredType {
     Struct(StructRepr),
     Enum(EnumRepr),
 }
@@ -34,20 +34,20 @@ impl std::fmt::Display for DeclaredType {
 }
 
 #[derive(Clone, Debug)]
-pub struct TypeDecl {
+pub(crate) struct TypeDecl {
     pub declared_type: DeclaredType,
     pub generic_params: midend::types::GenericParamsList,
 }
 
 impl TypeDecl {
-    pub fn syntactic(&self) -> midend::types::Syntactic {
+    pub(crate) fn syntactic(&self) -> midend::types::Syntactic {
         match &self.declared_type {
             DeclaredType::Struct(s) => midend::types::Syntactic::Named(s.name.clone()),
             DeclaredType::Enum(e) => midend::types::Syntactic::Named(e.name.clone()),
         }
     }
 
-    pub fn generic_params(&self) -> &midend::types::GenericParamsList {
+    pub(crate) fn generic_params(&self) -> &midend::types::GenericParamsList {
         &self.generic_params
     }
 }

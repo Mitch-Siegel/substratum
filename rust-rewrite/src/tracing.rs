@@ -3,7 +3,7 @@ use tracing::{self, debug, error, event, span, trace, warn, Level};
 // TODO: maybe namespace this differently to avoid confusion over shadowing the tracing crate
 // macros directly
 
-pub struct ExitOnDropSpan {
+pub(crate) struct ExitOnDropSpan {
     entered_span: Option<tracing::span::EnteredSpan>,
 }
 

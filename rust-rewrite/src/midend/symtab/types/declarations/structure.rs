@@ -2,14 +2,14 @@ use crate::midend::symtab::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct FieldRepr {
+pub(crate) struct FieldRepr {
     pub name: String,
-    pub type_: midend::types::Syntactic,
+    pub(crate) type_: midend::types::Syntactic,
     pub offset: Option<usize>,
 }
 
 impl FieldRepr {
-    pub fn new(name: String, type_: midend::types::Syntactic) -> Self {
+    pub(crate) fn new(name: String, type_: midend::types::Syntactic) -> Self {
         Self {
             name,
             type_,
@@ -28,7 +28,7 @@ impl std::fmt::Display for FieldRepr {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct StructRepr {
+pub(crate) struct StructRepr {
     pub name: String,
     field_order: Vec<String>,
     fields: BTreeMap<String, FieldRepr>,
@@ -37,7 +37,7 @@ pub struct StructRepr {
 }
 
 impl StructRepr {
-    pub fn new(
+    pub(crate) fn new(
         name: String,
         field_definitions: Vec<(String, midend::types::Syntactic)>,
     ) -> Result<Self, FieldRepr> // TODO: struct duplicat field error
@@ -65,7 +65,7 @@ impl StructRepr {
         })
     }
 
-    pub fn lookup_field(&self, name: &str) -> Result<&FieldRepr, String> {
+    pub(crate) fn lookup_field(&self, name: &str) -> Result<&FieldRepr, String> {
         match self.fields.get(name) {
             Some(field) => Ok(field),
             None => Err(name.into()),

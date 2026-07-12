@@ -2,9 +2,9 @@ use crate::midend::ir::unlowered::*;
 
 // get the discriminant value of an enum
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct DiscriminantOperands {
+pub(crate) struct DiscriminantOperands {
     pub destination: ValueId,
-    pub enum_receiver: ValueId,
+    pub(crate) enum_receiver: ValueId,
 }
 
 impl Lowerable for DiscriminantOperands {

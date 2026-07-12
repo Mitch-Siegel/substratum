@@ -2,7 +2,7 @@ use crate::{map_ooo_iter::*, midend::ir::*};
 use std::collections::{BTreeSet, HashMap, VecDeque};
 
 #[derive(Debug, Clone)]
-pub struct ControlFlow {
+pub(crate) struct ControlFlow {
     blocks: HashMap<usize, BasicBlock>,
     successors: HashMap<usize, BTreeSet<usize>>,
     predecessors: HashMap<usize, BTreeSet<usize>>,
@@ -10,7 +10,7 @@ pub struct ControlFlow {
 }
 
 #[allow(unused)]
-pub struct ControlFlowIntoIter<T> {
+pub(crate) struct ControlFlowIntoIter<T> {
     postorder_stack: VecDeque<T>,
 }
 
@@ -24,7 +24,7 @@ impl<T> Iterator for ControlFlowIntoIter<T> {
 
 // TODO: are the postorder and reverse postorder named opposite right now? Need to actually check this...
 impl ControlFlow {
-    pub fn new(blocks: HashMap<usize, BasicBlock>, values: ValueInterner) -> Self {
+    pub(crate) fn new(blocks: HashMap<usize, BasicBlock>, values: ValueInterner) -> Self {
         let mut successors = HashMap::<usize, BTreeSet<usize>>::new();
         let mut predecessors = HashMap::<usize, BTreeSet<usize>>::new();
 
@@ -80,19 +80,19 @@ impl ControlFlow {
         }
     }
 
-    pub fn take(self) -> (HashMap<usize, BasicBlock>, ValueInterner) {
+    pub(crate) fn take(self) -> (HashMap<usize, BasicBlock>, ValueInterner) {
         (self.blocks, self.values)
     }
 
-    pub fn successors(&self, label: &usize) -> Option<&BTreeSet<usize>> {
+    pub(crate) fn successors(&self, label: &usize) -> Option<&BTreeSet<usize>> {
         self.successors.get(label)
     }
 
-    pub fn predecessors(&self, label: &usize) -> Option<&BTreeSet<usize>> {
+    pub(crate) fn predecessors(&self, label: &usize) -> Option<&BTreeSet<usize>> {
         self.predecessors.get(label)
     }
 
-    pub fn blocks(&self) -> impl Iterator<Item = (&usize, &BasicBlock)> {
+    pub(crate) fn blocks(&self) -> impl Iterator<Item = (&usize, &BasicBlock)> {
         self.blocks.iter()
     }
 
@@ -119,31 +119,31 @@ impl ControlFlow {
         postorder_stack
     }
 
-    pub fn blocks_postorder(&self) -> HashMapOOOIter<'_, usize, ir::BasicBlock> {
+    pub(crate) fn blocks_postorder(&self) -> HashMapOOOIter<'_, usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
         HashMapOOOIter::new(&self.blocks, rpo_stack.into_iter().rev())
     }
 
-    pub fn blocks_postorder_mut(&mut self) -> HashMapOOOIterMut<'_, usize, ir::BasicBlock> {
+    pub(crate) fn blocks_postorder_mut(&mut self) -> HashMapOOOIterMut<'_, usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
         HashMapOOOIterMut::new(&mut self.blocks, rpo_stack.into_iter().rev())
     }
 
-    pub fn blocks_reverse_postorder(&self) -> HashMapOOOIter<'_, usize, ir::BasicBlock> {
+    pub(crate) fn blocks_reverse_postorder(&self) -> HashMapOOOIter<'_, usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
         HashMapOOOIter::new(&self.blocks, rpo_stack.into_iter())
     }
 
-    pub fn blocks_reverse_postorder_mut(&mut self) -> HashMapOOOIterMut<'_, usize, ir::BasicBlock> {
+    pub(crate) fn blocks_reverse_postorder_mut(&mut self) -> HashMapOOOIterMut<'_, usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
         HashMapOOOIterMut::new(&mut self.blocks, rpo_stack.into_iter())
     }
 
-    pub fn graphviz_string(&self) -> String {
+    pub(crate) fn graphviz_string(&self) -> String {
         let mut graphviz_string = String::from("digraph {\n");
 
         for (label, block) in self.blocks() {
@@ -171,17 +171,17 @@ impl ControlFlow {
         graphviz_string
     }
 
-    pub fn values(&self) -> &ValueInterner {
+    pub(crate) fn values(&self) -> &ValueInterner {
         &self.values
     }
 
-    pub fn values_mut(&mut self) -> &mut ValueInterner {
+    pub(crate) fn values_mut(&mut self) -> &mut ValueInterner {
         &mut self.values
     }
 }
 
 impl ControlFlow {
-    pub fn infer_types(
+    pub(crate) fn infer_types(
         &mut self,
         mut symtab: Box<symtab::SymbolTable>,
     ) -> (bool, Box<symtab::SymbolTable>) {

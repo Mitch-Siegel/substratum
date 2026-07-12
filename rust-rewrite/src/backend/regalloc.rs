@@ -15,11 +15,11 @@ mod lifetime;
 mod program_point;
 mod regalloc_context;
 
-pub use allocated_locations::AllocatedLocations;
-pub use lifetime::*;
-pub use regalloc_context::*;
+pub(crate) use allocated_locations::AllocatedLocations;
+pub(crate) use lifetime::*;
+pub(crate) use regalloc_context::*;
 
-pub fn heuristic<C>(lifetime: &Lifetime, context: &C) -> isize
+pub(crate) fn heuristic<C>(lifetime: &Lifetime, context: &C) -> isize
 where
     C: midend::types::TypeSizingContext,
 {
@@ -33,7 +33,7 @@ where
         - (size as isize * size_weight)
 }
 
-pub fn allocate_registers<Target: arch::TargetArchitecture, C>(
+pub(crate) fn allocate_registers<Target: arch::TargetArchitecture, C>(
     context: RegallocContext<C>,
 ) -> AllocatedLocations
 where

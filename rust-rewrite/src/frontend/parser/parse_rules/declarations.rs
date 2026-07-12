@@ -4,7 +4,7 @@ use super::{ParseError, Parser};
 
 impl<'a> Parser<'a> {
     // TODO: pass loc of string to get true start loc of declaration
-    pub fn parse_argument_declaration(
+    pub(crate) fn parse_argument_declaration(
         &mut self,
     ) -> Result<ast::items::function::ArgumentDeclarationTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("argument declaration")?;

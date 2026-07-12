@@ -9,30 +9,30 @@ use std::fmt::Display;
 
 use name_derive::{NameReflectable, ReflectName};
 
-pub mod expressions;
-pub mod generics;
-pub mod items;
-pub mod module;
-pub mod path;
-pub mod statements;
-pub mod types;
+pub(crate) mod expressions;
+pub(crate) mod generics;
+pub(crate) mod items;
+pub(crate) mod module;
+pub(crate) mod path;
+pub(crate) mod statements;
+pub(crate) mod types;
 
-pub use expressions::Expression;
-pub use generics::*;
-pub use items::ItemTree;
-pub use module::ModuleTree;
-pub use statements::StatementTree;
-pub use types::TypeTree;
+pub(crate) use expressions::Expression;
+pub(crate) use generics::*;
+pub(crate) use items::ItemTree;
+pub(crate) use module::ModuleTree;
+pub(crate) use statements::StatementTree;
+pub(crate) use types::TypeTree;
 
 #[cfg(test)]
-pub mod builder;
+pub(crate) mod builder;
 
-pub trait Ast {
+pub(crate) trait Ast {
     fn loc(&self) -> sourceloc::SourceSpan;
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct IdentifierTree {
+pub(crate) struct IdentifierTree {
     pub loc: sourceloc::SourceSpan,
     pub value: String,
 }

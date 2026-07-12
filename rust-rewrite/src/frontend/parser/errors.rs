@@ -4,7 +4,7 @@ use crate::frontend::{
 };
 
 #[derive(Clone)]
-pub enum ParseError {
+pub(crate) enum ParseError {
     LexError(Box<LexError>),
     UnexpectedToken(Box<UnexpectedTokenError>),
 }
@@ -49,7 +49,7 @@ impl std::fmt::Debug for ParseError {
 }
 
 #[derive(Debug, Clone, Eq)]
-pub struct UnexpectedTokenError {
+pub(crate) struct UnexpectedTokenError {
     pub loc: SourceLoc,
     pub got: Token,
     pub expected: Vec<Token>,
@@ -69,7 +69,7 @@ impl PartialEq for UnexpectedTokenError {
 }
 
 impl ParseError {
-    pub fn unexpected_token(
+    pub(crate) fn unexpected_token(
         loc: SourceLoc,
         got: Token,
         expected: &[Token],

@@ -7,13 +7,13 @@ use crate::{midend::ir, trace};
 
 #[allow(dead_code)]
 #[derive(Debug)]
-pub enum IdfaAnalysisDirection {
+pub(crate) enum IdfaAnalysisDirection {
     Forward,
     Backward,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct BlockFacts<T> {
+pub(crate) struct BlockFacts<T> {
     pub in_facts: BTreeSet<T>,
     pub out_facts: BTreeSet<T>,
     pub gen_facts: BTreeSet<T>,
@@ -32,7 +32,7 @@ impl<T> Default for BlockFacts<T> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Facts<T>
+pub(crate) struct Facts<T>
 where
     T: Display + PartialEq,
 {
@@ -43,7 +43,7 @@ impl<T> Facts<T>
 where
     T: Display + PartialEq,
 {
-    pub fn new(n_blocks: usize) -> Self {
+    pub(crate) fn new(n_blocks: usize) -> Self {
         Self {
             facts: HashMap::with_capacity(n_blocks),
         }
@@ -51,17 +51,17 @@ where
 
     // return facts for a given label
     // requires &mut self in case of missing entry needing or_default()
-    pub fn for_label(&self, label: &usize) -> Option<&BlockFacts<T>> {
+    pub(crate) fn for_label(&self, label: &usize) -> Option<&BlockFacts<T>> {
         self.facts.get(label)
     }
 
-    pub fn for_label_mut(&mut self, label: usize) -> &mut BlockFacts<T> {
+    pub(crate) fn for_label_mut(&mut self, label: usize) -> &mut BlockFacts<T> {
         self.facts.entry(label).or_default()
     }
 }
 
 #[allow(dead_code)]
-pub trait IdfaImplementor<'a, T>
+pub(crate) trait IdfaImplementor<'a, T>
 where
     T: Display + PartialEq,
 {
@@ -76,7 +76,7 @@ where
 }
 
 #[derive(Debug)]
-pub struct Idfa<'a, T>
+pub(crate) struct Idfa<'a, T>
 where
     T: Display + PartialEq,
 {
@@ -152,7 +152,7 @@ where
         */
     }
 
-    pub fn analyze(&mut self) {
+    pub(crate) fn analyze(&mut self) {
         (self.f_find_gen_kills)(self.control_flow, &mut self.facts);
         match self.direction {
             IdfaAnalysisDirection::Forward => {
@@ -164,7 +164,7 @@ where
         }
     }
 
-    pub fn new(
+    pub(crate) fn new(
         control_flow: &'a ir::ControlFlow,
         direction: IdfaAnalysisDirection,
         f_find_gen_kills: fn(control_flow: &'a ir::ControlFlow, facts: &mut Facts<T>),
@@ -186,7 +186,7 @@ where
         idfa
     }
 
-    pub fn blocks(&self) -> impl Iterator<Item = &ir::BasicBlock> {
+    pub(crate) fn blocks(&self) -> impl Iterator<Item = &ir::BasicBlock> {
         self.control_flow.blocks().map(|(_, block)| block)
     }
 }

@@ -6,7 +6,7 @@ use crate::{
     midend::{self, treewalk::linearize_context::UnpathedLinearizeCtxTrait},
 };
 
-pub enum PathSegmentAction<T> {
+pub(crate) enum PathSegmentAction<T> {
     _Crate(Option<T>),
     Super(Option<T>),
     Ident(String, Option<T>),
@@ -50,7 +50,7 @@ where
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum IdentSegment {
+pub(crate) enum IdentSegment {
     Ident(IdentifierTree),
     Super(sourceloc::SourceSpan),
     SelfLower(sourceloc::SourceSpan),
@@ -80,7 +80,7 @@ impl std::fmt::Display for IdentSegment {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PathSegmentTree<T>
+pub(crate) struct PathSegmentTree<T>
 where
     T: Ast,
 {
@@ -137,7 +137,7 @@ where
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PathTree<T>
+pub(crate) struct PathTree<T>
 where
     T: Ast,
 {
@@ -195,14 +195,14 @@ mod path_walk {
     use std::collections::HashMap;
 
     #[derive(Debug)]
-    pub enum PathWalkError {
+    pub(crate) enum PathWalkError {
         NoSuper,
         SuperInvalid,
         AlreadyDidExclFirst,
     }
 
     #[derive(Debug)]
-    pub struct PathWalkCtx<T>
+    pub(crate) struct PathWalkCtx<T>
     where
         T: std::fmt::Debug,
     {
@@ -216,7 +216,7 @@ mod path_walk {
     where
         T: std::fmt::Debug,
     {
-        pub fn new(context_segments: Vec<midend::symtab::PathSegment>) -> Self {
+        pub(crate) fn new(context_segments: Vec<midend::symtab::PathSegment>) -> Self {
             Self {
                 context_segments,
                 walked_segments: Vec::new(),
@@ -225,7 +225,7 @@ mod path_walk {
             }
         }
 
-        pub fn do_crate(&mut self) -> Result<(), PathWalkError> {
+        pub(crate) fn do_crate(&mut self) -> Result<(), PathWalkError> {
             if !self.did_excl_first {
                 self.context_segments.clear();
                 self.did_excl_first = true;
@@ -235,7 +235,7 @@ mod path_walk {
             }
         }
 
-        pub fn do_super(&mut self) -> Result<midend::symtab::PathSegment, PathWalkError> {
+        pub(crate) fn do_super(&mut self) -> Result<midend::symtab::PathSegment, PathWalkError> {
             if !self.walked_segments.is_empty() {
                 return Err(PathWalkError::SuperInvalid);
             }
@@ -246,20 +246,20 @@ mod path_walk {
             }
         }
 
-        pub fn do_self_upper(&mut self) -> Result<(), PathWalkError> {
+        pub(crate) fn do_self_upper(&mut self) -> Result<(), PathWalkError> {
             unimplemented!();
         }
 
-        pub fn _do_self_lower(&mut self) -> Result<(), PathWalkError> {
+        pub(crate) fn _do_self_lower(&mut self) -> Result<(), PathWalkError> {
             unimplemented!();
         }
 
-        pub fn add_segment(&mut self, segment: midend::symtab::PathSegment, maybe_data: Option<T>) {
+        pub(crate) fn add_segment(&mut self, segment: midend::symtab::PathSegment, maybe_data: Option<T>) {
             self.walked_segments.push(segment);
             self.walked_segment_data.push(maybe_data);
         }
 
-        pub fn finish(
+        pub(crate) fn finish(
             self,
             loc: &sourceloc::SourceSpan,
             symtab: &impl midend::symtab::Symtab,
@@ -329,7 +329,7 @@ mod path_walk {
 use path_walk::PathWalkCtx;
 
 #[derive(Debug)]
-pub struct FinishedPathWalk<T>
+pub(crate) struct FinishedPathWalk<T>
 where
     T: std::fmt::Debug,
 {
@@ -358,7 +358,7 @@ where
         pathed_data
     }
 
-    pub fn into_type(
+    pub(crate) fn into_type(
         self,
     ) -> Result<(midend::symtab::RawPath, HashMap<midend::symtab::RawPath, T>), String> {
         let path = self.type_path.ok_or(format!(
@@ -375,7 +375,7 @@ where
         Ok((path, pathed_data))
     }
 
-    pub fn _into_value(
+    pub(crate) fn _into_value(
         self,
     ) -> Result<(midend::symtab::RawPath, HashMap<midend::symtab::RawPath, T>), String> {
         let path = self._value_path.ok_or(format!(
@@ -392,7 +392,7 @@ where
         Ok((path, pathed_data))
     }
 
-    pub fn _into_macro(
+    pub(crate) fn _into_macro(
         self,
     ) -> Result<(midend::symtab::RawPath, HashMap<midend::symtab::RawPath, T>), String> {
         let path = self._macro_path.ok_or(format!(
@@ -501,7 +501,7 @@ where
         }
     }
 
-    pub fn finish(self) -> Result<FinishedPathWalk<T>, String> {
+    pub(crate) fn finish(self) -> Result<FinishedPathWalk<T>, String> {
         match self {
             PathWalkState::Finished(state) => Ok(*state),
             other => Err(format!("unfinished path walk in sate {:?}", other)),

@@ -1,7 +1,7 @@
 use crate::midend::{ir::*, *};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct BasicBlock {
+pub(crate) struct BasicBlock {
     pub label: usize,
     def_path: symtab::ValuePath,
     statements: Vec<IrLine>,
@@ -11,7 +11,7 @@ pub struct BasicBlock {
 }
 
 impl BasicBlock {
-    pub fn new(label: usize, def_path: symtab::ValuePath) -> Self {
+    pub(crate) fn new(label: usize, def_path: symtab::ValuePath) -> Self {
         BasicBlock {
             label,
             def_path,
@@ -21,7 +21,7 @@ impl BasicBlock {
         }
     }
 
-    pub fn with_statements(
+    pub(crate) fn with_statements(
         label: usize,
         def_path: symtab::ValuePath,
         statements: Vec<ir::IrLine>,
@@ -36,28 +36,28 @@ impl BasicBlock {
         }
     }
 
-    pub fn def_path(&self) -> &symtab::ValuePath {
+    pub(crate) fn def_path(&self) -> &symtab::ValuePath {
         &self.def_path
     }
 
     /// split the block at statement with specified index, returning vec of that statement and any
     /// following it
-    pub fn split_at(&mut self, idx: usize) -> Vec<IrLine> {
+    pub(crate) fn split_at(&mut self, idx: usize) -> Vec<IrLine> {
         for no_longer_unpropagated in idx..self.statements.len() {
             self.unpropagated_lines.remove(&no_longer_unpropagated);
         }
         self.statements.split_off(idx)
     }
 
-    pub fn push(&mut self, line: IrLine) {
+    pub(crate) fn push(&mut self, line: IrLine) {
         self.statements.push(line)
     }
 
-    pub fn append(&mut self, others: &mut Vec<IrLine>) {
+    pub(crate) fn append(&mut self, others: &mut Vec<IrLine>) {
         self.statements.append(others)
     }
 
-    pub fn statements(&self) -> impl Iterator<Item = &IrLine> {
+    pub(crate) fn statements(&self) -> impl Iterator<Item = &IrLine> {
         self.statements.iter()
     }
 }

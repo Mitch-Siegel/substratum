@@ -6,18 +6,18 @@ use crate::{
 
 use std::{collections::HashMap, fmt::Debug};
 
-pub mod block_convergences;
+pub(crate) mod block_convergences;
 mod branch;
 mod branch_error;
 mod convergence_error;
 
 use block_convergences::BlockConvergences;
-pub use block_convergences::ConvergenceResult;
-pub use branch_error::BranchError;
-pub use convergence_error::ConvergenceError;
+pub(crate) use block_convergences::ConvergenceResult;
+pub(crate) use branch_error::BranchError;
+pub(crate) use convergence_error::ConvergenceError;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum BranchKind {
+pub(crate) enum BranchKind {
     Unconditional,
     ConditionalTrue(Box<BasicBlock>), // currently on the true branch of a conditional. Owns the
     // block targeted by the false branch
@@ -39,13 +39,13 @@ struct Branch {
 }
 
 impl Branch {
-    pub fn new(from_label: usize, kind: BranchKind) -> Self {
+    pub(crate) fn new(from_label: usize, kind: BranchKind) -> Self {
         Self { from_label, kind }
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct BlockManager {
+pub(crate) struct BlockManager {
     // map from branch origin to (true_target, Option<false_target>)
     convergences: BlockConvergences,
     max_block: usize,
@@ -58,7 +58,7 @@ pub struct BlockManager {
 impl BlockManager {
     // returns (Self, start_block)
     // where start_block is the first basic block in the function
-    pub fn new(unit_type: types::Semantic, def_path: symtab::ValuePath) -> (Self, usize) {
+    pub(crate) fn new(unit_type: types::Semantic, def_path: symtab::ValuePath) -> (Self, usize) {
         // set up the initlal convergence - must always end up at the end_block
         let start_block = BasicBlock::new(0, def_path.clone());
         let end_block = BasicBlock::new(1, def_path);
@@ -78,7 +78,7 @@ impl BlockManager {
         )
     }
 
-    pub fn try_take(self) -> Result<(HashMap<usize, BasicBlock>, ValueInterner), &'static str> {
+    pub(crate) fn try_take(self) -> Result<(HashMap<usize, BasicBlock>, ValueInterner), &'static str> {
         if !self.open_branch_path.is_empty() {
             let msg = "Failing due to open branch path length > 0";
             trace::error!("{}", msg);
@@ -94,7 +94,7 @@ impl BlockManager {
         Ok((self.blocks, self.values))
     }
 
-    pub fn with_existing_blocks(
+    pub(crate) fn with_existing_blocks(
         blocks: HashMap<usize, BasicBlock>,
         existing_values: ValueInterner,
     ) -> Self {
@@ -112,19 +112,19 @@ impl BlockManager {
         }
     }
 
-    pub fn values(&self) -> &ValueInterner {
+    pub(crate) fn values(&self) -> &ValueInterner {
         &self.values
     }
 
-    pub fn values_mut(&mut self) -> &mut ValueInterner {
+    pub(crate) fn values_mut(&mut self) -> &mut ValueInterner {
         &mut self.values
     }
 
-    pub fn get(&self, label: &usize) -> Option<&BasicBlock> {
+    pub(crate) fn get(&self, label: &usize) -> Option<&BasicBlock> {
         self.blocks.get(label)
     }
 
-    pub fn get_mut(&mut self, label: &usize) -> Option<&mut BasicBlock> {
+    pub(crate) fn get_mut(&mut self, label: &usize) -> Option<&mut BasicBlock> {
         self.blocks.get_mut(label)
     }
 
@@ -163,7 +163,7 @@ impl BlockManager {
         Ok(result)
     }
 
-    pub fn resolve_final_convergence(
+    pub(crate) fn resolve_final_convergence(
         &mut self,
         before_final_block: usize,
     ) -> Result<(), BranchError> {
@@ -176,7 +176,7 @@ impl BlockManager {
         }
     }
 
-    pub fn ensure_finished(&self) -> Result<(), BranchError> {
+    pub(crate) fn ensure_finished(&self) -> Result<(), BranchError> {
         match self.open_branch_path.last() {
             None => Ok(()),
             Some(unfinished) => Err(BranchError::NotDone(unfinished.from_label)),
@@ -186,7 +186,7 @@ impl BlockManager {
 
 /// implementation of manipulation functions such as splitting
 impl BlockManager {
-    pub fn split_block_at_statement(
+    pub(crate) fn split_block_at_statement(
         &mut self,
         block: usize,
         stmt_idx: usize,
@@ -205,7 +205,7 @@ impl BlockManager {
         Ok((split_to_block, at_split))
     }
 
-    pub fn finish_block_split(
+    pub(crate) fn finish_block_split(
         &mut self,
         split_end_label: usize,
         loc: SourceLoc,
@@ -229,7 +229,7 @@ impl BlockManager {
 
 /// Implementation of type inference machinery
 impl BlockManager {
-    pub fn infer_types(&mut self, symtab: &mut symtab::SymbolTable) {
+    pub(crate) fn infer_types(&mut self, symtab: &mut symtab::SymbolTable) {
         let (values, blocks) = (&mut self.values, &mut self.blocks);
 
         let ctx = TypeInferenceContext::new(symtab, values);

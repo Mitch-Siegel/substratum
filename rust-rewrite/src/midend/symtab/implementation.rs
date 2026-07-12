@@ -1,7 +1,7 @@
 use crate::midend::{symtab::*, types};
 
 #[derive(Debug)]
-pub struct Implementation {
+pub(crate) struct Implementation {
     pub id: ImplId,
     // FUTURE: generics
     pub self_ty: types::Syntactic,
@@ -10,7 +10,7 @@ pub struct Implementation {
 }
 
 impl Implementation {
-    pub fn new(id: ImplId, self_ty: types::Syntactic) -> Self {
+    pub(crate) fn new(id: ImplId, self_ty: types::Syntactic) -> Self {
         Self {
             id,
             self_ty,

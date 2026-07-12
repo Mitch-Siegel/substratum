@@ -49,7 +49,7 @@ impl<'a> BlockDepthMetadata<'a> {
     }
 }
 
-pub fn find_block_depths(control_flow: &ir::ControlFlow) -> BTreeMap<usize, usize> {
+pub(crate) fn find_block_depths(control_flow: &ir::ControlFlow) -> BTreeMap<usize, usize> {
     let mut metadata = BlockDepthMetadata::new(control_flow);
 
     for (label, _) in control_flow.blocks_postorder() {

@@ -1,14 +1,14 @@
 use serde::Serialize;
-pub mod operands;
+pub(crate) mod operands;
 
 use crate::midend::ir::*;
-pub use operands::*;
+pub(crate) use operands::*;
 use std::fmt::Display;
 
 /// ## Enum of all operations
 #[derive(Debug, Serialize, Clone, PartialEq, Eq)]
 #[enum_delegate::implement(OperandTypeInference)]
-pub enum Operation {
+pub(crate) enum Operation {
     Assignment(AssignmentOperands),
     BinaryArithmetic(BinaryArithmeticExpressionOperands),
     BinaryComparison(BinaryComparisonExpressionOperands),
@@ -121,14 +121,14 @@ impl Display for Operation {
     }
 }
 
-pub fn new_assignment(destination: ValueId, source: ValueId) -> Operation {
+pub(crate) fn new_assignment(destination: ValueId, source: ValueId) -> Operation {
     Operation::Assignment(SourceDestOperands {
         destination,
         source,
     })
 }
 
-pub fn new_binary_arithmetic_expression(
+pub(crate) fn new_binary_arithmetic_expression(
     destination: ValueId,
     operands: BinaryArithmeticOperands,
 ) -> Operation {
@@ -138,7 +138,7 @@ pub fn new_binary_arithmetic_expression(
     ))
 }
 
-pub fn new_binary_comparison_expression(
+pub(crate) fn new_binary_comparison_expression(
     destination: ValueId,
     comparison: BinaryComparisonOperands,
 ) -> Operation {
@@ -148,11 +148,11 @@ pub fn new_binary_comparison_expression(
     ))
 }
 
-pub fn new_jump(destination_block: usize, condition: JumpCondition) -> Operation {
+pub(crate) fn new_jump(destination_block: usize, condition: JumpCondition) -> Operation {
     Operation::Jump(JumpOperands::new(destination_block, condition))
 }
 
-pub fn new_call(
+pub(crate) fn new_call(
     function_operand: ValueId,
     arguments: OrderedArgumentList,
     return_value_to: Option<ValueId>,
@@ -164,7 +164,7 @@ pub fn new_call(
     ))
 }
 
-pub fn new_compute_field_address(
+pub(crate) fn new_compute_field_address(
     receiver: ValueId,
     offset: usize,
     destination: ValueId,
@@ -176,13 +176,13 @@ pub fn new_compute_field_address(
     })
 }
 
-pub fn new_load(pointer: ValueId, destination: ValueId) -> Operation {
+pub(crate) fn new_load(pointer: ValueId, destination: ValueId) -> Operation {
     Operation::Load(LoadOperands {
         pointer,
         destination,
     })
 }
 
-pub fn new_store(source: ValueId, pointer: ValueId) -> Operation {
+pub(crate) fn new_store(source: ValueId, pointer: ValueId) -> Operation {
     Operation::Store(StoreOperands { source, pointer })
 }

@@ -1,13 +1,13 @@
 use crate::midend::symtab::{symbols::SymbolDef, PathSegment, Symbol};
 
-pub mod binding;
-pub mod function;
+pub(crate) mod binding;
+pub(crate) mod function;
 
-pub use binding::*;
-pub use function::*;
+pub(crate) use binding::*;
+pub(crate) use function::*;
 
 #[derive(Clone, Debug)]
-pub enum Value {
+pub(crate) enum Value {
     Function(Box<Function>),
     LocalBinding(LocalBinding),
 }

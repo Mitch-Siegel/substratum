@@ -1,7 +1,7 @@
 use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ItemParser<'a, 'p> {
-    pub fn parse_generic_param(&mut self) -> Result<ast::generics::GenericParamTree, ParseError> {
+    pub(crate) fn parse_generic_param(&mut self) -> Result<ast::generics::GenericParamTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("generic param")?;
 
         let param = match self.peek_token()? {
@@ -16,7 +16,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
     }
 
     // parses the generic parameters to be taken by a type
-    pub fn try_parse_generic_params_list(
+    pub(crate) fn try_parse_generic_params_list(
         &mut self,
     ) -> Result<ast::generics::OptionalGenericParamsListTree, ParseError> {
         let (start_loc, _span) = self.start_parsing("generic params list")?;
@@ -56,7 +56,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
     }
 
     // parses the generic parameters passed in to a type
-    pub fn parse_generic_args_list(
+    pub(crate) fn parse_generic_args_list(
         &mut self,
     ) -> Result<ast::generics::GenericArgsListTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("generic args list")?;

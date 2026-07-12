@@ -4,7 +4,7 @@ use crate::{
 };
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct IfExpressionTree {
+pub(crate) struct IfExpressionTree {
     pub if_keyword_loc: sourceloc::SourceSpan,
     pub condition: Expression,
     pub true_block: BlockExpressionTree,

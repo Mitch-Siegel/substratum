@@ -2,11 +2,11 @@ use std::collections::BTreeSet;
 
 use crate::midend::{idfa::*, ir};
 
-pub type Fact = ir::ValueId;
-pub type BlockFacts = idfa_base::BlockFacts<Fact>;
-pub type Facts = idfa_base::Facts<Fact>;
+pub(crate) type Fact = ir::ValueId;
+pub(crate) type BlockFacts = idfa_base::BlockFacts<Fact>;
+pub(crate) type Facts = idfa_base::Facts<Fact>;
 
-pub struct ReachingDefs<'a> {
+pub(crate) struct ReachingDefs<'a> {
     idfa: idfa_base::Idfa<'a, Fact>,
 }
 

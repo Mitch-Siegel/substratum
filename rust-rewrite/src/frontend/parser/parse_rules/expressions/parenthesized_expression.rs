@@ -1,7 +1,7 @@
 use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ExpressionParser<'a, 'p> {
-    pub fn parse_parenthesized_expression(&mut self) -> Result<Expression, ParseError> {
+    pub(crate) fn parse_parenthesized_expression(&mut self) -> Result<Expression, ParseError> {
         let (_start_loc, _span) = self.start_parsing("parenthesized expression")?;
 
         self.expect_token(Token::LParen)?;

@@ -1,8 +1,8 @@
-pub mod registers;
+pub(crate) mod registers;
 use crate::midend;
-pub use registers::*;
+pub(crate) use registers::*;
 
-pub trait TargetArchitecture {
+pub(crate) trait TargetArchitecture {
     // returns the size of the machine word in bytes
     fn word_size() -> usize;
 

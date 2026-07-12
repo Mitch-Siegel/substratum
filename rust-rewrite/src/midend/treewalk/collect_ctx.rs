@@ -2,16 +2,16 @@ use crate::midend::treewalk::*;
 
 use std::collections::HashSet;
 
-pub struct UnpathedCollectCtx {
+pub(crate) struct UnpathedCollectCtx {
     symtab: symtab::SymbolTable,
 }
 
 impl UnpathedCollectCtx {
-    pub fn new(symtab: symtab::SymbolTable) -> Self {
+    pub(crate) fn new(symtab: symtab::SymbolTable) -> Self {
         Self { symtab }
     }
 
-    pub fn take(self) -> symtab::SymbolTable {
+    pub(crate) fn take(self) -> symtab::SymbolTable {
         self.symtab
     }
 }
@@ -26,7 +26,7 @@ impl UnpathedCtxTrait for UnpathedCollectCtx {
 }
 
 impl<P: symtab::Path> PathedCtx<UnpathedCollectCtx, P> {
-    pub fn into_result(self) -> CollectResult {
+    pub(crate) fn into_result(self) -> CollectResult {
         Ok(self.unpathed)
     }
 }

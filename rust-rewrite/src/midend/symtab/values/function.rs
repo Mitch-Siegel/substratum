@@ -4,24 +4,24 @@ use crate::midend::{
 };
 
 #[derive(Debug, Clone)]
-pub struct Function {
+pub(crate) struct Function {
     pub prototype: FunctionPrototype,
     pub control_flow: Option<ir::ControlFlow>,
 }
 
 impl Function {
-    pub fn new(prototype: FunctionPrototype, control_flow: Option<ir::ControlFlow>) -> Self {
+    pub(crate) fn new(prototype: FunctionPrototype, control_flow: Option<ir::ControlFlow>) -> Self {
         Function {
             prototype,
             control_flow,
         }
     }
 
-    pub fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         self.prototype.name.as_str()
     }
 
-    pub fn is_lowered(&self) -> bool {
+    pub(crate) fn is_lowered(&self) -> bool {
         if let Some(cf) = &self.control_flow {
             for block in cf {
                 for statement in block {
@@ -68,7 +68,7 @@ impl PartialEq for Function {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct FunctionPrototype {
+pub(crate) struct FunctionPrototype {
     pub name: String,
     pub generic_params: midend::types::GenericParamsList,
     pub arguments: Vec<values::Variable>,
@@ -101,7 +101,7 @@ impl std::fmt::Display for FunctionPrototype {
 }
 
 impl FunctionPrototype {
-    pub fn new(
+    pub(crate) fn new(
         name: String,
         generic_params: midend::types::GenericParamsList,
         arguments: Vec<values::Variable>,

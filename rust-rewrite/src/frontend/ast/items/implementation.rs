@@ -7,7 +7,7 @@ use crate::{
 };
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct ImplementationTree {
+pub(crate) struct ImplementationTree {
     pub impl_keyword_loc: sourceloc::SourceSpan,
     pub generic_params: generics::OptionalGenericParamsListTree,
     pub for_: IdentifierTree,

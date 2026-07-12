@@ -1,6 +1,6 @@
 use crate::midend::{symtab::Symtab, types::*, *};
 
-pub enum SemanticFunctionError {
+pub(crate) enum SemanticFunctionError {
     UnresolvableType(Syntactic),
     NonFunction(Syntactic),
 }
@@ -24,14 +24,14 @@ impl std::fmt::Display for SemanticFunctionError {
 
 #[allow(unused)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SemanticFunction {
+pub(crate) struct SemanticFunction {
     syntactic: Syntactic,
     pub arguments: Vec<Semantic>,
     pub return_value: Semantic,
 }
 
 impl SemanticFunction {
-    pub fn new(syntactic: Syntactic, arguments: Vec<Semantic>, return_value: Semantic) -> Self {
+    pub(crate) fn new(syntactic: Syntactic, arguments: Vec<Semantic>, return_value: Semantic) -> Self {
         Self {
             syntactic,
             arguments,

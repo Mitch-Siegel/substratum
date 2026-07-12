@@ -3,17 +3,17 @@ use core::fmt;
 use serde::Serialize;
 
 #[derive(Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Debug, Serialize, Hash)]
-pub struct ProgramPoint {
+pub(crate) struct ProgramPoint {
     pub depth: usize, // depth in the DFS traversal of control flow
     pub index: usize, // index within a basic block
 }
 
 impl ProgramPoint {
-    pub fn default() -> Self {
+    pub(crate) fn default() -> Self {
         Self::new(0, 0)
     }
 
-    pub fn new(depth: usize, index: usize) -> Self {
+    pub(crate) fn new(depth: usize, index: usize) -> Self {
         ProgramPoint { depth, index }
     }
 }

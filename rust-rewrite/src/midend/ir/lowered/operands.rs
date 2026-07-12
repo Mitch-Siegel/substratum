@@ -9,7 +9,7 @@ use crate::midend::ir::*;
 */
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub enum BinaryArithmeticKind {
+pub(crate) enum BinaryArithmeticKind {
     Add,
     Sub,
     Mul,
@@ -32,13 +32,13 @@ impl Display for BinaryArithmeticKind {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct BinaryArithmeticExpressionOperands {
+pub(crate) struct BinaryArithmeticExpressionOperands {
     pub destination: ValueId,
     pub arithmetic: BinaryArithmeticOperands,
 }
 
 impl BinaryArithmeticExpressionOperands {
-    pub fn new(destination: ValueId, arithmetic: BinaryArithmeticOperands) -> Self {
+    pub(crate) fn new(destination: ValueId, arithmetic: BinaryArithmeticOperands) -> Self {
         Self {
             destination,
             arithmetic,
@@ -59,7 +59,7 @@ impl Display for BinaryArithmeticExpressionOperands {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct BinaryArithmeticOperands {
+pub(crate) struct BinaryArithmeticOperands {
     pub sources: BinarySourceOperands,
     pub kind: BinaryArithmeticKind,
 }
@@ -71,7 +71,7 @@ impl Display for BinaryArithmeticOperands {
 }
 
 impl BinaryArithmeticOperands {
-    pub fn new(lhs: ValueId, rhs: ValueId, kind: BinaryArithmeticKind) -> Self {
+    pub(crate) fn new(lhs: ValueId, rhs: ValueId, kind: BinaryArithmeticKind) -> Self {
         Self {
             sources: BinarySourceOperands::new(lhs, rhs),
             kind,
@@ -80,24 +80,24 @@ impl BinaryArithmeticOperands {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct BinarySourceOperands {
+pub(crate) struct BinarySourceOperands {
     pub lhs: ValueId,
     pub rhs: ValueId,
 }
 
 impl BinarySourceOperands {
-    pub fn new(a: ValueId, b: ValueId) -> Self {
+    pub(crate) fn new(a: ValueId, b: ValueId) -> Self {
         BinarySourceOperands { lhs: a, rhs: b }
     }
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct SourceDestOperands {
+pub(crate) struct SourceDestOperands {
     pub destination: ValueId,
     pub source: ValueId,
 }
 
-pub type AssignmentOperands = SourceDestOperands;
+pub(crate) type AssignmentOperands = SourceDestOperands;
 impl OperandTypeInference for AssignmentOperands {
     fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
@@ -105,7 +105,7 @@ impl OperandTypeInference for AssignmentOperands {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub enum BinaryComparisonKind {
+pub(crate) enum BinaryComparisonKind {
     LT,
     GT,
     LE,
@@ -132,13 +132,13 @@ impl Display for BinaryComparisonKind {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct BinaryComparisonExpressionOperands {
+pub(crate) struct BinaryComparisonExpressionOperands {
     pub destination: ValueId,
     pub comparison: BinaryComparisonOperands,
 }
 
 impl BinaryComparisonExpressionOperands {
-    pub fn new(destination: ValueId, comparison: BinaryComparisonOperands) -> Self {
+    pub(crate) fn new(destination: ValueId, comparison: BinaryComparisonOperands) -> Self {
         Self {
             destination,
             comparison,
@@ -159,7 +159,7 @@ impl Display for BinaryComparisonExpressionOperands {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct BinaryComparisonOperands {
+pub(crate) struct BinaryComparisonOperands {
     pub sources: BinarySourceOperands,
     pub kind: BinaryComparisonKind,
 }
@@ -171,7 +171,7 @@ impl Display for BinaryComparisonOperands {
 }
 
 impl BinaryComparisonOperands {
-    pub fn new(source_a: ValueId, source_b: ValueId, kind: BinaryComparisonKind) -> Self {
+    pub(crate) fn new(source_a: ValueId, source_b: ValueId, kind: BinaryComparisonKind) -> Self {
         Self {
             sources: BinarySourceOperands::new(source_a, source_b),
             kind,
@@ -180,7 +180,7 @@ impl BinaryComparisonOperands {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub enum JumpCondition {
+pub(crate) enum JumpCondition {
     Unconditional,
     Conditional(BinaryComparisonOperands),
 }
@@ -240,14 +240,14 @@ impl Display for JumpCondition {
 }
 
 #[derive(Debug, Serialize, Clone, PartialEq, Eq)]
-pub struct JumpOperands {
+pub(crate) struct JumpOperands {
     pub destination_block: usize,
     pub block_args: HashMap<ValueId, ValueId>,
     pub condition: JumpCondition,
 }
 
 impl JumpOperands {
-    pub fn new(destination_block: usize, condition: JumpCondition) -> Self {
+    pub(crate) fn new(destination_block: usize, condition: JumpCondition) -> Self {
         Self {
             destination_block,
             block_args: HashMap::new(),
@@ -276,17 +276,17 @@ impl Display for JumpOperands {
     }
 }
 
-pub type OrderedArgumentList = Vec<ValueId>;
+pub(crate) type OrderedArgumentList = Vec<ValueId>;
 
 /// ## Function Call Operands
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct CallParams {
+pub(crate) struct CallParams {
     pub arguments: OrderedArgumentList,
     pub return_value_to: Option<ValueId>,
 }
 
 impl CallParams {
-    pub fn new(arguments: OrderedArgumentList, return_value_to: Option<ValueId>) -> Self {
+    pub(crate) fn new(arguments: OrderedArgumentList, return_value_to: Option<ValueId>) -> Self {
         Self {
             arguments,
             return_value_to,
@@ -322,13 +322,13 @@ impl Display for CallParams {
 
 /// ## Method Call Operands
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct CallOperands {
+pub(crate) struct CallOperands {
     pub function_operand: ValueId,
     pub params: CallParams,
 }
 
 impl CallOperands {
-    pub fn new(
+    pub(crate) fn new(
         function_operand: ValueId,
         arguments: OrderedArgumentList,
         return_value_to: Option<ValueId>,
@@ -353,7 +353,7 @@ impl Display for CallOperands {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct LoadOperands {
+pub(crate) struct LoadOperands {
     pub pointer: ValueId,
     pub destination: ValueId,
 }
@@ -365,7 +365,7 @@ impl OperandTypeInference for LoadOperands {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct StoreOperands {
+pub(crate) struct StoreOperands {
     pub pointer: ValueId,
     pub source: ValueId,
 }
@@ -377,7 +377,7 @@ impl OperandTypeInference for StoreOperands {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct FieldAddressOperands {
+pub(crate) struct FieldAddressOperands {
     pub receiver: ValueId,
     pub offset: usize,
     pub destination: ValueId,
@@ -390,7 +390,7 @@ impl OperandTypeInference for FieldAddressOperands {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct SwitchOperands {
+pub(crate) struct SwitchOperands {
     pub scrutinee: ValueId,
     pub default_label: usize,
     pub cases: Vec<(ValueId, usize)>,

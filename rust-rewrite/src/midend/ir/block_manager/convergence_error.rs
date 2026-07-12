@@ -1,5 +1,5 @@
 #[derive(Debug, PartialEq, Eq)]
-pub enum ConvergenceError {
+pub(crate) enum ConvergenceError {
     FromBlockExists(usize),
     ToBlockExists(usize),
     NonexistentFrom(usize),

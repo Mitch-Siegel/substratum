@@ -3,16 +3,16 @@ use std::{
     io::{BufRead, BufReader},
 };
 
-pub trait ReadChar {
+pub(crate) trait ReadChar {
     fn read_char(&mut self) -> Option<char>;
 }
 
-pub trait ReadLine {
+pub(crate) trait ReadLine {
     fn read_line(&mut self) -> Option<Vec<char>>;
 }
 
 #[derive(Debug)]
-pub struct CharReader<T>
+pub(crate) struct CharReader<T>
 where
     T: ReadLine,
 {
@@ -59,12 +59,12 @@ where
 }
 
 #[derive(Debug)]
-pub struct FileLineReader {
+pub(crate) struct FileLineReader {
     lines: std::io::Lines<BufReader<File>>,
 }
 
 impl FileLineReader {
-    pub fn new(f: File) -> Self {
+    pub(crate) fn new(f: File) -> Self {
         let reader = BufReader::new(f);
         FileLineReader {
             lines: reader.lines(),
@@ -87,12 +87,12 @@ impl ReadLine for FileLineReader {
 }
 
 #[derive(Debug)]
-pub struct StrLineReader<'a> {
+pub(crate) struct StrLineReader<'a> {
     lines: std::str::SplitInclusive<'a, char>,
 }
 
 impl<'a> StrLineReader<'a> {
-    pub fn new(s: &'a str) -> Self {
+    pub(crate) fn new(s: &'a str) -> Self {
         Self {
             lines: s.split_inclusive('\n').to_owned(),
         }
@@ -107,17 +107,17 @@ impl<'a> ReadLine for StrLineReader<'a> {
 }
 
 #[derive(Debug)]
-pub enum CharSource<'a> {
+pub(crate) enum CharSource<'a> {
     File(CharReader<FileLineReader>),
     String(CharReader<StrLineReader<'a>>),
 }
 
 impl<'a> CharSource<'a> {
-    pub fn from_file(f: File) -> Self {
+    pub(crate) fn from_file(f: File) -> Self {
         Self::File(CharReader::<FileLineReader>::new(FileLineReader::new(f)))
     }
 
-    pub fn from_str(s: &'a str) -> Self {
+    pub(crate) fn from_str(s: &'a str) -> Self {
         Self::String(CharReader::<StrLineReader>::new(StrLineReader::new(s)))
     }
 }

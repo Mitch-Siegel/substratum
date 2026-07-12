@@ -1,7 +1,7 @@
 use crate::midend::{types::*, *};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, serde::Deserialize, Hash)]
-pub enum Syntactic {
+pub(crate) enum Syntactic {
     Unit,
     U8,
     U16,
@@ -21,7 +21,7 @@ pub enum Syntactic {
 }
 
 impl Syntactic {
-    pub fn resolve(
+    pub(crate) fn resolve(
         &self,
         _generic_params: types::ParamSubstMap,
         _ctx: &treewalk::ValueLinearizeCtx,

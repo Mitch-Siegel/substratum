@@ -1,9 +1,9 @@
 use crate::backend::arch::generic::*;
-pub mod registers_riscv;
+pub(crate) mod registers_riscv;
 use crate::midend;
-pub use registers_riscv::*;
+pub(crate) use registers_riscv::*;
 
-pub struct RV64G {}
+pub(crate) struct RV64G {}
 
 impl TargetArchitecture for RV64G {
     fn word_size() -> usize {

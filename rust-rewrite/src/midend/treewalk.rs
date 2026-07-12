@@ -10,27 +10,27 @@ use crate::{
 
 use std::collections::BTreeSet;
 
-pub mod collect_ctx;
-pub mod linearize_context;
+pub(crate) mod collect_ctx;
+pub(crate) mod linearize_context;
 
-pub use collect_ctx::UnpathedCollectCtx;
-// pub use function_linearize_context::FunctionLinearizeCtx;
-pub use linearize_context::{
+pub(crate) use collect_ctx::UnpathedCollectCtx;
+// pub(crate) use function_linearize_context::FunctionLinearizeCtx;
+pub(crate) use linearize_context::{
     FunctionLinearizeCtx, ImplLinearizeCtx, Linearize, LinearizeCtx, LinearizeError,
     LinearizeResult, PathedLinearizeCtxTrait, UnpathedFunctionLinearizeCtx, UnpathedLinearizeCtx,
     UnpathedLinearizeCtxTrait, ValueFunctionLinearizeCtx, ValueLinearizeCtx,
 };
 
-pub trait UnpathedCtxTrait: symtab::Symtab + Sized {
+pub(crate) trait UnpathedCtxTrait: symtab::Symtab + Sized {
     fn with_path<P: symtab::Path>(self, path: P) -> PathedCtx<Self, P>;
 }
 
-pub struct PathedCtx<U: UnpathedCtxTrait, P: symtab::Path> {
+pub(crate) struct PathedCtx<U: UnpathedCtxTrait, P: symtab::Path> {
     unpathed: U,
     path: P,
 }
 
-pub trait PathedCtxTrait: std::fmt::Debug {
+pub(crate) trait PathedCtxTrait: std::fmt::Debug {
     type Unpathed: UnpathedCtxTrait;
     type Path: symtab::Path;
 
@@ -156,7 +156,7 @@ where
     U: UnpathedCtxTrait,
     P: symtab::Path,
 {
-    pub fn semantic_type_for_syntactic(
+    pub(crate) fn semantic_type_for_syntactic(
         &self,
         ty_: &types::Syntactic,
     ) -> Result<types::Semantic, symtab::SymbolError> {
@@ -210,7 +210,7 @@ where
     }
 }
 
-pub enum CollectError {
+pub(crate) enum CollectError {
     Symbol(symtab::SymbolError),
 }
 
@@ -228,12 +228,12 @@ impl std::fmt::Debug for CollectError {
     }
 }
 
-pub type CollectCtx<P> = PathedCtx<UnpathedCollectCtx, P>;
-pub type TypeCollectCtx = CollectCtx<symtab::TypePath>;
-pub type ValueCollectCtx = CollectCtx<symtab::ValuePath>;
-pub type CollectResult = Result<UnpathedCollectCtx, CollectError>;
+pub(crate) type CollectCtx<P> = PathedCtx<UnpathedCollectCtx, P>;
+pub(crate) type TypeCollectCtx = CollectCtx<symtab::TypePath>;
+pub(crate) type ValueCollectCtx = CollectCtx<symtab::ValuePath>;
+pub(crate) type CollectResult = Result<UnpathedCollectCtx, CollectError>;
 
-pub trait Collect<P>
+pub(crate) trait Collect<P>
 where
     P: symtab::Path,
 {
@@ -247,7 +247,7 @@ where
     }
 }
 
-pub fn module_path(module: &frontend::ast::ModuleTree) -> symtab::TypePath {
+pub(crate) fn module_path(module: &frontend::ast::ModuleTree) -> symtab::TypePath {
     let mut module_path_segments = module.module_path.iter();
 
     // for now, assume that modules are type-only pathed
@@ -263,7 +263,7 @@ pub fn module_path(module: &frontend::ast::ModuleTree) -> symtab::TypePath {
     wip_path
 }
 
-pub fn walk(program: BTreeSet<frontend::ast::ModuleTree>) -> symtab::SymbolTable {
+pub(crate) fn walk(program: BTreeSet<frontend::ast::ModuleTree>) -> symtab::SymbolTable {
     let mut symtab = symtab::SymbolTable::new();
 
     trace::debug!("collect symbols");

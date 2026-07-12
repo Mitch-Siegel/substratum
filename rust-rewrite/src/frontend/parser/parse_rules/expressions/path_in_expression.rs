@@ -21,7 +21,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
         parser.finish_parsing(maybe_data)
     }
 
-    pub fn parse_path_in_expression(
+    pub(crate) fn parse_path_in_expression(
         &mut self,
     ) -> Result<ast::expressions::PathInExpressionTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("path in expression")?;

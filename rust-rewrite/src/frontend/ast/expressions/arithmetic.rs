@@ -4,20 +4,20 @@ use crate::{
 };
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct ArithmeticDualOperands {
+pub(crate) struct ArithmeticDualOperands {
     pub e1: Box<Expression>,
     pub e2: Box<Expression>,
 }
 
 impl ArithmeticDualOperands {
-    pub fn new(e1: Expression, e2: Expression) -> Self {
+    pub(crate) fn new(e1: Expression, e2: Expression) -> Self {
         Self {
             e1: Box::new(e1),
             e2: Box::new(e2),
         }
     }
 
-    pub fn loc(&self) -> sourceloc::SourceSpan {
+    pub(crate) fn loc(&self) -> sourceloc::SourceSpan {
         self.e1.loc().merge(&self.e2.loc()).unwrap()
     }
 }
@@ -30,7 +30,7 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for ArithmeticDualOper
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum ComparisonExpressionTree {
+pub(crate) enum ComparisonExpressionTree {
     LThan(ArithmeticDualOperands),
     GThan(ArithmeticDualOperands),
     LThanE(ArithmeticDualOperands),
@@ -166,7 +166,7 @@ impl Display for ComparisonExpressionTree {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum ArithmeticExpressionTree {
+pub(crate) enum ArithmeticExpressionTree {
     Add(ArithmeticDualOperands),
     Subtract(ArithmeticDualOperands),
     Multiply(ArithmeticDualOperands),

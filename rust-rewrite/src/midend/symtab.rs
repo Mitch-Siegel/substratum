@@ -4,27 +4,27 @@ use crate::{
     midend::{self, *},
     trace,
 };
-pub use errors::*;
+pub(crate) use errors::*;
 
 mod def_path;
 
 mod errors;
-pub mod intrinsics;
-pub mod symbols;
-pub mod visitor;
+pub(crate) mod intrinsics;
+pub(crate) mod symbols;
+pub(crate) mod visitor;
 
-pub mod implementation;
-pub mod types;
-pub mod values;
+pub(crate) mod implementation;
+pub(crate) mod types;
+pub(crate) mod values;
 
-pub use def_path::{Path, TypeOwner, ValueOwner, *};
-pub use implementation::Implementation;
-pub use symbols::*;
-pub use types::Type;
-pub use values::Value;
-pub use visitor::*;
+pub(crate) use def_path::{Path, TypeOwner, ValueOwner, *};
+pub(crate) use implementation::Implementation;
+pub(crate) use symbols::*;
+pub(crate) use types::Type;
+pub(crate) use values::Value;
+pub(crate) use visitor::*;
 
-pub trait SymtabBase {
+pub(crate) trait SymtabBase {
     fn insert(
         &mut self,
         path: RawPath,
@@ -41,7 +41,7 @@ mod private {
 
     impl<T: SymtabBase> SymtabBaseInternal for T {}
 
-    pub trait SymtabBaseInternal: SymtabBase {
+    pub(crate) trait SymtabBaseInternal: SymtabBase {
         /// declare 'path' to exist
         fn declare(&mut self, path: RawPath) -> Result<RawPath, SymbolError> {
             trace::trace!("declare {}", path);
@@ -142,7 +142,7 @@ mod private {
 }
 
 // TODO: pub(in crate::midend)
-pub trait Symtab: SymtabBase + private::SymtabBaseInternal {
+pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
     // ===== Declaration =====
     fn declare_type(&mut self, path: TypePath) -> Result<TypePath, SymbolError> {
         self.declare(path.0).map(TypePath::from)
@@ -282,8 +282,8 @@ pub trait Symtab: SymtabBase + private::SymtabBaseInternal {
     ) -> Result<midend::types::Semantic, SymbolError>;
 }
 
-pub struct SymbolTable {
-    pub types: midend::types::Interner,
+pub(crate) struct SymbolTable {
+    pub(crate) types: midend::types::Interner,
     // mapping of symbols to declarations (None) or definitions (Some)
     symbols: BTreeMap<RawPath, Option<SymbolDef>>,
     children: BTreeMap<RawPath, HashSet<RawPath>>,
@@ -318,31 +318,31 @@ impl std::fmt::Debug for SymbolTable {
 }
 
 impl SymbolTable {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let mut symtab = Self::default();
         intrinsics::create_core(&mut symtab);
 
         symtab
     }
 
-    pub fn children(&self, def_path: &RawPath) -> HashSet<&RawPath> {
+    pub(crate) fn children(&self, def_path: &RawPath) -> HashSet<&RawPath> {
         match self.children.get(def_path) {
             Some(paths) => paths.iter().collect(),
             None => HashSet::new(),
         }
     }
 
-    pub fn decls(&self) -> impl Iterator<Item = &RawPath> {
+    pub(crate) fn decls(&self) -> impl Iterator<Item = &RawPath> {
         self.symbols.keys()
     }
 
-    pub fn defs(&self) -> impl Iterator<Item = (&RawPath, &SymbolDef)> {
+    pub(crate) fn defs(&self) -> impl Iterator<Item = (&RawPath, &SymbolDef)> {
         self.symbols
             .iter()
             .filter_map(|(path, maybe_def)| maybe_def.as_ref().map(|def| (path, def)))
     }
 
-    pub fn defs_mut(&mut self) -> impl Iterator<Item = (&RawPath, &mut SymbolDef)> {
+    pub(crate) fn defs_mut(&mut self) -> impl Iterator<Item = (&RawPath, &mut SymbolDef)> {
         self.symbols
             .iter_mut()
             .filter_map(|(path, maybe_def)| maybe_def.as_mut().map(|def| (path, def)))

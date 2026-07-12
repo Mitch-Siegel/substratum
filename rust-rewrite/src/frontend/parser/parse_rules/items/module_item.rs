@@ -1,7 +1,7 @@
 use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ItemParser<'a, 'p> {
-    pub fn parse_module_item(
+    pub(crate) fn parse_module_item(
         &mut self,
         parent_module_path: &std::path::Path,
     ) -> Result<parse_rules::module::ModuleResult, ParseError> {

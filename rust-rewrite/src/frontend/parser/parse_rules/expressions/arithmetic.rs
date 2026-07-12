@@ -1,7 +1,7 @@
 use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ExpressionParser<'a, 'p> {
-    pub fn precedence_of_token(token: &Token) -> usize {
+    pub(crate) fn precedence_of_token(token: &Token) -> usize {
         match token {
             Token::Plus => 1,
             Token::Minus => 1,
@@ -38,7 +38,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
         }
     }
 
-    pub fn parse_binary_expression_min_precedence(
+    pub(crate) fn parse_binary_expression_min_precedence(
         &mut self,
         lhs: Expression,
         min_precedence: usize,
@@ -114,7 +114,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
         self.finish_parsing(expr)
     }
 
-    pub fn parse_binary_expression(&mut self, lhs: Expression) -> Result<Expression, ParseError> {
+    pub(crate) fn parse_binary_expression(&mut self, lhs: Expression) -> Result<Expression, ParseError> {
         self.parse_binary_expression_min_precedence(lhs, 0)
     }
 }

@@ -14,7 +14,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         self.finish_parsing(field_tree)
     }
 
-    pub fn parse_struct_definition(
+    pub(crate) fn parse_struct_definition(
         &mut self,
     ) -> Result<ast::items::StructDefinitionTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("struct definition")?;

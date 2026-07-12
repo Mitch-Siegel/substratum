@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
-pub use btree_map_ooo_iter::*;
+pub(crate) use btree_map_ooo_iter::*;
 #[allow(unused_imports)]
-pub use hash_map_ooo_iter::*;
+pub(crate) use hash_map_ooo_iter::*;
 
 /*
  * TODO: make this more library-like by genericizing errors?
@@ -34,7 +34,7 @@ mod hash_map_ooo_iter {
     }
 
     // the iterator itself only needs to own Key, &Value pairs
-    pub struct HashMapOOOIter<'a, K, V> {
+    pub(crate) struct HashMapOOOIter<'a, K, V> {
         references: VecDeque<(K, &'a V)>,
     }
 
@@ -51,7 +51,7 @@ mod hash_map_ooo_iter {
     where
         K: Eq + Hash,
     {
-        pub fn new(map: &'a HashMap<K, V>, key_order: impl Iterator<Item = K> + Clone) -> Self {
+        pub(crate) fn new(map: &'a HashMap<K, V>, key_order: impl Iterator<Item = K> + Clone) -> Self {
             check_hash_key_order(map, key_order.clone());
 
             // allocate the vector with its full capacity from the get-go
@@ -66,7 +66,7 @@ mod hash_map_ooo_iter {
         }
     }
 
-    pub struct HashMapOOOIterMut<'a, K, V> {
+    pub(crate) struct HashMapOOOIterMut<'a, K, V> {
         references: VecDeque<(K, &'a mut V)>,
     }
 
@@ -82,7 +82,7 @@ mod hash_map_ooo_iter {
     where
         K: Eq + Hash,
     {
-        pub fn new(map: &'a mut HashMap<K, V>, key_order: impl Iterator<Item = K> + Clone) -> Self {
+        pub(crate) fn new(map: &'a mut HashMap<K, V>, key_order: impl Iterator<Item = K> + Clone) -> Self {
             check_hash_key_order(map, key_order.clone());
 
             // same as for HashMapOOOIter but with additional reference manipulation
@@ -161,7 +161,7 @@ mod btree_map_ooo_iter {
     }
 
     // the iterator itself only needs to own Key, &Value pairs
-    pub struct BTreeMapOOOIter<'a, K, V> {
+    pub(crate) struct BTreeMapOOOIter<'a, K, V> {
         references: VecDeque<(K, &'a V)>,
     }
 
@@ -178,7 +178,7 @@ mod btree_map_ooo_iter {
     where
         K: Eq + Ord,
     {
-        pub fn new(map: &'a BTreeMap<K, V>, key_order: impl Iterator<Item = K> + Clone) -> Self {
+        pub(crate) fn new(map: &'a BTreeMap<K, V>, key_order: impl Iterator<Item = K> + Clone) -> Self {
             check_btree_key_order(map, key_order.clone());
 
             // allocate the vector with its full capacity from the get-go
@@ -193,7 +193,7 @@ mod btree_map_ooo_iter {
         }
     }
 
-    pub struct BTreeMapOOOIterMut<'a, K, V> {
+    pub(crate) struct BTreeMapOOOIterMut<'a, K, V> {
         references: VecDeque<(K, &'a mut V)>,
     }
 
@@ -209,7 +209,7 @@ mod btree_map_ooo_iter {
     where
         K: Eq + Ord,
     {
-        pub fn new(
+        pub(crate) fn new(
             map: &'a mut BTreeMap<K, V>,
             key_order: impl Iterator<Item = K> + Clone,
         ) -> Self {

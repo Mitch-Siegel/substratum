@@ -3,7 +3,7 @@ use serde::Serialize;
 use std::fmt::Display;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
-pub struct Variable {
+pub(crate) struct Variable {
     pub name: String,
     type_: Option<midend::types::Syntactic>,
 }
@@ -23,21 +23,21 @@ impl Display for Variable {
 }
 
 impl Variable {
-    pub fn new(name: String, type_: Option<midend::types::Syntactic>) -> Self {
+    pub(crate) fn new(name: String, type_: Option<midend::types::Syntactic>) -> Self {
         Variable { name, type_ }
     }
 
-    pub fn type_(&self) -> Option<&midend::types::Syntactic> {
+    pub(crate) fn type_(&self) -> Option<&midend::types::Syntactic> {
         self.type_.as_ref()
     }
 
-    pub fn mangle_name_at_index(&mut self, index: usize) {
+    pub(crate) fn mangle_name_at_index(&mut self, index: usize) {
         self.name = format!("{}_{}", index, self.name);
     }
 }
 
 #[derive(Clone, Debug)]
-pub enum LocalBinding {
+pub(crate) enum LocalBinding {
     FunctionParam(Variable),
     Let(Variable),
 }

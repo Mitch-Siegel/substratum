@@ -3,17 +3,17 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct SourcePoint {
+pub(crate) struct SourcePoint {
     pub line: u32,
     pub col: u32,
 }
 
 impl SourcePoint {
-    pub fn new(line: u32, col: u32) -> Self {
+    pub(crate) fn new(line: u32, col: u32) -> Self {
         Self { line, col }
     }
 
-    pub fn valid(&self) -> bool {
+    pub(crate) fn valid(&self) -> bool {
         self.line != 0 && self.col != 0
     }
 }
@@ -25,24 +25,24 @@ impl Display for SourcePoint {
 }
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SourceLoc {
+pub(crate) struct SourceLoc {
     pub file: String,
     pub point: SourcePoint,
 }
 
 impl SourceLoc {
-    pub fn none() -> Self {
+    pub(crate) fn none() -> Self {
         SourceLoc {
             file: "".into(),
             point: SourcePoint::default(),
         }
     }
 
-    pub fn new(file: String, point: SourcePoint) -> Self {
+    pub(crate) fn new(file: String, point: SourcePoint) -> Self {
         SourceLoc { file, point }
     }
 
-    pub fn valid(&self) -> bool {
+    pub(crate) fn valid(&self) -> bool {
         !self.file.is_empty() && self.point.valid()
     }
 }
@@ -69,26 +69,26 @@ impl std::fmt::Debug for SourceLoc {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct SourceSpan {
+pub(crate) struct SourceSpan {
     file: String,
     start: SourcePoint,
     end: SourcePoint,
 }
 
 impl SourceSpan {
-    pub fn new(file: String, start: SourcePoint, end: SourcePoint) -> Self {
+    pub(crate) fn new(file: String, start: SourcePoint, end: SourcePoint) -> Self {
         Self { file, start, end }
     }
 
-    pub fn start(self) -> SourceLoc {
+    pub(crate) fn start(self) -> SourceLoc {
         SourceLoc::new(self.file, self.start)
     }
 
-    pub fn end(self) -> SourceLoc {
+    pub(crate) fn end(self) -> SourceLoc {
         SourceLoc::new(self.file, self.end)
     }
 
-    pub fn merge(mut self, other: &Self) -> Result<Self, String> {
+    pub(crate) fn merge(mut self, other: &Self) -> Result<Self, String> {
         if self.file != other.file {
             return Err(format!(
                 "mismatched files in SourceSpan::merge({} and {})",

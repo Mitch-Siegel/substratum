@@ -4,7 +4,7 @@ use crate::{
 };
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum TypeTree {
+pub(crate) enum TypeTree {
     TypeNoBounds(TypeNoBoundsTree),
 }
 
@@ -72,7 +72,7 @@ impl std::fmt::Display for TypeTree {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct ParenthesizedTypeTree {
+pub(crate) struct ParenthesizedTypeTree {
     pub open_paren_loc: sourceloc::SourceSpan,
     pub inner_type: Box<TypeTree>,
     pub close_paren_loc: sourceloc::SourceSpan,
@@ -108,7 +108,7 @@ impl std::fmt::Display for ParenthesizedTypeTree {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct TupleTypeTree {
+pub(crate) struct TupleTypeTree {
     pub open_paren_loc: sourceloc::SourceSpan,
     pub members: Vec<TypeTree>,
     pub close_paren_loc: sourceloc::SourceSpan,
@@ -194,7 +194,7 @@ impl std::fmt::Display for TupleTypeTree {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct InferredTypeTree {
+pub(crate) struct InferredTypeTree {
     pub loc: sourceloc::SourceSpan,
 }
 
@@ -223,7 +223,7 @@ where
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum TypeNoBoundsTree {
+pub(crate) enum TypeNoBoundsTree {
     ParenthesizedType(ParenthesizedTypeTree),
     TypePath(TypePath),
     TupleType(TupleTypeTree),
@@ -336,7 +336,7 @@ impl std::fmt::Display for TypeNoBoundsTree {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum TypePath {
+pub(crate) enum TypePath {
     Primitive(PrimitiveTypePathTree),
     ItemPath(TypeItemPathTree),
 }
@@ -377,9 +377,9 @@ impl std::fmt::Display for TypePath {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct PrimitiveTypePathTree {
+pub(crate) struct PrimitiveTypePathTree {
     pub loc: sourceloc::SourceSpan,
-    pub type_: midend::types::Syntactic,
+    pub(crate) type_: midend::types::Syntactic,
 }
 
 impl Ast for PrimitiveTypePathTree {
@@ -407,7 +407,7 @@ impl std::fmt::Display for PrimitiveTypePathTree {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum TypePathSegmentData {
+pub(crate) enum TypePathSegmentData {
     GenericArgs(GenericArgsListTree),
 }
 
@@ -428,7 +428,7 @@ impl Display for TypePathSegmentData {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct TypeItemPathTree {
+pub(crate) struct TypeItemPathTree {
     pub underlying_path: path::PathTree<TypePathSegmentData>,
 }
 
@@ -467,10 +467,10 @@ impl std::fmt::Display for TypeItemPathTree {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct ReferenceTypeTree {
+pub(crate) struct ReferenceTypeTree {
     pub reference_token_loc: sourceloc::SourceSpan,
     pub mutability: midend::types::Mutability,
-    pub type_: Box<TypeNoBoundsTree>,
+    pub(crate) type_: Box<TypeNoBoundsTree>,
 }
 
 impl Ast for ReferenceTypeTree {
@@ -531,7 +531,7 @@ impl std::fmt::Display for ReferenceTypeTree {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct ArrayTypeTree {
+pub(crate) struct ArrayTypeTree {
     pub open_bracket_loc: sourceloc::SourceSpan,
     pub inner_type: Box<TypeTree>,
     pub array_size: Expression,

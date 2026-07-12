@@ -1,23 +1,23 @@
 use crate::midend::ir::*;
 
 #[enum_delegate::register]
-pub trait OperandTypeInference {
+pub(crate) trait OperandTypeInference {
     fn infer_types(&mut self, ctx: &TypeInferenceContext) -> bool;
 }
 
-pub struct TypeInferenceContext<'a> {
+pub(crate) struct TypeInferenceContext<'a> {
     pub _symtab: &'a mut symtab::SymbolTable,
     pub _values: &'a mut ValueInterner,
 }
 
 impl<'a> TypeInferenceContext<'a> {
-    pub fn new(_symtab: &'a mut symtab::SymbolTable, _values: &'a mut ValueInterner) -> Self {
+    pub(crate) fn new(_symtab: &'a mut symtab::SymbolTable, _values: &'a mut ValueInterner) -> Self {
         Self { _symtab, _values }
     }
 }
 
 #[allow(unused)]
-pub enum TypePropagationError {
+pub(crate) enum TypePropagationError {
     ValueError(value::ValueError),
 }
 
@@ -36,11 +36,11 @@ impl From<ValueError> for TypePropagationError {
 }
 
 impl<'a> TypeInferenceContext<'a> {
-    pub fn _type_for_value(&self, value_id: &ValueId) -> Option<types::Semantic> {
+    pub(crate) fn _type_for_value(&self, value_id: &ValueId) -> Option<types::Semantic> {
         self._values.semantic_for_id(value_id).ok()
     }
 
-    pub fn _assign_type_to_value(
+    pub(crate) fn _assign_type_to_value(
         &mut self,
         value_id: &ValueId,
         ty: types::Semantic,

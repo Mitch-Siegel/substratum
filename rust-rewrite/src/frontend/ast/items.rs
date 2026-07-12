@@ -7,18 +7,18 @@ use crate::{
 };
 use std::collections::BTreeSet;
 
-pub mod enum_definition;
-pub mod function;
-pub mod implementation;
-pub mod struct_definition;
+pub(crate) mod enum_definition;
+pub(crate) mod function;
+pub(crate) mod implementation;
+pub(crate) mod struct_definition;
 
-pub use enum_definition::EnumDefinitionTree;
-pub use function::{FunctionDeclarationTree, FunctionDefinitionTree};
-pub use implementation::ImplementationTree;
-pub use struct_definition::StructDefinitionTree;
+pub(crate) use enum_definition::EnumDefinitionTree;
+pub(crate) use function::{FunctionDeclarationTree, FunctionDefinitionTree};
+pub(crate) use implementation::ImplementationTree;
+pub(crate) use struct_definition::StructDefinitionTree;
 
 #[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
-pub enum ItemTree {
+pub(crate) enum ItemTree {
     FunctionDeclaration(FunctionDeclarationTree),
     FunctionDefinition(FunctionDefinitionTree),
     StructDefinition(StructDefinitionTree),

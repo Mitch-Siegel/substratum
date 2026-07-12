@@ -13,10 +13,10 @@ use crate::{
 mod errors;
 mod parse_rules;
 
-pub use errors::ParseError;
-pub use parse_rules::module::ModuleResult;
+pub(crate) use errors::ParseError;
+pub(crate) use parse_rules::module::ModuleResult;
 
-pub struct Parser<'a> {
+pub(crate) struct Parser<'a> {
     lexer: Lexer<'a>,
     module_parse_stack: Vec<IdentifierTree>,
     last_match: SourceSpan,
@@ -25,7 +25,7 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(_module_name: String, module_path: &std::path::Path, lexer: Lexer<'a>) -> Self {
+    pub(crate) fn new(_module_name: String, module_path: &std::path::Path, lexer: Lexer<'a>) -> Self {
         let lexer_start_pos = lexer.current_loc();
         let mut module_hierarchy = Vec::new();
         for component in module_path.iter() {
@@ -229,7 +229,7 @@ impl<'a> Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub fn parse(
+    pub(crate) fn parse(
         &mut self,
         mod_keyword_loc: sourceloc::SourceSpan,
         parent_module_path: &std::path::Path,
@@ -252,7 +252,7 @@ impl<'a> Parser<'a> {
 mod tests {
     use crate::frontend::parser::*;
 
-    pub fn test_parser<'a>(input: &'a str) -> Parser<'a> {
+    pub(crate) fn test_parser<'a>(input: &'a str) -> Parser<'a> {
         let module_path = std::path::Path::new("");
         Parser::new(
             "".into(),

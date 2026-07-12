@@ -3,26 +3,26 @@ use std::collections::HashMap;
 use crate::{midend::ir::block_manager::*, trace};
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum ConvergenceResult {
+pub(crate) enum ConvergenceResult {
     NotDone(usize),       // the label of the block to converge to
     Done(ir::BasicBlock), // the block converged to
 }
 
 #[derive(Debug, Clone)]
-pub struct BlockConvergences {
+pub(crate) struct BlockConvergences {
     open_convergences: HashMap<usize, usize>,
     convergence_blocks: HashMap<usize, ir::BasicBlock>,
 }
 
 impl BlockConvergences {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             open_convergences: HashMap::new(),
             convergence_blocks: HashMap::new(),
         }
     }
 
-    pub fn add(&mut self, froms: &[usize], to: ir::BasicBlock) -> Result<(), ConvergenceError> {
+    pub(crate) fn add(&mut self, froms: &[usize], to: ir::BasicBlock) -> Result<(), ConvergenceError> {
         trace::trace!("add convergence from {:?} to {}", froms, to.label);
         for from in froms {
             if self.open_convergences.insert(*from, to.label).is_some() {
@@ -38,7 +38,7 @@ impl BlockConvergences {
     }
 
     // given an existing point to which control converges, add another path it converges from
-    pub fn supplement(&mut self, froms: &[usize], to_label: usize) -> Result<(), ConvergenceError> {
+    pub(crate) fn supplement(&mut self, froms: &[usize], to_label: usize) -> Result<(), ConvergenceError> {
         trace::trace!("supplement convergence to {} with {:?}", to_label, froms);
         if !self.convergence_blocks.contains_key(&to_label) {
             return Err(ConvergenceError::NonexistentTo(to_label));
@@ -53,7 +53,7 @@ impl BlockConvergences {
         Ok(())
     }
 
-    pub fn converge(&mut self, from: usize) -> Result<ConvergenceResult, ConvergenceError> {
+    pub(crate) fn converge(&mut self, from: usize) -> Result<ConvergenceResult, ConvergenceError> {
         let converge_to = match self.open_convergences.remove(&from) {
             Some(label) => label,
             None => return Err(ConvergenceError::NonexistentFrom(from)),
@@ -89,7 +89,7 @@ impl BlockConvergences {
     }
 
     #[tracing::instrument(skip(self))]
-    pub fn rename_source(&mut self, old: usize, new: usize) {
+    pub(crate) fn rename_source(&mut self, old: usize, new: usize) {
         self.open_convergences = self
             .open_convergences
             .iter()
@@ -110,11 +110,11 @@ impl BlockConvergences {
             .collect::<HashMap<usize, usize>>();
     }
 
-    pub fn convergence_label_of_block(&self, block: &usize) -> Option<&usize> {
+    pub(crate) fn convergence_label_of_block(&self, block: &usize) -> Option<&usize> {
         self.open_convergences.get(block)
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.open_convergences.is_empty() && self.convergence_blocks.is_empty()
     }
 }

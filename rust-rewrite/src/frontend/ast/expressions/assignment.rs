@@ -1,7 +1,7 @@
 use crate::{frontend::ast::*, midend::symtab::ValuePath};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct AssignmentTree {
+pub(crate) struct AssignmentTree {
     pub assignee: Box<Expression>,
     pub value: Box<Expression>,
 }

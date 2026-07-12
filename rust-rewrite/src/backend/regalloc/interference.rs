@@ -2,20 +2,20 @@ use crate::backend::regalloc::lifetime::Lifetime;
 use crate::midend;
 use std::collections::{BTreeMap, BTreeSet};
 
-pub struct InterferenceGraph {
+pub(crate) struct InterferenceGraph {
     graph: BTreeMap<midend::ir::OperandName, BTreeSet<midend::ir::OperandName>>,
     max_degree: usize,
 }
 
 impl InterferenceGraph {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             graph: BTreeMap::new(),
             max_degree: usize::MIN,
         }
     }
 
-    pub fn record_interference(
+    pub(crate) fn record_interference(
         &mut self,
         operand_a: &midend::ir::OperandName,
         operand_b: &midend::ir::OperandName,
@@ -35,7 +35,7 @@ impl InterferenceGraph {
             .max(self.graph.get(operand_a).unwrap().len());
     }
 
-    pub fn remove(
+    pub(crate) fn remove(
         &mut self,
         operand: &midend::ir::OperandName,
     ) -> Option<BTreeSet<midend::ir::OperandName>> {
@@ -50,7 +50,7 @@ impl InterferenceGraph {
         removed
     }
 
-    pub fn iter(
+    pub(crate) fn iter(
         &self,
     ) -> std::collections::btree_map::Iter<
         '_,
@@ -60,7 +60,7 @@ impl InterferenceGraph {
         self.graph.iter()
     }
 
-    pub fn keys(
+    pub(crate) fn keys(
         &self,
     ) -> std::collections::btree_map::Keys<
         '_,

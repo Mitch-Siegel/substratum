@@ -45,7 +45,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
         self.finish_parsing(pattern_tree)
     }
 
-    pub fn parse_match_expression(&mut self) -> Result<MatchExpressionTree, ParseError> {
+    pub(crate) fn parse_match_expression(&mut self) -> Result<MatchExpressionTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("match expression")?;
 
         let match_keyword_loc = self.expect_token(Token::Match)?;

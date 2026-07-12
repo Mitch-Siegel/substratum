@@ -4,7 +4,7 @@ use crate::{
 };
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct BlockExpressionTree {
+pub(crate) struct BlockExpressionTree {
     pub open_brace_loc: sourceloc::SourceSpan,
     pub statements: Vec<StatementTree>,
     pub close_brace_loc: sourceloc::SourceSpan,
