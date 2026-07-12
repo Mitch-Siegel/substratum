@@ -1,9 +1,6 @@
 use crate::{
     frontend::ast::*,
-    midend::{
-        self,
-        treewalk::{CollectCtx, TypeCollectCtx, ValueCollectCtx, ValueFunctionLinearizeCtx},
-    },
+    midend::{self, treewalk::CollectCtx},
 };
 
 pub mod arithmetic;

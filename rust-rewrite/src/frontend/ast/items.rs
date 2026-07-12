@@ -1,8 +1,8 @@
 use crate::{
-    frontend::ast::{types::TypeNoBoundsTree, *},
+    frontend::ast::*,
     midend::{
         symtab,
-        treewalk::{self, PathedCtxTrait, PathedLinearizeCtxTrait, TypeLinearizeCtx},
+        treewalk::{self},
     },
 };
 use std::collections::BTreeSet;

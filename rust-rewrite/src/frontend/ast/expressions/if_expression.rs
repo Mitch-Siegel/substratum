@@ -1,9 +1,6 @@
 use crate::{
     frontend::ast::expressions::*,
-    midend::{
-        symtab::ValuePath,
-        treewalk::{PathedCtxTrait, UnpathedFunctionLinearizeCtx},
-    },
+    midend::{symtab::ValuePath, treewalk::PathedCtxTrait},
 };
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

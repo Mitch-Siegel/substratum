@@ -2,10 +2,7 @@ use crate::{
     frontend::*,
     midend::{
         self, symtab,
-        treewalk::{
-            self, linearize_context::UnpathedLinearizeCtxTrait, LinearizeResult,
-            PathedLinearizeCtxTrait,
-        },
+        treewalk::{self, LinearizeResult},
     },
 };
 use std::fmt::Display;

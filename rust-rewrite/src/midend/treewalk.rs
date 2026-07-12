@@ -17,9 +17,8 @@ pub use collect_ctx::UnpathedCollectCtx;
 // pub use function_linearize_context::FunctionLinearizeCtx;
 pub use linearize_context::{
     FunctionLinearizeCtx, ImplLinearizeCtx, Linearize, LinearizeCtx, LinearizeError,
-    LinearizeResult, PathedLinearizeCtxTrait, RawLinearizeCtx, TypeLinearizeCtx,
-    UnpathedFunctionLinearizeCtx, UnpathedLinearizeCtx, UnpathedLinearizeCtxTrait,
-    ValueFunctionLinearizeCtx, ValueLinearizeCtx,
+    LinearizeResult, PathedLinearizeCtxTrait, UnpathedFunctionLinearizeCtx, UnpathedLinearizeCtx,
+    UnpathedLinearizeCtxTrait, ValueFunctionLinearizeCtx, ValueLinearizeCtx,
 };
 
 pub trait UnpathedCtxTrait: symtab::Symtab + Sized {
@@ -94,7 +93,7 @@ pub trait PathedCtxTrait: std::fmt::Debug {
 
     fn create_impl(
         &mut self,
-        for_type: types::Syntactic,
+        _for_type: types::Syntactic,
     ) -> Result<symtab::ImplId, symtab::SymbolError> {
         unimplemented!()
         // let for_type = self.unpathed_mut().semantic_type_for_syntactic(search_def_path, ParamSubstMap::empty(), for_type)?;
@@ -229,7 +228,7 @@ impl std::fmt::Debug for CollectError {
     }
 }
 
-pub type CollectCtx<P: symtab::Path> = PathedCtx<UnpathedCollectCtx, P>;
+pub type CollectCtx<P> = PathedCtx<UnpathedCollectCtx, P>;
 pub type TypeCollectCtx = CollectCtx<symtab::TypePath>;
 pub type ValueCollectCtx = CollectCtx<symtab::ValuePath>;
 pub type CollectResult = Result<UnpathedCollectCtx, CollectError>;

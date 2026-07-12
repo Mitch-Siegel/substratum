@@ -2,10 +2,7 @@ use crate::{
     frontend::ast::expressions::*,
     midend::{
         symtab::ValuePath,
-        treewalk::{
-            PathedCtxTrait, PathedLinearizeCtxTrait, UnpathedFunctionLinearizeCtx,
-            ValueFunctionLinearizeCtx,
-        },
+        treewalk::{PathedCtxTrait, ValueFunctionLinearizeCtx},
     },
 };
 

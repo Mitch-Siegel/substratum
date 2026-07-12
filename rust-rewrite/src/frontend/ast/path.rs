@@ -3,18 +3,11 @@ use std::collections::HashMap;
 
 use crate::{
     frontend::ast::*,
-    midend::{
-        self,
-        symtab::SymtabBase,
-        treewalk::{
-            linearize_context::UnpathedLinearizeCtxTrait, LinearizeCtx, PathedCtxTrait,
-            PathedLinearizeCtxTrait, RawLinearizeCtx, UnpathedCtxTrait,
-        },
-    },
+    midend::{self, treewalk::linearize_context::UnpathedLinearizeCtxTrait},
 };
 
 pub enum PathSegmentAction<T> {
-    Crate(Option<T>),
+    _Crate(Option<T>),
     Super(Option<T>),
     Ident(String, Option<T>),
     SelfLower(Option<T>),
@@ -27,7 +20,7 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let maybe_data = match self {
-            Self::Crate(d) => {
+            Self::_Crate(d) => {
                 write!(f, "Crate")?;
                 d
             }
@@ -326,8 +319,8 @@ mod path_walk {
                 last_ident: segment_name,
                 last_segment_data: maybe_data,
                 type_path,
-                value_path,
-                macro_path,
+                _value_path: value_path,
+                _macro_path: macro_path,
             }
         }
     }
@@ -346,8 +339,8 @@ where
     last_ident: String,
     last_segment_data: Option<T>,
     type_path: Option<midend::symtab::RawPath>,
-    value_path: Option<midend::symtab::RawPath>,
-    macro_path: Option<midend::symtab::RawPath>,
+    _value_path: Option<midend::symtab::RawPath>,
+    _macro_path: Option<midend::symtab::RawPath>,
 }
 
 impl<T> FinishedPathWalk<T>
@@ -382,10 +375,10 @@ where
         Ok((path, pathed_data))
     }
 
-    pub fn into_value(
+    pub fn _into_value(
         self,
     ) -> Result<(midend::symtab::RawPath, HashMap<midend::symtab::RawPath, T>), String> {
-        let path = self.value_path.ok_or(format!(
+        let path = self._value_path.ok_or(format!(
             "path {} (@{}) is not valid as value",
             midend::symtab::RawPath::new(
                 self.prefix_segments,
@@ -399,10 +392,10 @@ where
         Ok((path, pathed_data))
     }
 
-    pub fn into_macro(
+    pub fn _into_macro(
         self,
     ) -> Result<(midend::symtab::RawPath, HashMap<midend::symtab::RawPath, T>), String> {
-        let path = self.macro_path.ok_or(format!(
+        let path = self._macro_path.ok_or(format!(
             "path {} is not valid as macro",
             midend::symtab::RawPath::new(
                 self.prefix_segments,
@@ -476,7 +469,7 @@ where
     ) -> Result<Self, String> {
         match self {
             PathWalkState::Start(mut ctx) => match action {
-                PathSegmentAction::Crate(_) => {
+                PathSegmentAction::_Crate(_) => {
                     ctx.do_crate().unwrap();
                     Ok(Self::RequireIdent(ctx))
                 }

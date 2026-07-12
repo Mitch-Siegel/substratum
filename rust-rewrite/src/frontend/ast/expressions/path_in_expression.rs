@@ -8,7 +8,7 @@ use crate::{
     midend::{
         self,
         symtab::ValuePath,
-        treewalk::{self, UnpathedFunctionLinearizeCtx},
+        treewalk::{self},
     },
 };
 

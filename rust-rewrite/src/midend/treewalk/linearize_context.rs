@@ -1,9 +1,6 @@
-use crate::{
-    frontend::{ast::Expression::PathIn, sourceloc},
-    midend::{symtab::Path, treewalk::*},
-};
+use crate::{frontend::sourceloc, midend::treewalk::*};
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 pub mod function_linearize_context;
 
@@ -28,14 +25,14 @@ impl UnpathedLinearizeCtx {
     }
 
     pub fn from_existing(
-        symtab: symtab::SymbolTable,
-        definition_path: symtab::RawPath,
-        manager: ir::BlockManager,
-        block: usize,
+        _symtab: symtab::SymbolTable,
+        _definition_path: symtab::RawPath,
+        _manager: ir::BlockManager,
+        _block: usize,
     ) -> Self {
         unimplemented!();
 
-        Self { symtab }
+        // Self { symtab }
     }
 
     pub fn take(self) -> symtab::SymbolTable {
@@ -303,21 +300,14 @@ impl From<symtab::SymbolError> for LinearizeError {
 pub trait UnpathedLinearizeCtxTrait: UnpathedCtxTrait {}
 impl UnpathedLinearizeCtxTrait for UnpathedLinearizeCtx {}
 
-trait LinearizeCtxTrait {
-    type Unpathed: UnpathedCtxTrait;
-    type Path: symtab::Path;
-}
-
-pub type LinearizeCtx<P: symtab::Path> = PathedCtx<UnpathedLinearizeCtx, P>;
+pub type LinearizeCtx<P> = PathedCtx<UnpathedLinearizeCtx, P>;
 // TODO: remove P from this
-pub type FunctionLinearizeCtx<P: symtab::Path> = PathedCtx<UnpathedFunctionLinearizeCtx, P>;
+pub type FunctionLinearizeCtx<P> = PathedCtx<UnpathedFunctionLinearizeCtx, P>;
 
-pub type RawLinearizeCtx = LinearizeCtx<symtab::RawPath>;
-pub type TypeLinearizeCtx = LinearizeCtx<symtab::TypePath>;
 pub type ValueLinearizeCtx = LinearizeCtx<symtab::ValuePath>;
 pub type ImplLinearizeCtx = LinearizeCtx<symtab::ImplPath>;
 
-pub type LinearizeResult<D, U: UnpathedLinearizeCtxTrait> = Result<(D, U), LinearizeError>;
+pub type LinearizeResult<D, U> = Result<(D, U), LinearizeError>;
 
 pub type ValueFunctionLinearizeCtx = FunctionLinearizeCtx<symtab::ValuePath>;
 

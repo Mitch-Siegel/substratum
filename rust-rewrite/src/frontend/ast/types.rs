@@ -1,12 +1,6 @@
 use crate::{
     frontend::ast::*,
-    midend::{
-        self,
-        treewalk::{
-            linearize_context::UnpathedLinearizeCtxTrait, PathedLinearizeCtxTrait,
-            TypeLinearizeCtx, ValueFunctionLinearizeCtx,
-        },
-    },
+    midend::{self, treewalk::linearize_context::UnpathedLinearizeCtxTrait},
 };
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -281,7 +275,7 @@ where
                 let (type_, ctx) = a.linearize(ctx)?;
                 (type_, ctx)
             }
-            Self::InferredType(i) => {
+            Self::InferredType(_) => {
                 return LinearizeResult::Err(treewalk::LinearizeError::DisallowedInferredType(loc))
             }
         };

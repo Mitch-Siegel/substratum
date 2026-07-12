@@ -1,8 +1,8 @@
 use crate::{
     frontend::ast::{types::TypeNoBoundsTree, *},
     midend::{
-        symtab::{self, Symtab, TypePath, ValueOwner},
-        treewalk::{PathedCtxTrait, PathedLinearizeCtxTrait, TypeLinearizeCtx},
+        symtab::{self, TypePath, ValueOwner},
+        treewalk::{PathedCtxTrait, PathedLinearizeCtxTrait},
     },
 };
 
@@ -137,13 +137,13 @@ where
     }
 }
 
-fn create_enum_variant_constructor(
+fn _create_enum_variant_constructor(
     mut ctx: midend::treewalk::ImplLinearizeCtx,
-    enum_name: &String,
-    variant_name: &String,
+    _enum_name: &str,
+    variant_name: &str,
     arg_types: Vec<midend::types::Syntactic>,
     loc: sourceloc::SourceLoc,
-) -> () {
+) {
     // create variables for each argument, named by index
     let args: Vec<midend::symtab::values::Variable> = arg_types
         .into_iter()
@@ -155,14 +155,17 @@ fn create_enum_variant_constructor(
 
     // create the function prototype, declare the function, and set up to create IR
     let prototype = midend::symtab::values::function::FunctionPrototype::new(
-        variant_name.clone(),
+        String::from(variant_name),
         Vec::new(),
         args,
         midend::types::Syntactic::_Self,
     );
 
-    let ctor_function_path = ctx.path().clone().with_child_value(variant_name.clone());
-    ctx.declare_value(variant_name.clone())
+    let ctor_function_path = ctx
+        .path()
+        .clone()
+        .with_child_value(String::from(variant_name));
+    ctx.declare_value(String::from(variant_name))
         .expect("Duplicate enum variant constructor");
 
     let (mut block_mgr, current_block) = midend::ir::BlockManager::new(
@@ -383,18 +386,18 @@ where
 
         let (generic_params, ctx) = self.generic_params.linearize(ctx)?;
         let mut ctx = ctx.with_child_type(enum_name.clone());
-        let enum_path = ctx.path().clone();
+        let _enum_path = ctx.path().clone();
 
         let mut variants: Vec<(String, midend::symtab::types::EnumVariantRepr)> = Vec::new();
-        let constructor_impl_path =
+        let _constructor_impl_path =
             ctx.create_impl(midend::types::Syntactic::Named(enum_name.clone()))?;
 
         // unimplemented!("enum variant constructor");
         for variant in self.variants {
-            let variant_loc = variant.loc();
+            let _variant_loc = variant.loc();
             let (variant_name, variant_repr): (String, symtab::types::EnumVariantRepr);
             ((variant_name, variant_repr), ctx) = variant.linearize(ctx)?;
-            let arg_types = match &variant_repr {
+            let _arg_types = match &variant_repr {
                 midend::symtab::types::EnumVariantRepr::Tuple(types) => types.clone(),
                 midend::symtab::types::EnumVariantRepr::Unit => Vec::new(),
             };

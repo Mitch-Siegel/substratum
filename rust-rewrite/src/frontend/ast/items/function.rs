@@ -2,10 +2,8 @@ use crate::{
     frontend::ast::{types::TypeNoBoundsTree, *},
     midend::{
         self,
-        symtab::{self, TypePath, ValueOwner},
-        treewalk::{
-            self, PathedCtxTrait, PathedLinearizeCtxTrait, TypeLinearizeCtx, ValueLinearizeCtx,
-        },
+        symtab::{self, TypePath},
+        treewalk::{self, PathedCtxTrait},
     },
 };
 
@@ -210,11 +208,11 @@ where
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        mut ctx: C,
+        mut _ctx: C,
     ) -> LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
         let declared_prototype;
-        (declared_prototype, ctx) = self.prototype.linearize(ctx)?;
-        let function_name = declared_prototype.name.clone();
+        (declared_prototype, _ctx) = self.prototype.linearize(_ctx)?;
+        let _function_name = declared_prototype.name.clone();
 
         unimplemented!("generate function linearize ctx here");
         // ctx.create_function(declared_prototype).unwrap();

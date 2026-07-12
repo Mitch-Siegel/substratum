@@ -1,4 +1,4 @@
-use crate::{frontend::ast::*, midend::treewalk::UnpathedFunctionLinearizeCtx};
+use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CallParamsTree {

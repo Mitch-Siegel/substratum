@@ -17,7 +17,7 @@ pub mod implementation;
 pub mod types;
 pub mod values;
 
-pub use def_path::{ImplOwner, MacroOwner, Path, TypeOwner, ValueOwner, *};
+pub use def_path::{Path, TypeOwner, ValueOwner, *};
 pub use implementation::Implementation;
 pub use symbols::*;
 pub use types::Type;
@@ -408,19 +408,19 @@ impl Symtab for SymbolTable {
 
     fn create_impl(
         &mut self,
-        impl_parent_path: RawPath,
+        _impl_parent_path: RawPath,
         impl_for_path: TypePath,
     ) -> Result<ImplPath, SymbolError> {
-        let id = ImplId(self.impls.entry(impl_for_path).or_default().len());
+        let _id = ImplId(self.impls.entry(impl_for_path).or_default().len());
 
         unimplemented!();
     }
 
     fn semantic_type_for_syntactic(
         &self,
-        search_def_path: &impl Path,
-        generic_params: midend::types::ParamSubstMap,
-        ty_: &midend::types::Syntactic,
+        _search_def_path: &impl Path,
+        _generic_params: midend::types::ParamSubstMap,
+        _ty_: &midend::types::Syntactic,
     ) -> Result<midend::types::Semantic, SymbolError> {
         unimplemented!();
         /*

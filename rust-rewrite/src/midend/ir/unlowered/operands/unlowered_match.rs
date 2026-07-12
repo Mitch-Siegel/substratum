@@ -155,7 +155,7 @@ pub struct MatchOperands {
 }
 
 impl Lowerable for MatchOperands {
-    fn lower<P: symtab::Path>(self, ctx: &mut treewalk::FunctionLinearizeCtx<P>, loc: SourceLoc) {
+    fn lower<P: symtab::Path>(self, _ctx: &mut treewalk::FunctionLinearizeCtx<P>, _loc: SourceLoc) {
         // TODO: implement actual match decision tree logic
         unimplemented!();
 

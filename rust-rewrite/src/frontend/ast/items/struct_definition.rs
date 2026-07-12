@@ -2,9 +2,7 @@ use crate::{
     frontend::ast::{types::TypeNoBoundsTree, *},
     midend::{
         symtab,
-        treewalk::{
-            self, PathedCtxTrait, PathedLinearizeCtxTrait, RawLinearizeCtx, TypeLinearizeCtx,
-        },
+        treewalk::{self, PathedCtxTrait, PathedLinearizeCtxTrait},
     },
 };
 

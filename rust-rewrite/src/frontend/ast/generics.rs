@@ -2,10 +2,7 @@ use crate::{
     frontend::ast::{types::TypeNoBoundsTree, *},
     midend::{
         symtab::{self, TypePath},
-        treewalk::{
-            linearize_context::UnpathedLinearizeCtxTrait, LinearizeCtx, PathedCtxTrait,
-            PathedLinearizeCtxTrait, UnpathedLinearizeCtx,
-        },
+        treewalk::PathedCtxTrait,
     },
 };
 use std::collections::BTreeSet;

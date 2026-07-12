@@ -1,11 +1,8 @@
 use crate::{
     frontend::ast::*,
     midend::{
-        symtab::{self, Path, Symtab, TypeOwner},
-        treewalk::{
-            self, Collect, Linearize, PathedCtxTrait, PathedLinearizeCtxTrait, TypeLinearizeCtx,
-            UnpathedCtxTrait,
-        },
+        symtab::{self, Path, TypeOwner},
+        treewalk::{self, Collect, Linearize, PathedCtxTrait},
     },
     trace,
 };
@@ -29,11 +26,11 @@ impl ModuleTree {
         &self,
         mut ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
-        let path = self.path_from_parent(ctx.path().clone());
+        let _path = self.path_from_parent(ctx.path().clone());
 
         trace::debug!("collect for module {} ({:?}", self.name, self.module_path);
 
-        let module_path = ctx.declare_type(self.name.value.clone()).unwrap();
+        let _module_path = ctx.declare_type(self.name.value.clone()).unwrap();
         let mut module_ctx = ctx.with_child_type(self.name.value.clone());
 
         for item in &self.items {
@@ -103,7 +100,6 @@ impl midend::treewalk::Collect<midend::symtab::TypePath> for ModuleTree {
         &self,
         ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
-        let path = ctx.path().clone();
         self.collect_from_parent_path(ctx)
     }
 }

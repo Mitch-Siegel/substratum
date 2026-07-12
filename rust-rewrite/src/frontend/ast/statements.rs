@@ -2,7 +2,7 @@ use crate::{
     frontend::ast::*,
     midend::{
         symtab,
-        treewalk::{self, PathedLinearizeCtxTrait, ValueFunctionLinearizeCtx},
+        treewalk::{self},
     },
 };
 

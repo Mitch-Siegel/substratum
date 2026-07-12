@@ -33,6 +33,7 @@ impl std::fmt::Debug for DefPathWithParamSubsts {
     }
 }
 
+#[derive(Default)]
 pub struct Interner {
     id_mappings: HashMap<Semantic, DefPathWithParamSubsts>,
     reverse_id_mappings: HashMap<DefPathWithParamSubsts, Semantic>,

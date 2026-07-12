@@ -5,8 +5,8 @@ use crate::{
     midend::{
         symtab::Path,
         treewalk::{
-            PathedCtx, PathedCtxTrait, PathedLinearizeCtxTrait, UnpathedCtxTrait,
-            UnpathedLinearizeCtx, UnpathedLinearizeCtxTrait,
+            PathedCtx, PathedCtxTrait, UnpathedCtxTrait, UnpathedLinearizeCtx,
+            UnpathedLinearizeCtxTrait,
         },
         *,
     },
@@ -16,13 +16,13 @@ use crate::{
 pub struct UnpathedFunctionLinearizeCtx {
     base: UnpathedLinearizeCtx,
     function_path: symtab::ValuePath,
-    function: WipFunction,
+    _function: WipFunction,
 }
 
 impl UnpathedFunctionLinearizeCtx {
     #[tracing::instrument(level = "debug")]
     pub fn new(
-        ctx: PathedCtx<UnpathedLinearizeCtx, impl symtab::Path + symtab::ValueOwner>,
+        ctx: PathedCtx<UnpathedLinearizeCtx, impl symtab::ValueOwner>,
         // symtab: symtab::SymbolTable,
         // function_path: symtab::ValuePath,
         prototype: symtab::values::function::FunctionPrototype,
@@ -36,7 +36,7 @@ impl UnpathedFunctionLinearizeCtx {
         Self {
             base,
             function_path: function_path.clone(),
-            function: WipFunction::new(prototype, function_path, unit_type, arg_def_paths),
+            _function: WipFunction::new(prototype, function_path, unit_type, arg_def_paths),
         }
     }
 }
