@@ -1,5 +1,9 @@
 use crate::{
-    frontend::ast::*, midend::{self, treewalk::{CollectCtx, TypeCollectCtx, ValueCollectCtx, ValueFunctionLinearizeCtx}},
+    frontend::ast::*,
+    midend::{
+        self,
+        treewalk::{CollectCtx, TypeCollectCtx, ValueCollectCtx, ValueFunctionLinearizeCtx},
+    },
 };
 
 pub mod arithmetic;
@@ -67,18 +71,25 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for Expression {
             Self::Comparison(c) => c.collect_symbols(ctx),
             Self::Assignment(a) => a.collect_symbols(ctx),
             Self::Field(_) | Self::UnsignedDecimalConstant(_, _) | Self::Call(_) => Ok(ctx),
-        }?.into_result()
+        }?
+        .into_result()
     }
 }
 
-impl midend::treewalk::Linearize<ValueFunctionLinearizeCtx> for Expression
+impl
+    treewalk::Linearize<
+        treewalk::UnpathedFunctionLinearizeCtx,
+        symtab::ValuePath,
+        treewalk::ValueFunctionLinearizeCtx,
+    > for Expression
 {
     type Data = midend::ir::ValueId;
     // #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
         mut ctx: midend::treewalk::ValueFunctionLinearizeCtx,
-    ) -> <midend::treewalk::ValueFunctionLinearizeCtx as midend::treewalk::PathedLinearizeCtxTrait>::Result<Self::Data>{
+    ) -> midend::treewalk::LinearizeResult<Self::Data, midend::treewalk::UnpathedFunctionLinearizeCtx>
+    {
         let (value, ctx) = match self {
             Self::PathIn(path) => path.linearize(ctx)?,
             Self::UnsignedDecimalConstant(_, constant) => (

@@ -2,7 +2,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::{
-    frontend::ast::*, midend::{self, symtab::SymtabBase, treewalk::UnpathedCtxTrait as _},
+    frontend::ast::*,
+    midend::{
+        self,
+        symtab::SymtabBase,
+        treewalk::{
+            linearize_context::UnpathedLinearizeCtxTrait, LinearizeCtx, PathedCtxTrait,
+            PathedLinearizeCtxTrait, RawLinearizeCtx, UnpathedCtxTrait,
+        },
+    },
 };
 
 pub enum PathSegmentAction<T> {
@@ -99,15 +107,15 @@ where
     }
 }
 
-impl<T, C: midend::treewalk::PathedLinearizeCtxTrait> midend::treewalk::Linearize<C> for PathSegmentTree<T>
+impl<T, U, P, C> midend::treewalk::Linearize<U, P, C> for PathSegmentTree<T>
 where
     T: Ast,
+    U: UnpathedLinearizeCtxTrait,
+    P: midend::symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = U, Path = P>,
 {
     type Data = PathSegmentAction<T>;
-    fn linearize_inner(
-        self,
-        ctx: C,
-    ) -> LinearizeResult<Self::Data, C> {
+    fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, U> {
         let (action, ctx) = match self.ident {
             IdentSegment::Super(_) => (PathSegmentAction::Super(self.data), ctx),
             IdentSegment::Ident(ident) => {
@@ -508,18 +516,16 @@ where
     }
 }
 
-impl<T, C: midend::treewalk::PathedLinearizeCtxTrait> midend::treewalk::Linearize<C> for PathTree<T>
+impl<T, U, P, C> midend::treewalk::Linearize<U, P, C> for PathTree<T>
 where
     T: Ast + std::fmt::Display + std::fmt::Debug,
+    U: UnpathedLinearizeCtxTrait,
+    P: midend::symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = U, Path = P>,
 {
     type Data = FinishedPathWalk<T>;
-    fn linearize_inner(
-        self,
-        mut ctx: C,
-    ) -> LinearizeResult<Self::Data, C> {
-        let ctx_path: midend::symtab::RawPath = ctx.path().clone().into();
-        let ctx = ctx.into_result(())?.1.with_path(ctx_path);
-        let ctx_segments = ctx_path.clone().into_iter().collect::<Vec<_>>();
+    fn linearize_inner(self, mut ctx: C) -> LinearizeResult<Self::Data, U> {
+        let ctx_segments = ctx.path().clone().into_iter().collect::<Vec<_>>();
         let mut walk_state = if self.starts_global.is_some() {
             PathWalkState::<T>::start_global()
         } else {
@@ -532,17 +538,17 @@ where
         while let Some(segment) = segments.next() {
             let segment_loc = segment.loc();
             path_span = path_span.merge(&segment_loc).unwrap();
-            let (action, unpathed_ctx) = segment.linearize_inner(ctx)?;
+            let action: PathSegmentAction<T>;
+            (action, ctx) = segment.linearize(ctx)?;
             walk_state = walk_state
                 .transition(
                     &path_span,
                     action,
                     segments.size_hint().0,
                     segment_loc,
-                    &unpathed_ctx,
+                    ctx.unpathed(),
                 )
                 .unwrap();
-            ctx = unpathed_ctx.with_path(ctx_path.clone());
         }
 
         let finished = walk_state.finish().unwrap();

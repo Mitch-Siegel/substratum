@@ -1,13 +1,20 @@
-use std::collections::BTreeMap;
+use std::collections::HashSet;
 
 use crate::{
     frontend::sourceloc::SourceLoc,
-    midend::{treewalk::PathedLinearizeCtxTrait, *},
+    midend::{
+        symtab::Path,
+        treewalk::{
+            PathedCtx, PathedCtxTrait, PathedLinearizeCtxTrait, UnpathedCtxTrait,
+            UnpathedLinearizeCtx, UnpathedLinearizeCtxTrait,
+        },
+        *,
+    },
     trace,
 };
 
 pub struct UnpathedFunctionLinearizeCtx {
-    symtab: symtab::SymbolTable,
+    base: UnpathedLinearizeCtx,
     function_path: symtab::ValuePath,
     function: WipFunction,
 }
@@ -15,18 +22,88 @@ pub struct UnpathedFunctionLinearizeCtx {
 impl UnpathedFunctionLinearizeCtx {
     #[tracing::instrument(level = "debug")]
     pub fn new(
-        symtab: symtab::SymbolTable,
-        function_path: symtab::ValuePath,
+        ctx: PathedCtx<UnpathedLinearizeCtx, impl symtab::Path + symtab::ValueOwner>,
+        // symtab: symtab::SymbolTable,
+        // function_path: symtab::ValuePath,
         prototype: symtab::values::function::FunctionPrototype,
-        def_path: symtab::ValuePath,
+        // def_path: symtab::ValuePath,
         unit_type: types::Semantic,
-        arg_def_paths: Vec<symtab::RawPath>,
+        arg_def_paths: Vec<symtab::ValuePath>,
     ) -> Self {
+        let function_path = ctx.path().clone().with_child_value(prototype.name.clone());
+        let base = ctx.into_result(()).unwrap().1;
+
         Self {
-            symtab,
-            function_path,
-            function: WipFunction::new(prototype, def_path, unit_type, arg_def_paths),
+            base,
+            function_path: function_path.clone(),
+            function: WipFunction::new(prototype, function_path, unit_type, arg_def_paths),
         }
+    }
+}
+
+impl UnpathedCtxTrait for UnpathedFunctionLinearizeCtx {
+    fn with_path<P: symtab::Path>(self, path: P) -> PathedCtx<Self, P> {
+        if !self.function_path.is_prefix_of(&path) {
+            panic!("Required for function path to be prefix of function context path");
+        }
+
+        PathedCtx {
+            unpathed: self,
+            path,
+        }
+    }
+}
+
+impl UnpathedLinearizeCtxTrait for UnpathedFunctionLinearizeCtx {}
+
+impl symtab::SymtabBase for UnpathedFunctionLinearizeCtx {
+    fn insert(
+        &mut self,
+        path: symtab::RawPath,
+        maybe_symbol: Option<symtab::SymbolDef>,
+    ) -> Result<symtab::RawPath, symtab::SymbolError> {
+        self.base.insert(path, maybe_symbol)
+    }
+
+    fn lookup_at(
+        &self,
+        path: &symtab::RawPath,
+    ) -> Result<Option<&symtab::SymbolDef>, symtab::SymbolError> {
+        self.base.lookup_at(path)
+    }
+
+    fn lookup_at_mut(
+        &mut self,
+        path: &symtab::RawPath,
+    ) -> Result<Option<&mut symtab::SymbolDef>, symtab::SymbolError> {
+        self.base.lookup_at_mut(path)
+    }
+}
+
+impl symtab::Symtab for UnpathedFunctionLinearizeCtx {
+    fn semantic_type_for_syntactic(
+        &self,
+        search_def_path: &impl symtab::Path,
+        generic_params: crate::midend::types::ParamSubstMap,
+        ty_: &crate::midend::types::Syntactic,
+    ) -> Result<crate::midend::types::Semantic, symtab::SymbolError> {
+        self.base
+            .semantic_type_for_syntactic(search_def_path, generic_params, ty_)
+    }
+
+    fn create_impl(
+        &mut self,
+        impl_parent_path: symtab::RawPath,
+        impl_for_path: symtab::TypePath,
+    ) -> Result<symtab::ImplPath, symtab::SymbolError> {
+        self.base.create_impl(impl_parent_path, impl_for_path)
+    }
+
+    fn get_impls_for(
+        &self,
+        path: &symtab::TypePath,
+    ) -> Result<&HashSet<symtab::ImplPath>, symtab::SymbolError> {
+        self.base.get_impls_for(path)
     }
 }
 
@@ -41,7 +118,7 @@ impl WipFunction {
         prototype: symtab::values::function::FunctionPrototype,
         def_path: symtab::ValuePath,
         unit_type: types::Semantic,
-        arg_def_paths: Vec<symtab::RawPath>,
+        arg_def_paths: Vec<symtab::ValuePath>,
     ) -> Self {
         let (mut block_manager, start_block_label) =
             ir::BlockManager::new(unit_type, def_path.clone());

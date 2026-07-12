@@ -1,5 +1,12 @@
 use crate::{
-    frontend::ast::expressions::*, midend::{symtab::ValuePath, treewalk::{PathedCtxTrait, PathedLinearizeCtxTrait, ValueFunctionLinearizeCtx}},
+    frontend::ast::expressions::*,
+    midend::{
+        symtab::ValuePath,
+        treewalk::{
+            PathedCtxTrait, PathedLinearizeCtxTrait, UnpathedFunctionLinearizeCtx,
+            ValueFunctionLinearizeCtx,
+        },
+    },
 };
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -28,13 +35,20 @@ impl midend::treewalk::Collect<ValuePath> for WhileExpressionTree {
     }
 }
 
-impl midend::treewalk::Linearize<ValueFunctionLinearizeCtx> for WhileExpressionTree {
+impl
+    midend::treewalk::Linearize<
+        midend::treewalk::UnpathedFunctionLinearizeCtx,
+        ValuePath,
+        ValueFunctionLinearizeCtx,
+    > for WhileExpressionTree
+{
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
         mut ctx: ValueFunctionLinearizeCtx,
-    ) -> <ValueFunctionLinearizeCtx as PathedLinearizeCtxTrait>::Result<Self::Data> {
+    ) -> midend::treewalk::LinearizeResult<Self::Data, midend::treewalk::UnpathedFunctionLinearizeCtx>
+    {
         let loc = self.loc();
 
         let parent_scope_def_path = ctx.path().clone();

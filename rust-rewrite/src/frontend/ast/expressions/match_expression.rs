@@ -1,4 +1,8 @@
-use crate::{frontend::ast::expressions::*, midend::{symtab::ValuePath, treewalk::PathedCtxTrait}, trace};
+use crate::{
+    frontend::ast::expressions::*,
+    midend::{symtab::ValuePath, treewalk::PathedCtxTrait},
+    trace,
+};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TupleStructTree {
@@ -30,12 +34,18 @@ impl Ast for TupleStructTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::treewalk::TypeLinearizeCtx> for TupleStructTree {
+impl
+    treewalk::Linearize<
+        treewalk::UnpathedFunctionLinearizeCtx,
+        symtab::ValuePath,
+        treewalk::ValueFunctionLinearizeCtx,
+    > for TupleStructTree
+{
     type Data = PatternTree;
     fn linearize_inner(
         self,
-        _ctx: midend::treewalk::TypeLinearizeCtx,
-    ) -> <midend::treewalk::TypeLinearizeCtx as midend::treewalk::PathedLinearizeCtxTrait>::Result::<Self::Data>{
+        _ctx: treewalk::ValueFunctionLinearizeCtx,
+    ) -> treewalk::LinearizeResult<Self::Data, midend::treewalk::UnpathedFunctionLinearizeCtx> {
         unimplemented!();
         /*
         PatternTree::TupleStruct(self)
@@ -95,13 +105,20 @@ impl midend::treewalk::Collect<ValuePath> for PatternTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::treewalk::ValueFunctionLinearizeCtx> for PatternTree {
+impl
+    midend::treewalk::Linearize<
+        treewalk::UnpathedFunctionLinearizeCtx,
+        symtab::ValuePath,
+        treewalk::FunctionLinearizeCtx<symtab::ValuePath>,
+    > for PatternTree
+{
     type Data = PatternTree;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        ctx: midend::treewalk::ValueFunctionLinearizeCtx,
-    ) -> <midend::treewalk::ValueFunctionLinearizeCtx as midend::treewalk::PathedLinearizeCtxTrait>::Result::<Self::Data>{
+        ctx: treewalk::ValueFunctionLinearizeCtx,
+    ) -> midend::treewalk::LinearizeResult<Self::Data, midend::treewalk::UnpathedFunctionLinearizeCtx>
+    {
         unimplemented!("patterns");
         // match self.clone() {
         //     Self::Literal(_) => (),
@@ -151,13 +168,20 @@ impl midend::treewalk::Collect<ValuePath> for MatchArmTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::treewalk::ValueFunctionLinearizeCtx> for MatchArmTree {
+impl
+    midend::treewalk::Linearize<
+        midend::treewalk::UnpathedFunctionLinearizeCtx,
+        ValuePath,
+        treewalk::ValueFunctionLinearizeCtx,
+    > for MatchArmTree
+{
     type Data = (PatternTree, midend::ir::ValueId);
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
         mut ctx: midend::treewalk::ValueFunctionLinearizeCtx,
-    ) -> <midend::treewalk::ValueFunctionLinearizeCtx as midend::treewalk::PathedLinearizeCtxTrait>::Result::<Self::Data>{
+    ) -> midend::treewalk::LinearizeResult<Self::Data, midend::treewalk::UnpathedFunctionLinearizeCtx>
+    {
         let pattern;
         let _arm_value: midend::ir::ValueId;
         (pattern, ctx) = self.pattern.linearize(ctx)?;
@@ -203,13 +227,20 @@ impl midend::treewalk::Collect<ValuePath> for MatchExpressionTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::treewalk::ValueFunctionLinearizeCtx> for MatchExpressionTree {
+impl
+    midend::treewalk::Linearize<
+        midend::treewalk::UnpathedFunctionLinearizeCtx,
+        ValuePath,
+        treewalk::ValueFunctionLinearizeCtx,
+    > for MatchExpressionTree
+{
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
         mut ctx: midend::treewalk::ValueFunctionLinearizeCtx,
-    ) -> <midend::treewalk::ValueFunctionLinearizeCtx as midend::treewalk::PathedLinearizeCtxTrait>::Result::<Self::Data> {
+    ) -> midend::treewalk::LinearizeResult<Self::Data, midend::treewalk::UnpathedFunctionLinearizeCtx>
+    {
         let match_loc = self.loc();
 
         let parent_scope_def_path = ctx.path().clone();

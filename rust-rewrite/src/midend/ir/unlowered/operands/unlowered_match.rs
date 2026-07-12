@@ -1,7 +1,7 @@
 use crate::midend::{ir::unlowered::*, treewalk::Linearize};
 
 struct _MatchArmContext {
-    pub ctx: treewalk::ValueLinearizeCtx,
+    pub ctx: treewalk::FunctionLinearizeCtx<symtab::ValuePath>,
     pub scrutinee: ValueId,
 }
 
@@ -15,7 +15,7 @@ pub struct MatchArm {
 fn _lower_pattern(
     pattern: frontend::ast::expressions::match_expression::PatternTree,
     mut arm_ctx: _MatchArmContext,
-) -> Result<(LoweredPattern, treewalk::UnpathedLinearizeCtx), treewalk::LinearizeError> {
+) -> treewalk::LinearizeResult<LoweredPattern, treewalk::UnpathedFunctionLinearizeCtx> {
     use frontend::ast::expressions::match_expression::PatternTree;
     let lowered_pattern;
     let ctx;
@@ -92,7 +92,7 @@ fn _lower_pattern(
         }
     };
 
-    Ok((lowered_pattern, ctx))
+    ctx.into_result(lowered_pattern)
 }
 
 #[allow(unused)]
@@ -155,7 +155,7 @@ pub struct MatchOperands {
 }
 
 impl Lowerable for MatchOperands {
-    fn lower(self, _ctx: &mut treewalk::ValueLinearizeCtx, _loc: SourceLoc) {
+    fn lower<P: symtab::Path>(self, ctx: &mut treewalk::FunctionLinearizeCtx<P>, loc: SourceLoc) {
         // TODO: implement actual match decision tree logic
         unimplemented!();
 

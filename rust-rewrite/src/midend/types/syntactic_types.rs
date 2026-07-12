@@ -16,7 +16,7 @@ pub enum Syntactic {
     Named(String),
     Reference(Mutability, Box<Syntactic>),
     Pointer(Mutability, Box<Syntactic>),
-    Tuple(Vec<Syntactic>),
+    Tuple(Vec<Option<Syntactic>>),
     Function(Vec<Syntactic>, Box<Syntactic>), // (arguments, return_type)
 }
 
@@ -57,7 +57,10 @@ impl Display for Syntactic {
             Self::Tuple(elements) => {
                 write!(f, "(")?;
                 for element in elements {
-                    write!(f, "{}, ", element)?;
+                    match element {
+                        Some(ty) => write!(f, "{}, ", ty)?,
+                        None => write!(f, "_, ")?,
+                    }
                 }
                 write!(f, ")")
             }

@@ -1,5 +1,12 @@
 use crate::{
-    frontend::ast::*, midend::{self, symtab::TypePath, treewalk::{PathedCtxTrait, PathedLinearizeCtxTrait, TypeLinearizeCtx, ValueLinearizeCtx}},
+    frontend::ast::{types::TypeNoBoundsTree, *},
+    midend::{
+        self,
+        symtab::{self, TypePath, ValueOwner},
+        treewalk::{
+            self, PathedCtxTrait, PathedLinearizeCtxTrait, TypeLinearizeCtx, ValueLinearizeCtx,
+        },
+    },
 };
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -25,16 +32,29 @@ impl Display for ArgumentDeclarationTree {
     }
 }
 
-impl midend::treewalk::Linearize<ValueLinearizeCtx> for ArgumentDeclarationTree {
+impl<P>
+    midend::treewalk::Linearize<
+        midend::treewalk::UnpathedLinearizeCtx,
+        P,
+        treewalk::LinearizeCtx<P>,
+    > for ArgumentDeclarationTree
+where
+    P: midend::symtab::Path,
+    TypeTree: treewalk::Linearize<
+        treewalk::UnpathedLinearizeCtx,
+        P,
+        treewalk::LinearizeCtx<P>,
+        Data = midend::types::Syntactic,
+    >,
+{
     type Data = midend::symtab::values::Variable;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        mut ctx: midend::treewalk::ValueLinearizeCtx,
-    ) -> <ValueLinearizeCtx as PathedLinearizeCtxTrait>::Result::<Self::Data> {
-        let maybe_arg_type;
-        (maybe_arg_type, ctx) = self.type_.linearize(ctx)?;
-        let arg_type = maybe_arg_type.expect("argument types may not be '_'");
+        mut ctx: treewalk::LinearizeCtx<P>,
+    ) -> treewalk::LinearizeResult<Self::Data, midend::treewalk::UnpathedLinearizeCtx> {
+        let arg_type: midend::types::Syntactic;
+        (arg_type, ctx) = self.type_.linearize(ctx)?;
 
         let (name, ctx) = self.name.linearize(ctx)?;
 
@@ -75,17 +95,31 @@ impl midend::treewalk::Collect<TypePath> for FunctionDeclarationTree {
     }
 }
 
-impl midend::treewalk::Linearize<TypeLinearizeCtx> for FunctionDeclarationTree {
+impl<P, C> treewalk::Linearize<treewalk::UnpathedLinearizeCtx, P, C> for FunctionDeclarationTree
+where
+    P: symtab::Path + symtab::ValueOwner,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = treewalk::UnpathedLinearizeCtx, Path = P>,
+    ArgumentDeclarationTree: treewalk::Linearize<
+        treewalk::UnpathedLinearizeCtx,
+        symtab::ValuePath,
+        treewalk::PathedCtx<treewalk::UnpathedLinearizeCtx, symtab::ValuePath>,
+        Data = symtab::values::Variable,
+    >,
+    TypeNoBoundsTree: treewalk::Linearize<
+        treewalk::UnpathedLinearizeCtx,
+        symtab::ValuePath,
+        treewalk::PathedCtx<treewalk::UnpathedLinearizeCtx, symtab::ValuePath>,
+        Data = midend::types::Syntactic,
+    >,
+{
     type Data = midend::symtab::values::function::FunctionPrototype;
     fn linearize_inner(
         self,
-        ctx: TypeLinearizeCtx,
-    ) -> <TypeLinearizeCtx as PathedLinearizeCtxTrait>::Result::<Self::Data> {
+        ctx: C,
+    ) -> midend::treewalk::LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
         let (generic_params, ctx) = self.generic_params.linearize(ctx)?;
 
-        let mut function_ctx = ctx
-            .with_child_value(self.name.value.clone());
-
+        let mut function_ctx = ctx.with_child_value(self.name.value.clone());
         let mut arguments = Vec::new();
 
         for arg in self.arguments {
@@ -97,9 +131,8 @@ impl midend::treewalk::Linearize<TypeLinearizeCtx> for FunctionDeclarationTree {
         let return_type;
         (return_type, function_ctx) = match self.return_type {
             Some(type_) => {
-                let maybe_return_type;
-                (maybe_return_type, function_ctx) = type_.linearize(function_ctx)?;
-                let return_type = maybe_return_type.expect("function return types may not be '_'");
+                let return_type;
+                (return_type, function_ctx) = type_.linearize(function_ctx)?;
                 (return_type, function_ctx)
             }
             None => (midend::types::Syntactic::Unit, function_ctx),
@@ -163,19 +196,22 @@ impl midend::treewalk::Collect<midend::symtab::TypePath> for FunctionDefinitionT
 
         let ctx = self.prototype.collect_symbols(ctx)?;
 
-        let ctx = ctx
-            .with_child_value(self.prototype.name.value.clone());
+        let ctx = ctx.with_child_value(self.prototype.name.value.clone());
         self.body.collect_inner(ctx)
     }
 }
 
-impl midend::treewalk::Linearize<TypeLinearizeCtx> for FunctionDefinitionTree {
-    type Data = midend::symtab::values::Function;
+impl<P, C> treewalk::Linearize<treewalk::UnpathedLinearizeCtx, P, C> for FunctionDefinitionTree
+where
+    P: symtab::Path + symtab::ValueOwner,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = treewalk::UnpathedLinearizeCtx, Path = P>,
+{
+    type Data = symtab::values::Function;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        mut ctx: TypeLinearizeCtx,
-    ) -> <TypeLinearizeCtx as PathedLinearizeCtxTrait>::Result<Self::Data> {
+        mut ctx: C,
+    ) -> LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
         let declared_prototype;
         (declared_prototype, ctx) = self.prototype.linearize(ctx)?;
         let function_name = declared_prototype.name.clone();
@@ -184,7 +220,7 @@ impl midend::treewalk::Linearize<TypeLinearizeCtx> for FunctionDefinitionTree {
         // ctx.create_function(declared_prototype).unwrap();
 
         // let ctx = ctx
-            // .with_child_value(function_name.clone());
+        // .with_child_value(function_name.clone());
         // let (return_value, mut ctx) = self.body.linearize(ctx)?;
         // let function = ctx.finish_function(function_name, return_value)?;
         // ctx.into_result(function)

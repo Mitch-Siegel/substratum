@@ -1,4 +1,13 @@
-use crate::{frontend::ast::*, midend::{self, treewalk::{PathedLinearizeCtxTrait, TypeLinearizeCtx, ValueFunctionLinearizeCtx}}};
+use crate::{
+    frontend::ast::*,
+    midend::{
+        self,
+        treewalk::{
+            linearize_context::UnpathedLinearizeCtxTrait, PathedLinearizeCtxTrait,
+            TypeLinearizeCtx, ValueFunctionLinearizeCtx,
+        },
+    },
+};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TypeTree {
@@ -13,12 +22,45 @@ impl Ast for TypeTree {
     }
 }
 
-impl<C: PathedLinearizeCtxTrait> midend::treewalk::Linearize<C> for TypeTree {
+impl<P, C> midend::treewalk::Linearize<treewalk::UnpathedLinearizeCtx, P, C> for TypeTree
+where
+    P: symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = treewalk::UnpathedLinearizeCtx, Path = P>,
+    TypeNoBoundsTree:
+        treewalk::Linearize<treewalk::UnpathedLinearizeCtx, P, C, Data = midend::types::Syntactic>,
+{
+    type Data = midend::types::Syntactic;
+    fn linearize_inner(
+        self,
+        ctx: C,
+    ) -> treewalk::LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
+        let (type_, ctx) = match self {
+            Self::TypeNoBounds(tnb) => tnb.linearize(ctx)?,
+        };
+
+        ctx.into_result(type_)
+    }
+}
+
+impl<P, C> midend::treewalk::Linearize<treewalk::UnpathedFunctionLinearizeCtx, P, C> for TypeTree
+where
+    P: symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<
+        Unpathed = treewalk::UnpathedFunctionLinearizeCtx,
+        Path = P,
+    >,
+    TypeNoBoundsTree: treewalk::Linearize<
+        treewalk::UnpathedFunctionLinearizeCtx,
+        P,
+        C,
+        Data = Option<midend::types::Syntactic>,
+    >,
+{
     type Data = Option<midend::types::Syntactic>;
     fn linearize_inner(
         self,
         ctx: C,
-    ) -> LinearizeResult::<Self::Data, C> {
+    ) -> treewalk::LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
         let (type_, ctx) = match self {
             Self::TypeNoBounds(tnb) => tnb.linearize(ctx)?,
         };
@@ -51,12 +93,15 @@ impl Ast for ParenthesizedTypeTree {
     }
 }
 
-impl<C: PathedLinearizeCtxTrait> midend::treewalk::Linearize<C> for ParenthesizedTypeTree {
-    type Data = Option<midend::types::Syntactic>;
-    fn linearize_inner(
-        self,
-        ctx: C,
-    ) -> LinearizeResult::<Self::Data, C> {
+impl<U, P, C> midend::treewalk::Linearize<U, P, C> for ParenthesizedTypeTree
+where
+    U: UnpathedLinearizeCtxTrait,
+    P: midend::symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = U, Path = P>,
+    TypeTree: treewalk::Linearize<U, P, C>,
+{
+    type Data = <TypeTree as treewalk::Linearize<U, P, C>>::Data;
+    fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, U> {
         let (inner, ctx) = self.inner_type.linearize(ctx)?;
         ctx.into_result(inner)
     }
@@ -84,20 +129,56 @@ impl Ast for TupleTypeTree {
     }
 }
 
-impl midend::treewalk::Linearize<TypeLinearizeCtx> for TupleTypeTree {
-    type Data = midend::types::Syntactic;
+impl<P, C> midend::treewalk::Linearize<treewalk::UnpathedLinearizeCtx, P, C> for TupleTypeTree
+where
+    P: symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = treewalk::UnpathedLinearizeCtx, Path = P>,
+    TypeTree:
+        treewalk::Linearize<treewalk::UnpathedLinearizeCtx, P, C, Data = midend::types::Syntactic>,
+{
+    type Data = <TypeTree as treewalk::Linearize<treewalk::UnpathedLinearizeCtx, P, C>>::Data;
     fn linearize_inner(
         self,
-        mut ctx: TypeLinearizeCtx,
-    ) -> <TypeLinearizeCtx as PathedLinearizeCtxTrait>::Result::<Self::Data> {
-        let mut members = Vec::new();
+        mut ctx: C,
+    ) -> LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
+        let mut members: Vec<Option<midend::types::Syntactic>> = Vec::new();
         for member in self.members {
-            let maybe_member_type;
-            (maybe_member_type, ctx) = member.linearize(ctx)?;
-            let member_type = maybe_member_type.expect("tuple types may not be '_'");
-            members.push(member_type);
+            let member_type: midend::types::Syntactic;
+            (member_type, ctx) = member.linearize(ctx)?;
+            members.push(Some(member_type));
         }
         ctx.into_result(midend::types::Syntactic::Tuple(members))
+    }
+}
+
+impl<P, C> midend::treewalk::Linearize<treewalk::UnpathedFunctionLinearizeCtx, P, C>
+    for TupleTypeTree
+where
+    P: symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<
+        Unpathed = treewalk::UnpathedFunctionLinearizeCtx,
+        Path = P,
+    >,
+    TypeTree: treewalk::Linearize<
+        treewalk::UnpathedFunctionLinearizeCtx,
+        P,
+        C,
+        Data = Option<midend::types::Syntactic>,
+    >,
+{
+    type Data =
+        <TypeTree as treewalk::Linearize<treewalk::UnpathedFunctionLinearizeCtx, P, C>>::Data;
+    fn linearize_inner(
+        self,
+        mut ctx: C,
+    ) -> LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
+        let mut members: Vec<Option<midend::types::Syntactic>> = Vec::new();
+        for member in self.members {
+            let maybe_member_type: Option<midend::types::Syntactic>;
+            (maybe_member_type, ctx) = member.linearize(ctx)?;
+            members.push(maybe_member_type);
+        }
+        ctx.into_result(Some(midend::types::Syntactic::Tuple(members)))
     }
 }
 
@@ -129,12 +210,20 @@ impl Ast for InferredTypeTree {
     }
 }
 
-impl midend::treewalk::Linearize<ValueFunctionLinearizeCtx> for InferredTypeTree {
+impl<P, C> midend::treewalk::Linearize<treewalk::UnpathedFunctionLinearizeCtx, P, C>
+    for InferredTypeTree
+where
+    P: midend::symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<
+        Unpathed = treewalk::UnpathedFunctionLinearizeCtx,
+        Path = P,
+    >,
+{
     type Data = Option<midend::types::Syntactic>;
     fn linearize_inner(
         self,
-        ctx: ValueFunctionLinearizeCtx,
-    ) -> <ValueFunctionLinearizeCtx as PathedLinearizeCtxTrait>::Result::<Self::Data> {
+        ctx: C,
+    ) -> LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
         ctx.into_result(None)
     }
 }
@@ -162,12 +251,58 @@ impl Ast for TypeNoBoundsTree {
     }
 }
 
-impl<C: PathedLinearizeCtxTrait> midend::treewalk::Linearize<C> for TypeNoBoundsTree {
+// base linearize ctx, disallow inferred types
+impl<P, C> treewalk::Linearize<treewalk::UnpathedLinearizeCtx, P, C> for TypeNoBoundsTree
+where
+    P: midend::symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = treewalk::UnpathedLinearizeCtx, Path = P>,
+{
+    type Data = midend::types::Syntactic;
+    fn linearize_inner(
+        self,
+        ctx: C,
+    ) -> LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
+        let loc = self.loc();
+        let (type_, ctx) = match self {
+            Self::ParenthesizedType(p) => p.linearize(ctx)?,
+            Self::TypePath(tp) => {
+                let (type_, ctx) = tp.linearize(ctx)?;
+                (type_, ctx)
+            }
+            Self::TupleType(tt) => {
+                let (type_, ctx) = tt.linearize(ctx)?;
+                (type_, ctx)
+            }
+            Self::ReferenceType(r) => {
+                let (type_, ctx) = r.linearize(ctx)?;
+                (type_, ctx)
+            }
+            Self::ArrayType(a) => {
+                let (type_, ctx) = a.linearize(ctx)?;
+                (type_, ctx)
+            }
+            Self::InferredType(i) => {
+                return LinearizeResult::Err(treewalk::LinearizeError::DisallowedInferredType(loc))
+            }
+        };
+
+        ctx.into_result(type_)
+    }
+}
+
+impl<P, C> treewalk::Linearize<treewalk::UnpathedFunctionLinearizeCtx, P, C> for TypeNoBoundsTree
+where
+    P: midend::symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<
+        Unpathed = treewalk::UnpathedFunctionLinearizeCtx,
+        Path = P,
+    >,
+{
     type Data = Option<midend::types::Syntactic>;
     fn linearize_inner(
         self,
         ctx: C,
-    ) -> LinearizeResult::<Self::Data, C> {
+    ) -> LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
         let (type_, ctx) = match self {
             Self::ParenthesizedType(p) => p.linearize(ctx)?,
             Self::TypePath(tp) => {
@@ -176,15 +311,15 @@ impl<C: PathedLinearizeCtxTrait> midend::treewalk::Linearize<C> for TypeNoBounds
             }
             Self::TupleType(tt) => {
                 let (type_, ctx) = tt.linearize(ctx)?;
-                (Some(type_), ctx)
+                (type_, ctx)
             }
             Self::ReferenceType(r) => {
                 let (type_, ctx) = r.linearize(ctx)?;
-                (Some(type_), ctx)
+                (type_, ctx)
             }
             Self::ArrayType(a) => {
                 let (type_, ctx) = a.linearize(ctx)?;
-                (Some(type_), ctx)
+                (type_, ctx)
             }
             Self::InferredType(i) => i.linearize(ctx)?,
         };
@@ -221,17 +356,19 @@ impl Ast for TypePath {
     }
 }
 
-impl<C: PathedLinearizeCtxTrait> midend::treewalk::Linearize<C> for TypePath {
+impl<U, P, C> treewalk::Linearize<U, P, C> for TypePath
+where
+    U: UnpathedLinearizeCtxTrait,
+    P: symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = U, Path = P>,
+{
     type Data = midend::types::Syntactic;
-    fn linearize_inner(
-        self,
-        ctx: C,
-    ) -> LinearizeResult::<Self::Data, C> {
+    fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, U> {
         let (path, ctx) = match self {
             Self::Primitive(p) => p.linearize(ctx),
             Self::ItemPath(i) => i.linearize(ctx),
         }?;
-        
+
         ctx.into_result(path)
     }
 }
@@ -257,12 +394,14 @@ impl Ast for PrimitiveTypePathTree {
     }
 }
 
-impl<C: PathedLinearizeCtxTrait> midend::treewalk::Linearize<C> for PrimitiveTypePathTree {
+impl<U, P, C> treewalk::Linearize<U, P, C> for PrimitiveTypePathTree
+where
+    U: UnpathedLinearizeCtxTrait,
+    P: midend::symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = U, Path = P>,
+{
     type Data = midend::types::Syntactic;
-    fn linearize_inner(
-        self,
-        _ctx: C,
-    ) -> LinearizeResult<Self::Data, C> {
+    fn linearize_inner(self, _ctx: C) -> LinearizeResult<Self::Data, U> {
         unimplemented!();
     }
 }
@@ -305,12 +444,14 @@ impl Ast for TypeItemPathTree {
     }
 }
 
-impl<C: PathedLinearizeCtxTrait> midend::treewalk::Linearize<C> for TypeItemPathTree {
+impl<U, P, C> midend::treewalk::Linearize<U, P, C> for TypeItemPathTree
+where
+    U: UnpathedLinearizeCtxTrait,
+    P: midend::symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = U, Path = P>,
+{
     type Data = midend::types::Syntactic;
-    fn linearize_inner(
-        self,
-        ctx: C,
-    ) -> LinearizeResult<Self::Data, C> {
+    fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, U> {
         let (path, ctx) = self.underlying_path.linearize(ctx)?;
         let (type_path, path_data) = path.into_type().unwrap();
 
@@ -347,18 +488,45 @@ impl Ast for ReferenceTypeTree {
     }
 }
 
-impl<C: PathedLinearizeCtxTrait> midend::treewalk::Linearize<C> for ReferenceTypeTree {
-    type Data = midend::types::Syntactic;
+impl<P, C> midend::treewalk::Linearize<treewalk::UnpathedLinearizeCtx, P, C> for ReferenceTypeTree
+where
+    P: midend::symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = treewalk::UnpathedLinearizeCtx, Path = P>,
+{
+    type Data = <TypeTree as treewalk::Linearize<treewalk::UnpathedLinearizeCtx, P, C>>::Data;
     fn linearize_inner(
         self,
         mut ctx: C,
-    ) -> LinearizeResult<Self::Data, C> {
-        let maybe_type;
+    ) -> LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
+        let type_: midend::types::Syntactic;
+        (type_, ctx) = self.type_.linearize(ctx)?;
+
+        let reference = midend::types::Syntactic::Reference(self.mutability, Box::new(type_));
+        ctx.into_result(reference)
+    }
+}
+
+impl<P, C> midend::treewalk::Linearize<treewalk::UnpathedFunctionLinearizeCtx, P, C>
+    for ReferenceTypeTree
+where
+    P: midend::symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<
+        Unpathed = treewalk::UnpathedFunctionLinearizeCtx,
+        Path = P,
+    >,
+{
+    type Data =
+        <TypeTree as treewalk::Linearize<treewalk::UnpathedFunctionLinearizeCtx, P, C>>::Data;
+    fn linearize_inner(
+        self,
+        mut ctx: C,
+    ) -> LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
+        let maybe_type: Option<midend::types::Syntactic>;
         (maybe_type, ctx) = self.type_.linearize(ctx)?;
         let type_ = maybe_type.expect("reference types may not be '_'");
 
         let reference = midend::types::Syntactic::Reference(self.mutability, Box::new(type_));
-        ctx.into_result(reference)
+        ctx.into_result(Some(reference))
     }
 }
 
@@ -382,13 +550,16 @@ impl Ast for ArrayTypeTree {
     }
 }
 
-impl<C: PathedLinearizeCtxTrait> midend::treewalk::Linearize<C> for ArrayTypeTree {
-    type Data = midend::types::Syntactic;
+impl<U, P, C> midend::treewalk::Linearize<U, P, C> for ArrayTypeTree
+where
+    U: UnpathedLinearizeCtxTrait,
+    P: midend::symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = U, Path = P>,
+    TypeTree: treewalk::Linearize<U, P, C>,
+{
+    type Data = <TypeTree as treewalk::Linearize<U, P, C>>::Data;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize_inner(
-        self,
-        _ctx: C,
-    ) -> LinearizeResult::<Self::Data, C> {
+    fn linearize_inner(self, _ctx: C) -> LinearizeResult<Self::Data, U> {
         unimplemented!();
     }
 }

@@ -160,7 +160,11 @@ pub trait Symtab: SymtabBase + private::SymtabBaseInternal {
     }
 
     // define 'symbol' at 'path', returning path or error
-    fn define_value(&mut self, path: impl ValueOwner, symbol: Value) -> Result<ValuePath, SymbolError> {
+    fn define_value(
+        &mut self,
+        path: impl ValueOwner,
+        symbol: Value,
+    ) -> Result<ValuePath, SymbolError> {
         self.define(path.into(), SymbolDef::Value(symbol))
             .map(ValuePath::from)
     }

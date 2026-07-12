@@ -1,4 +1,13 @@
-use crate::{frontend::ast::*, midend::{symtab::TypePath, treewalk::{PathedCtxTrait, PathedLinearizeCtxTrait}}};
+use crate::{
+    frontend::ast::{types::TypeNoBoundsTree, *},
+    midend::{
+        symtab::{self, TypePath},
+        treewalk::{
+            linearize_context::UnpathedLinearizeCtxTrait, LinearizeCtx, PathedCtxTrait,
+            PathedLinearizeCtxTrait, UnpathedLinearizeCtx,
+        },
+    },
+};
 use std::collections::BTreeSet;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -24,12 +33,16 @@ impl midend::treewalk::Collect<TypePath> for GenericParamTree {
 }
 
 // linearization (type and value)
-impl<C> midend::treewalk::Linearize<C> for GenericParamTree
+impl<P, C> treewalk::Linearize<treewalk::UnpathedLinearizeCtx, P, C> for GenericParamTree
 where
-    C: PathedLinearizeCtxTrait,
+    P: midend::symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = treewalk::UnpathedLinearizeCtx, Path = P>,
 {
     type Data = String;
-    fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, C> {
+    fn linearize_inner(
+        self,
+        ctx: C,
+    ) -> LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
         let (name, ctx) = self.name.linearize(ctx)?;
         ctx.into_result(name)
     }
@@ -116,13 +129,15 @@ impl midend::treewalk::Collect<TypePath> for GenericParamsListTree {
     }
 }
 
-impl<C> midend::treewalk::Linearize<C> for GenericParamsListTree
+impl<U, P, C> midend::treewalk::Linearize<U, P, C> for GenericParamsListTree
 where
-    C: PathedLinearizeCtxTrait,
+    U: treewalk::UnpathedLinearizeCtxTrait,
+    P: symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = U, Path = P>,
 {
     type Data = midend::types::GenericParamsList;
     #[tracing::instrument(skip(self, ctx), level = "trace")]
-    fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, C> {
+    fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, U> {
         let mut generic_params_set = BTreeSet::<midend::types::GenericParam>::new();
 
         let ctxless = self.linearize_ctxless();
@@ -179,15 +194,14 @@ impl midend::treewalk::Collect<TypePath> for OptionalGenericParamsListTree {
     }
 }
 
-impl<C> midend::treewalk::Linearize<C> for OptionalGenericParamsListTree
+impl<U, P, C> treewalk::Linearize<U, P, C> for OptionalGenericParamsListTree
 where
-    C: PathedLinearizeCtxTrait,
+    U: treewalk::UnpathedLinearizeCtxTrait,
+    P: symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = U, Path = P>,
 {
     type Data = midend::types::GenericParamsList;
-    fn linearize_inner(
-        self,
-        ctx: C,
-    ) -> LinearizeResult<Self::Data, C> {
+    fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, U> {
         let (params, ctx) = match self.maybe_params {
             Some(params) => {
                 let (params_result, ctx) = params.linearize(ctx)?;
@@ -216,18 +230,68 @@ impl Ast for GenericArgsListTree {
     }
 }
 
-impl <C: PathedLinearizeCtxTrait> midend::treewalk::Linearize<C> for GenericArgsListTree {
+impl<P, C> midend::treewalk::Linearize<treewalk::UnpathedLinearizeCtx, P, C> for GenericArgsListTree
+where
+    P: symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = treewalk::UnpathedLinearizeCtx, Path = P>,
+    TypeNoBoundsTree:
+        treewalk::Linearize<treewalk::UnpathedLinearizeCtx, P, C, Data = midend::types::Syntactic>,
+{
     type Data = Vec<midend::types::ParamSubst>;
     #[tracing::instrument(skip(self), level = "trace")]
     fn linearize_inner(
         self,
         mut ctx: C,
-    ) -> LinearizeResult<Self::Data, C> {
+    ) -> LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
         let mut generic_args = Vec::<midend::types::ParamSubst>::new();
         for arg in self.args {
-            let maybe_type;
-            (maybe_type, ctx) = arg.linearize(ctx)?;
-            let param_type = maybe_type.expect("generic params must have a type");
+            let param_type;
+            (param_type, ctx) = arg.linearize(ctx)?;
+
+            let param = match param_type {
+                midend::types::Syntactic::GenericParam(param_name) => {
+                    midend::types::ParamSubst::Dependent(midend::types::GenericParam::TypeParam(
+                        param_name,
+                    ))
+                }
+                _ => midend::types::ParamSubst::Concrete(
+                    ctx.semantic_type_for_syntactic(&param_type).unwrap(),
+                ),
+            };
+            generic_args.push(param);
+        }
+
+        ctx.into_result(generic_args)
+    }
+}
+
+impl<P, C> midend::treewalk::Linearize<treewalk::UnpathedFunctionLinearizeCtx, P, C>
+    for GenericArgsListTree
+where
+    P: symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<
+        Unpathed = treewalk::UnpathedFunctionLinearizeCtx,
+        Path = P,
+    >,
+    TypeNoBoundsTree: treewalk::Linearize<
+        treewalk::UnpathedFunctionLinearizeCtx,
+        P,
+        C,
+        Data = Option<midend::types::Syntactic>,
+    >,
+{
+    type Data = Vec<midend::types::ParamSubst>;
+    #[tracing::instrument(skip(self), level = "trace")]
+    fn linearize_inner(
+        self,
+        mut ctx: C,
+    ) -> LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
+        let mut generic_args = Vec::<midend::types::ParamSubst>::new();
+        for arg in self.args {
+            let maybe_param_type: Option<midend::types::Syntactic>;
+            (maybe_param_type, ctx) = arg.linearize(ctx)?;
+            // FUTURE: implement generic param type inference
+            let param_type = maybe_param_type.expect("generic params must have a type");
 
             let param = match param_type {
                 midend::types::Syntactic::GenericParam(param_name) => {

@@ -96,7 +96,7 @@ impl ValueInterner {
     /// given a ValueId, return an option containing the DefPath of the associated variable, or
     /// None if the backing value has a kind other than Variable. Returns NoSuchValueId in
     /// error cases
-    pub fn def_path_for_id(&self, id: &ValueId) -> Result<Option<&symtab::RawPath>, ValueError> {
+    pub fn def_path_for_id(&self, id: &ValueId) -> Result<Option<&symtab::ValuePath>, ValueError> {
         match &self.value_for_id(id)?.kind {
             ValueKind::Variable(def_path) => Ok(Some(def_path)),
             _ => Ok(None),

@@ -271,7 +271,7 @@ pub trait MacroOwner: Path {
     }
 }
 
-pub trait ImplOwner: Path{
+pub trait ImplOwner: Path {
     #[allow(unused)]
     fn with_child_impl(self, id: ImplId) -> ImplPath {
         self.into()
@@ -333,7 +333,7 @@ impl std::fmt::Debug for RawPath {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TypePath(pub(in crate::midend::symtab) RawPath);
 #[allow(unused)]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ValuePath(pub(in crate::midend::symtab) RawPath);
 #[allow(unused)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

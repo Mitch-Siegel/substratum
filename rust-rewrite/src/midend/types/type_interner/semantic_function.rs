@@ -1,4 +1,4 @@
-use crate::midend::{types::*, *};
+use crate::midend::{symtab::Symtab, types::*, *};
 
 pub enum SemanticFunctionError {
     UnresolvableType(Syntactic),

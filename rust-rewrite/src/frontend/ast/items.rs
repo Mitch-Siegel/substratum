@@ -1,4 +1,10 @@
-use crate::{frontend::ast::*, midend::treewalk::{PathedCtxTrait, PathedLinearizeCtxTrait, TypeLinearizeCtx}};
+use crate::{
+    frontend::ast::{types::TypeNoBoundsTree, *},
+    midend::{
+        symtab,
+        treewalk::{self, PathedCtxTrait, PathedLinearizeCtxTrait, TypeLinearizeCtx},
+    },
+};
 use std::collections::BTreeSet;
 
 pub mod enum_definition;
@@ -45,7 +51,7 @@ impl Ast for ItemTree {
 impl midend::treewalk::Collect<midend::symtab::TypePath> for ItemTree {
     fn collect_inner(
         &self,
-        ctx: midend::treewalk::TypeCollectCtx,
+        mut ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
         ctx = match self {
             ItemTree::FunctionDeclaration(function_declaration) => {
@@ -70,12 +76,24 @@ impl midend::treewalk::Collect<midend::symtab::TypePath> for ItemTree {
     }
 }
 
-impl midend::treewalk::Linearize<TypeLinearizeCtx> for ItemTree {
+impl<C> treewalk::Linearize<treewalk::UnpathedLinearizeCtx, symtab::TypePath, C> for ItemTree
+where
+    C: treewalk::PathedLinearizeCtxTrait<
+        Unpathed = treewalk::UnpathedLinearizeCtx,
+        Path = symtab::TypePath,
+    >,
+    // TypeNoBoundsTree: treewalk::Linearize<
+    //     treewalk::UnpathedLinearizeCtx,
+    //     symtab::TypePath,
+    //     C,
+    //     Data = Option<midend::types::Syntactic>,
+    // >,
+{
     type Data = ();
     fn linearize_inner(
         self,
-        mut ctx: midend::treewalk::TypeLinearizeCtx,
-    ) -> <TypeLinearizeCtx as PathedLinearizeCtxTrait>::Result::<Self::Data> {
+        mut ctx: C,
+    ) -> treewalk::LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
         let ctx = match self {
             ItemTree::FunctionDeclaration(function_declaration) => {
                 unimplemented!(
@@ -120,7 +138,7 @@ impl midend::treewalk::Linearize<TypeLinearizeCtx> for ItemTree {
             }
             ItemTree::Module((module, _)) => match module {
                 Ok(m) => m.linearize(ctx)?.1,
-                Err(_) => ctx
+                Err(_) => ctx,
             },
         };
         ctx.into_result(())

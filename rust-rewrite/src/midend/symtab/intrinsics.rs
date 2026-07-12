@@ -1,4 +1,4 @@
-use crate::midend::symtab::{self, types, Symbol, SymbolTable, Symtab, TypePath};
+use crate::midend::symtab::{self, types, Symbol, SymbolTable, Symtab, TypeOwner, TypePath};
 
 fn create_core_types(symtab: &mut SymbolTable) {
     let core_def_path = TypePath::new(None::<TypePath>, "core".into());

@@ -1,6 +1,8 @@
 use crate::{
-    frontend::ast::*, midend::{
-        symtab::{self, Symtab, TypePath, ValueOwner}, treewalk::{PathedCtxTrait, PathedLinearizeCtxTrait, TypeLinearizeCtx},
+    frontend::ast::{types::TypeNoBoundsTree, *},
+    midend::{
+        symtab::{self, Symtab, TypePath, ValueOwner},
+        treewalk::{PathedCtxTrait, PathedLinearizeCtxTrait, TypeLinearizeCtx},
     },
 };
 
@@ -20,15 +22,52 @@ impl Ast for TupleDataTree {
     }
 }
 
-impl midend::treewalk::Linearize<TypeLinearizeCtx> for TupleDataTree {
+impl<P, C> treewalk::Linearize<treewalk::UnpathedLinearizeCtx, P, C> for TupleDataTree
+where
+    P: symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = treewalk::UnpathedLinearizeCtx, Path = P>,
+    TypeNoBoundsTree:
+        treewalk::Linearize<treewalk::UnpathedLinearizeCtx, P, C, Data = midend::types::Syntactic>,
+{
     type Data = midend::symtab::types::EnumVariantRepr;
     fn linearize_inner(
         self,
-        mut ctx: TypeLinearizeCtx,
-    ) -> <TypeLinearizeCtx as PathedLinearizeCtxTrait>::Result<Self::Data> {
+        mut ctx: C,
+    ) -> midend::treewalk::LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
         let mut element_types = Vec::new();
         for element in self.element_types {
-            let maybe_element_type;
+            let element_type: midend::types::Syntactic;
+            (element_type, ctx) = element.linearize(ctx)?;
+
+            element_types.push(element_type);
+        }
+
+        ctx.into_result(midend::symtab::types::EnumVariantRepr::Tuple(element_types))
+    }
+}
+
+impl<P, C> treewalk::Linearize<treewalk::UnpathedFunctionLinearizeCtx, P, C> for TupleDataTree
+where
+    P: symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<
+        Unpathed = treewalk::UnpathedFunctionLinearizeCtx,
+        Path = P,
+    >,
+    TypeNoBoundsTree: treewalk::Linearize<
+        treewalk::UnpathedFunctionLinearizeCtx,
+        P,
+        C,
+        Data = Option<midend::types::Syntactic>,
+    >,
+{
+    type Data = midend::symtab::types::EnumVariantRepr;
+    fn linearize_inner(
+        self,
+        mut ctx: C,
+    ) -> midend::treewalk::LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
+        let mut element_types = Vec::new();
+        for element in self.element_types {
+            let maybe_element_type: Option<midend::types::Syntactic>;
             (maybe_element_type, ctx) = element.linearize(ctx)?;
 
             element_types.push(maybe_element_type.expect("tuple members must have types"));
@@ -51,12 +90,45 @@ impl Ast for EnumVariantDataTree {
     }
 }
 
-impl midend::treewalk::Linearize<TypeLinearizeCtx> for EnumVariantDataTree {
+impl<P, C> treewalk::Linearize<treewalk::UnpathedLinearizeCtx, P, C> for EnumVariantDataTree
+where
+    P: symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = treewalk::UnpathedLinearizeCtx, Path = P>,
+    TypeNoBoundsTree:
+        treewalk::Linearize<treewalk::UnpathedLinearizeCtx, P, C, Data = midend::types::Syntactic>,
+{
     type Data = midend::symtab::types::EnumVariantRepr;
     fn linearize_inner(
         self,
-        ctx: TypeLinearizeCtx,
-    ) -> <TypeLinearizeCtx as PathedLinearizeCtxTrait>::Result<Self::Data> {
+        ctx: C,
+    ) -> midend::treewalk::LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
+        let (variant, ctx) = match self {
+            EnumVariantDataTree::TupleData(elements) => elements.linearize(ctx)?,
+        };
+
+        ctx.into_result(variant)
+    }
+}
+
+impl<P, C> treewalk::Linearize<treewalk::UnpathedFunctionLinearizeCtx, P, C> for EnumVariantDataTree
+where
+    P: symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<
+        Unpathed = treewalk::UnpathedFunctionLinearizeCtx,
+        Path = P,
+    >,
+    TypeNoBoundsTree: treewalk::Linearize<
+        treewalk::UnpathedFunctionLinearizeCtx,
+        P,
+        C,
+        Data = Option<midend::types::Syntactic>,
+    >,
+{
+    type Data = midend::symtab::types::EnumVariantRepr;
+    fn linearize_inner(
+        self,
+        ctx: C,
+    ) -> midend::treewalk::LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
         let (variant, ctx) = match self {
             EnumVariantDataTree::TupleData(elements) => elements.linearize(ctx)?,
         };
@@ -66,13 +138,12 @@ impl midend::treewalk::Linearize<TypeLinearizeCtx> for EnumVariantDataTree {
 }
 
 fn create_enum_variant_constructor(
-    ctx: midend::treewalk::ImplLinearizeCtx,
+    mut ctx: midend::treewalk::ImplLinearizeCtx,
     enum_name: &String,
     variant_name: &String,
     arg_types: Vec<midend::types::Syntactic>,
     loc: sourceloc::SourceLoc,
-) -> ()
-{
+) -> () {
     // create variables for each argument, named by index
     let args: Vec<midend::symtab::values::Variable> = arg_types
         .into_iter()
@@ -91,7 +162,8 @@ fn create_enum_variant_constructor(
     );
 
     let ctor_function_path = ctx.path().clone().with_child_value(variant_name.clone());
-    ctx.declare_value(variant_name.clone()).expect("Duplicate enum variant constructor");
+    ctx.declare_value(variant_name.clone())
+        .expect("Duplicate enum variant constructor");
 
     let (mut block_mgr, current_block) = midend::ir::BlockManager::new(
         ctx.semantic_type_for_syntactic(&midend::types::Syntactic::Unit)
@@ -120,7 +192,8 @@ fn create_enum_variant_constructor(
      * store the argument into the field
      */
     for arg in &prototype.arguments {
-        let arg_binding = symtab::Value::LocalBinding(symtab::values::LocalBinding::FunctionParam(arg.clone()));
+        let arg_binding =
+            symtab::Value::LocalBinding(symtab::values::LocalBinding::FunctionParam(arg.clone()));
         let arg_def_path = ctx.define_value(arg_binding).unwrap();
         let arg_value = block_mgr.values_mut().id_for_path(arg_def_path);
         let field_temp = block_mgr.values_mut().next_temp();
@@ -146,7 +219,8 @@ fn create_enum_variant_constructor(
         Some(midend::ir::ControlFlow::from(block_mgr)),
     );
 
-    ctx.define_value(symtab::Value::Function(Box::new(ctor_function))).unwrap();
+    ctx.define_value(symtab::Value::Function(Box::new(ctor_function)))
+        .unwrap();
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -174,12 +248,53 @@ impl midend::treewalk::Collect<TypePath> for EnumVariantTree {
     }
 }
 
-impl midend::treewalk::Linearize<TypeLinearizeCtx> for EnumVariantTree {
+impl<C> midend::treewalk::Linearize<treewalk::UnpathedLinearizeCtx, symtab::TypePath, C>
+    for EnumVariantTree
+where
+    C: PathedLinearizeCtxTrait<Unpathed = treewalk::UnpathedLinearizeCtx, Path = symtab::TypePath>,
+    TypeNoBoundsTree: treewalk::Linearize<
+        treewalk::UnpathedLinearizeCtx,
+        symtab::TypePath,
+        C,
+        Data = midend::types::Syntactic,
+    >,
+{
     type Data = (String, midend::symtab::types::EnumVariantRepr);
     fn linearize_inner(
         self,
-        mut ctx: TypeLinearizeCtx,
-    ) -> <TypeLinearizeCtx as PathedLinearizeCtxTrait>::Result<Self::Data> {
+        mut ctx: C,
+    ) -> midend::treewalk::LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
+        let variant_data_type;
+        (variant_data_type, ctx) = match self.data {
+            Some(variant_item) => variant_item.linearize(ctx)?,
+            None => (midend::symtab::types::EnumVariantRepr::Unit, ctx),
+        };
+
+        let (variant_name, ctx) = self.name.linearize(ctx)?;
+
+        ctx.into_result((variant_name, variant_data_type))
+    }
+}
+
+impl<C> midend::treewalk::Linearize<treewalk::UnpathedFunctionLinearizeCtx, symtab::TypePath, C>
+    for EnumVariantTree
+where
+    C: PathedLinearizeCtxTrait<
+        Unpathed = treewalk::UnpathedFunctionLinearizeCtx,
+        Path = symtab::TypePath,
+    >,
+    TypeNoBoundsTree: treewalk::Linearize<
+        treewalk::UnpathedFunctionLinearizeCtx,
+        symtab::TypePath,
+        C,
+        Data = Option<midend::types::Syntactic>,
+    >,
+{
+    type Data = (String, midend::symtab::types::EnumVariantRepr);
+    fn linearize_inner(
+        self,
+        mut ctx: C,
+    ) -> midend::treewalk::LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
         let variant_data_type;
         (variant_data_type, ctx) = match self.data {
             Some(variant_item) => variant_item.linearize(ctx)?,
@@ -244,38 +359,46 @@ impl midend::treewalk::Collect<TypePath> for EnumDefinitionTree {
     }
 }
 
-impl midend::treewalk::Linearize<TypeLinearizeCtx> for EnumDefinitionTree {
+impl<U, P, C> treewalk::Linearize<U, P, C> for EnumDefinitionTree
+where
+    U: treewalk::UnpathedLinearizeCtxTrait,
+    P: symtab::Path + symtab::TypeOwner,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = U, Path = P>,
+    generics::OptionalGenericParamsListTree: midend::treewalk::Linearize<U, P, C>,
+    TypeNoBoundsTree: treewalk::Linearize<U, P, C, Data = midend::types::Syntactic>,
+    EnumVariantTree: treewalk::Linearize<
+        U,
+        symtab::TypePath,
+        treewalk::PathedCtx<U, symtab::TypePath>,
+        Data = (String, symtab::types::EnumVariantRepr),
+    >,
+{
     type Data = (
         midend::symtab::types::EnumRepr,
-        <generics::OptionalGenericParamsListTree as midend::treewalk::Linearize<
-            TypeLinearizeCtx,
-        >>::Data,
+        <generics::OptionalGenericParamsListTree as midend::treewalk::Linearize<U, P, C>>::Data,
     );
     #[tracing::instrument(skip(self, ctx), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize_inner(
-        self,
-        ctx: TypeLinearizeCtx,
-    ) -> <TypeLinearizeCtx as PathedLinearizeCtxTrait>::Result<Self::Data> {
-        let enum_name;
-        (enum_name, ctx) = self.name.linearize(ctx)?;
+    fn linearize_inner(self, ctx: C) -> midend::treewalk::LinearizeResult<Self::Data, U> {
+        let (enum_name, ctx) = self.name.linearize(ctx)?;
 
-        let (generic_params, mut ctx) = self.generic_params.linearize(ctx)?;
-        ctx = ctx.with_child_type(enum_name.clone());
+        let (generic_params, ctx) = self.generic_params.linearize(ctx)?;
+        let mut ctx = ctx.with_child_type(enum_name.clone());
         let enum_path = ctx.path().clone();
 
         let mut variants: Vec<(String, midend::symtab::types::EnumVariantRepr)> = Vec::new();
         let constructor_impl_path =
             ctx.create_impl(midend::types::Syntactic::Named(enum_name.clone()))?;
 
+        // unimplemented!("enum variant constructor");
         for variant in self.variants {
             let variant_loc = variant.loc();
-            let ((variant_name, variant_repr), variant_ctx) = variant.linearize(ctx)?;
+            let (variant_name, variant_repr): (String, symtab::types::EnumVariantRepr);
+            ((variant_name, variant_repr), ctx) = variant.linearize(ctx)?;
             let arg_types = match &variant_repr {
                 midend::symtab::types::EnumVariantRepr::Tuple(types) => types.clone(),
                 midend::symtab::types::EnumVariantRepr::Unit => Vec::new(),
             };
 
-            unimplemented!("enum variant constructor");
             // let (variant_ctor, variant_ctx) = create_enum_variant_constructor(
             //     variant_ctx.with_path(constructor_impl_path.clone()),
             //     &enum_name,
@@ -284,7 +407,6 @@ impl midend::treewalk::Linearize<TypeLinearizeCtx> for EnumDefinitionTree {
             //     variant_loc.start(),
             // )?;
 
-            // ctx = variant_ctx.with_path(enum_path.clone());
             // ctx.define_value(variant_ctor)?;
 
             variants.push((variant_name, variant_repr));

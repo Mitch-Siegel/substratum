@@ -8,7 +8,7 @@ pub struct DiscriminantOperands {
 }
 
 impl Lowerable for DiscriminantOperands {
-    fn lower(self, ctx: &mut treewalk::ValueLinearizeCtx, loc: SourceLoc) {
+    fn lower<P: symtab::Path>(self, ctx: &mut treewalk::FunctionLinearizeCtx<P>, loc: SourceLoc) {
         // sanity check
         let _receiver_type = ctx
             .function_mut()

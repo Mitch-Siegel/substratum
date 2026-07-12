@@ -1,7 +1,13 @@
 use crate::{
-    frontend::ast::*, midend::{
-        symtab::{Path, Symtab, TypeOwner}, treewalk::{Collect, Linearize, PathedCtxTrait, PathedLinearizeCtxTrait, TypeLinearizeCtx, UnpathedCtxTrait},
-    }, trace,
+    frontend::ast::*,
+    midend::{
+        symtab::{self, Path, Symtab, TypeOwner},
+        treewalk::{
+            self, Collect, Linearize, PathedCtxTrait, PathedLinearizeCtxTrait, TypeLinearizeCtx,
+            UnpathedCtxTrait,
+        },
+    },
+    trace,
 };
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -18,7 +24,7 @@ impl ModuleTree {
         parent_path.with_child_type(name)
     }
 
-    #[tracing::instrument(skip(self, ctx), level = "debug", )]
+    #[tracing::instrument(skip(self, ctx), level = "debug")]
     pub fn collect_from_parent_path(
         &self,
         mut ctx: midend::treewalk::TypeCollectCtx,
@@ -38,13 +44,16 @@ impl ModuleTree {
     }
 
     #[tracing::instrument(skip(self, ctx), level = "debug", fields(prefix_segments = format!("{:?}", parent_path)))]
-    pub fn linearize_from_prefix_segments(
+    pub fn linearize_from_prefix_segments<C>(
         self,
-        mut ctx: TypeLinearizeCtx,
+        mut ctx: C,
         parent_path: midend::symtab::TypePath,
-    ) -> 
-        LinearizeResult<(), TypeLinearizeCtx>
-     {
+    ) -> LinearizeResult<(), C::Unpathed>
+    where
+        C::Path: symtab::TypeOwner,
+        C::Unpathed: treewalk::UnpathedLinearizeCtxTrait,
+        C: treewalk::PathedLinearizeCtxTrait<Unpathed = treewalk::UnpathedLinearizeCtx>,
+    {
         let path = self.path_from_parent(parent_path);
 
         let module_name: String = path.last().raw().into();
@@ -56,9 +65,9 @@ impl ModuleTree {
         );
 
         let module_path = ctx
-            .define_type(
-                midend::symtab::Type::from(midend::symtab::types::Module::new(module_name.clone())),
-            )
+            .define_type(midend::symtab::Type::from(
+                midend::symtab::types::Module::new(module_name.clone()),
+            ))
             .unwrap();
 
         trace::warning!("got module path of \"{}\"", module_path);
@@ -99,13 +108,20 @@ impl midend::treewalk::Collect<midend::symtab::TypePath> for ModuleTree {
     }
 }
 
-impl midend::treewalk::Linearize<TypeLinearizeCtx> for ModuleTree {
+impl<C> midend::treewalk::Linearize<treewalk::UnpathedLinearizeCtx, symtab::TypePath, C>
+    for ModuleTree
+where
+    C: treewalk::PathedLinearizeCtxTrait<
+        Unpathed = treewalk::UnpathedLinearizeCtx,
+        Path = symtab::TypePath,
+    >,
+{
     type Data = ();
     #[tracing::instrument(skip(self, ctx), level = "debug", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        ctx: TypeLinearizeCtx,
-    ) -> <TypeLinearizeCtx as PathedLinearizeCtxTrait>::Result::<Self::Data> {
+        ctx: C,
+    ) -> treewalk::LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
         let path = ctx.path().clone();
         self.linearize_from_prefix_segments(ctx, path)
     }

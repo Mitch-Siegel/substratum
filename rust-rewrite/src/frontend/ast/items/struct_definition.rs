@@ -1,4 +1,12 @@
-use crate::{frontend::ast::*, midend::treewalk::{PathedCtxTrait, PathedLinearizeCtxTrait, RawLinearizeCtx, TypeLinearizeCtx}};
+use crate::{
+    frontend::ast::{types::TypeNoBoundsTree, *},
+    midend::{
+        symtab,
+        treewalk::{
+            self, PathedCtxTrait, PathedLinearizeCtxTrait, RawLinearizeCtx, TypeLinearizeCtx,
+        },
+    },
+};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct StructFieldTree {
@@ -12,15 +20,17 @@ impl Ast for StructFieldTree {
     }
 }
 
-impl midend::treewalk::Linearize<TypeLinearizeCtx> for StructFieldTree {
+impl<U, P, C> treewalk::Linearize<U, P, C> for StructFieldTree
+where
+    U: treewalk::UnpathedLinearizeCtxTrait,
+    P: symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = U, Path = P>,
+    TypeTree: treewalk::Linearize<U, P, C, Data = midend::types::Syntactic>,
+    TypeNoBoundsTree: treewalk::Linearize<U, P, C>,
+{
     type Data = (String, midend::types::Syntactic);
-    fn linearize_inner(
-        self,
-        ctx: TypeLinearizeCtx,
-    ) -> <TypeLinearizeCtx as PathedLinearizeCtxTrait>::Result::<Self::Data> {
-        let (maybe_field_type, ctx) = self.type_.linearize(ctx)?;
-
-        let field_type = maybe_field_type.expect("struct field types may not be '_'");
+    fn linearize_inner(self, ctx: C) -> treewalk::LinearizeResult<Self::Data, U> {
+        let (field_type, ctx) = self.type_.linearize(ctx)?;
 
         let (name, ctx) = self.name.linearize(ctx)?;
         ctx.into_result((name, field_type))
@@ -70,29 +80,39 @@ impl midend::treewalk::Collect<midend::symtab::TypePath> for StructDefinitionTre
     ) -> midend::treewalk::CollectResult {
         let _struct_path = ctx.declare_type(self.name.value.clone())?;
 
-        let struct_ctx = ctx
-            .with_child_type(self.name.value.clone());
+        let struct_ctx = ctx.with_child_type(self.name.value.clone());
 
-        self.generic_params.collect_symbols(struct_ctx)?.into_result()
+        self.generic_params
+            .collect_symbols(struct_ctx)?
+            .into_result()
     }
 }
 
-impl midend::treewalk::Linearize<TypeLinearizeCtx> for StructDefinitionTree {
+impl<U, P, C> treewalk::Linearize<U, P, C> for StructDefinitionTree
+where
+    U: treewalk::UnpathedLinearizeCtxTrait,
+    P: symtab::Path + symtab::TypeOwner,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = U, Path = P>,
+    generics::OptionalGenericParamsListTree: midend::treewalk::Linearize<U, P, C>,
+    TypeTree: treewalk::Linearize<U, P, C, Data = midend::types::Syntactic>,
+    StructFieldTree: treewalk::Linearize<
+        U,
+        symtab::TypePath,
+        treewalk::PathedCtx<U, symtab::TypePath>,
+        Data = (String, midend::types::Syntactic),
+    >,
+{
     type Data = (
         midend::symtab::types::StructRepr,
-        <generics::OptionalGenericParamsListTree as midend::treewalk::Linearize<
-            RawLinearizeCtx,
-        >>::Data,
+        midend::types::GenericParamsList,
     );
     #[tracing::instrument(skip(self, ctx), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize_inner(
-        self,
-        mut ctx: TypeLinearizeCtx,
-    ) -> <TypeLinearizeCtx as PathedLinearizeCtxTrait>::Result::<Self::Data> {
+    fn linearize_inner(self, mut ctx: C) -> treewalk::LinearizeResult<Self::Data, U> {
         let struct_name: String;
         (struct_name, ctx) = self.name.linearize(ctx)?;
 
-        ctx = ctx.with_child_type(struct_name.clone());
+        let mut ctx: treewalk::PathedCtx<U, symtab::TypePath> =
+            ctx.with_child_type(struct_name.clone());
 
         let mut fields = Vec::new();
         for field in self.fields {
@@ -104,7 +124,11 @@ impl midend::treewalk::Linearize<TypeLinearizeCtx> for StructDefinitionTree {
         // TODO: struct duplicate field error
         let struct_repr = midend::symtab::types::StructRepr::new(struct_name, fields).unwrap();
 
-        let (params, ctx) = self.generic_params.linearize(ctx)?;
+        let (params, ctx) = <OptionalGenericParamsListTree as treewalk::Linearize<
+            U,
+            symtab::TypePath,
+            treewalk::PathedCtx<U, symtab::TypePath>,
+        >>::linearize(self.generic_params, ctx)?;
 
         ctx.into_result((struct_repr, params))
     }

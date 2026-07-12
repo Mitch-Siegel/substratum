@@ -1,4 +1,10 @@
-use crate::{frontend::ast::expressions::*, midend::{symtab::ValuePath, treewalk::PathedCtxTrait}};
+use crate::{
+    frontend::ast::expressions::*,
+    midend::{
+        symtab::ValuePath,
+        treewalk::{PathedCtxTrait, UnpathedFunctionLinearizeCtx},
+    },
+};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct IfExpressionTree {
@@ -51,13 +57,20 @@ impl midend::treewalk::Collect<ValuePath> for IfExpressionTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::treewalk::ValueFunctionLinearizeCtx> for IfExpressionTree {
+impl
+    midend::treewalk::Linearize<
+        treewalk::UnpathedFunctionLinearizeCtx,
+        symtab::ValuePath,
+        treewalk::FunctionLinearizeCtx<symtab::ValuePath>,
+    > for IfExpressionTree
+{
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        mut ctx: midend::treewalk::ValueFunctionLinearizeCtx,
-    ) -> <midend::treewalk::ValueFunctionLinearizeCtx as midend::treewalk::PathedLinearizeCtxTrait>::Result::<Self::Data> {
+        mut ctx: treewalk::FunctionLinearizeCtx<midend::symtab::ValuePath>,
+    ) -> midend::treewalk::LinearizeResult<Self::Data, midend::treewalk::UnpathedFunctionLinearizeCtx>
+    {
         // FUTURE: optimize condition walk to use different jumps
         let condition_loc = self.condition.loc();
         let if_loc = self.loc();

@@ -48,7 +48,11 @@ impl EnumVariant {
     pub fn syntactic(&self) -> midend::types::Syntactic {
         match &self.data {
             EnumVariantRepr::Unit => midend::types::Syntactic::Unit,
-            EnumVariantRepr::Tuple(elements) => midend::types::Syntactic::Tuple(elements.clone()),
+            EnumVariantRepr::Tuple(elements) => {
+                let wrapped_elems: Vec<Option<midend::types::Syntactic>> =
+                    elements.iter().map(|ty| Some(ty.clone())).collect();
+                midend::types::Syntactic::Tuple(wrapped_elems)
+            }
         }
     }
 

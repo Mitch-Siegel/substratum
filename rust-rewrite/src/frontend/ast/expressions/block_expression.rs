@@ -1,4 +1,7 @@
-use crate::{frontend::ast::*, midend::{symtab::ValuePath, treewalk::PathedCtxTrait}};
+use crate::{
+    frontend::ast::*,
+    midend::{symtab::ValuePath, treewalk::PathedCtxTrait},
+};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct BlockExpressionTree {
@@ -39,15 +42,19 @@ impl midend::treewalk::Collect<ValuePath> for BlockExpressionTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::treewalk::ValueFunctionLinearizeCtx>
-    for BlockExpressionTree
+impl
+    treewalk::Linearize<
+        treewalk::UnpathedFunctionLinearizeCtx,
+        ValuePath,
+        treewalk::ValueFunctionLinearizeCtx,
+    > for BlockExpressionTree
 {
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         mut self,
-        mut ctx: midend::treewalk::ValueFunctionLinearizeCtx,
-    ) -> <midend::treewalk::ValueFunctionLinearizeCtx as midend::treewalk::PathedLinearizeCtxTrait>::Result::<Self::Data>{
+        mut ctx: treewalk::ValueFunctionLinearizeCtx,
+    ) -> treewalk::LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
         let parent_def_path = ctx.path().clone();
         let true_scope_def_path = ctx.reserve_subscope();
         ctx.function_mut()

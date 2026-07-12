@@ -1,4 +1,13 @@
-use crate::{frontend::*, midend::{self, treewalk::LinearizeResult}};
+use crate::{
+    frontend::*,
+    midend::{
+        self, symtab,
+        treewalk::{
+            self, linearize_context::UnpathedLinearizeCtxTrait, LinearizeResult,
+            PathedLinearizeCtxTrait,
+        },
+    },
+};
 use std::fmt::Display;
 
 use name_derive::{NameReflectable, ReflectName};
@@ -37,14 +46,14 @@ impl Ast for IdentifierTree {
     }
 }
 
-impl<C> midend::treewalk::Linearize<C> for IdentifierTree
-where C: midend::treewalk::PathedLinearizeCtxTrait
+impl<U, P, C> midend::treewalk::Linearize<U, P, C> for IdentifierTree
+where
+    U: treewalk::UnpathedLinearizeCtxTrait,
+    P: symtab::Path,
+    C: treewalk::PathedLinearizeCtxTrait<Unpathed = U, Path = P>,
 {
     type Data = String;
-    fn linearize_inner(
-        self,
-        ctx: C,
-    ) -> LinearizeResult<Self::Data, C> {
+    fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, U> {
         ctx.into_result(self.value)
     }
 }

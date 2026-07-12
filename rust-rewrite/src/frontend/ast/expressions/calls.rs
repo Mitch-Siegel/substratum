@@ -1,4 +1,4 @@
-use crate::frontend::ast::*;
+use crate::{frontend::ast::*, midend::treewalk::UnpathedFunctionLinearizeCtx};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CallParamsTree {
@@ -29,13 +29,19 @@ impl Display for CallParamsTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::treewalk::ValueFunctionLinearizeCtx> for CallParamsTree {
+impl
+    treewalk::Linearize<
+        treewalk::UnpathedFunctionLinearizeCtx,
+        symtab::ValuePath,
+        treewalk::ValueFunctionLinearizeCtx,
+    > for CallParamsTree
+{
     type Data = Vec<midend::ir::ValueId>;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        mut ctx: midend::treewalk::ValueFunctionLinearizeCtx,
-    ) -> <midend::treewalk::ValueFunctionLinearizeCtx as midend::treewalk::PathedLinearizeCtxTrait>::Result::<Self::Data>{
+        mut ctx: treewalk::ValueFunctionLinearizeCtx,
+    ) -> LinearizeResult<Self::Data, midend::treewalk::UnpathedFunctionLinearizeCtx> {
         let mut param_values = Vec::new();
 
         for param in self.params {
@@ -63,13 +69,19 @@ impl Ast for CallExpressionTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::treewalk::ValueFunctionLinearizeCtx> for CallExpressionTree {
+impl
+    treewalk::Linearize<
+        treewalk::UnpathedFunctionLinearizeCtx,
+        symtab::ValuePath,
+        treewalk::ValueFunctionLinearizeCtx,
+    > for CallExpressionTree
+{
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        mut ctx: midend::treewalk::ValueFunctionLinearizeCtx,
-    ) -> <midend::treewalk::ValueFunctionLinearizeCtx as midend::treewalk::PathedLinearizeCtxTrait>::Result::<Self::Data> {
+        mut ctx: treewalk::ValueFunctionLinearizeCtx,
+    ) -> treewalk::LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
         let call_start = self.loc().start();
 
         let function_operand;

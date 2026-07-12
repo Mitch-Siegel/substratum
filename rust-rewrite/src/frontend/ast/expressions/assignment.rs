@@ -27,15 +27,19 @@ impl midend::treewalk::Collect<ValuePath> for AssignmentTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::treewalk::FunctionLinearizeCtx<midend::symtab::ValuePath>>
-    for AssignmentTree
+impl
+    midend::treewalk::Linearize<
+        midend::treewalk::UnpathedFunctionLinearizeCtx,
+        midend::symtab::ValuePath,
+        treewalk::ValueFunctionLinearizeCtx,
+    > for AssignmentTree
 {
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        mut ctx: midend::treewalk::FunctionLinearizeCtx<midend::symtab::ValuePath>,
-    ) -> <midend::treewalk::FunctionLinearizeCtx<midend::symtab::ValuePath> as midend::treewalk::PathedLinearizeCtxTrait>::Result::<Self::Data>{
+        mut ctx: treewalk::ValueFunctionLinearizeCtx,
+    ) -> LinearizeResult<Self::Data, midend::treewalk::UnpathedFunctionLinearizeCtx> {
         let assignment_start = self.loc().start();
 
         let (assignment_ir, mut ctx) = match *self.assignee {

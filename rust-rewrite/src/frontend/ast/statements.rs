@@ -1,4 +1,10 @@
-use crate::{frontend::ast::*, midend::treewalk::{PathedLinearizeCtxTrait, ValueFunctionLinearizeCtx}};
+use crate::{
+    frontend::ast::*,
+    midend::{
+        symtab,
+        treewalk::{self, PathedLinearizeCtxTrait, ValueFunctionLinearizeCtx},
+    },
+};
 
 pub mod let_statement;
 
@@ -32,17 +38,24 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for StatementTree {
             StatementTree::Item(_) => unimplemented!("items in statements not yet supported"),
             // StatementTree::Item(item) => item.collect_symbols(ctx),
             StatementTree::Expression(expr) => expr.collect_symbols(ctx),
-        }?.into_result()
+        }?
+        .into_result()
     }
 }
 
-impl midend::treewalk::Linearize<ValueFunctionLinearizeCtx> for StatementTree {
+impl
+    treewalk::Linearize<
+        treewalk::UnpathedFunctionLinearizeCtx,
+        symtab::ValuePath,
+        treewalk::ValueFunctionLinearizeCtx,
+    > for StatementTree
+{
     type Data = Option<midend::ir::ValueId>;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        ctx: ValueFunctionLinearizeCtx,
-    ) -> <ValueFunctionLinearizeCtx as PathedLinearizeCtxTrait>::Result::<Self::Data> {
+        ctx: treewalk::ValueFunctionLinearizeCtx,
+    ) -> treewalk::LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
         let (maybe_value, ctx) = match self {
             Self::Item(_) => unimplemented!(),
             Self::Let(let_tree) => {

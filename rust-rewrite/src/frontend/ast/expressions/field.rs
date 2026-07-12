@@ -18,7 +18,13 @@ impl Display for FieldExpressionTree {
     }
 }
 
-impl midend::treewalk::Linearize<midend::treewalk::ValueFunctionLinearizeCtx> for FieldExpressionTree {
+impl
+    treewalk::Linearize<
+        midend::treewalk::UnpathedFunctionLinearizeCtx,
+        symtab::ValuePath,
+        treewalk::FunctionLinearizeCtx<symtab::ValuePath>,
+    > for FieldExpressionTree
+{
     type Data = (midend::ir::ValueId, String);
     // returns (receiver, field_info)
     // receiver is the value id for the receiver of the field access
@@ -26,8 +32,8 @@ impl midend::treewalk::Linearize<midend::treewalk::ValueFunctionLinearizeCtx> fo
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        ctx: midend::treewalk::ValueFunctionLinearizeCtx,
-    ) -> <midend::treewalk::ValueFunctionLinearizeCtx as midend::treewalk::PathedLinearizeCtxTrait>::Result::<Self::Data> {
+        ctx: treewalk::FunctionLinearizeCtx<midend::symtab::ValuePath>,
+    ) -> midend::treewalk::LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
         let (receiver, ctx) = self.receiver.linearize(ctx)?;
 
         let (field_name, ctx) = self.field.linearize(ctx)?;

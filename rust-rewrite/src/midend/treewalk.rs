@@ -1,7 +1,11 @@
 use crate::{
-    frontend, midend::{
-        symtab::{self, Symtab, TypeOwner, ValueOwner}, types::ParamSubstMap, *,
-    }, trace,
+    frontend,
+    midend::{
+        symtab::{self, Symtab, TypeOwner, ValueOwner},
+        types::ParamSubstMap,
+        *,
+    },
+    trace,
 };
 
 use std::collections::BTreeSet;
@@ -14,8 +18,8 @@ pub use collect_ctx::UnpathedCollectCtx;
 pub use linearize_context::{
     FunctionLinearizeCtx, ImplLinearizeCtx, Linearize, LinearizeCtx, LinearizeError,
     LinearizeResult, PathedLinearizeCtxTrait, RawLinearizeCtx, TypeLinearizeCtx,
-    UnpathedFunctionLinearizeCtx, UnpathedLinearizeCtx, ValueFunctionLinearizeCtx,
-    ValueLinearizeCtx,
+    UnpathedFunctionLinearizeCtx, UnpathedLinearizeCtx, UnpathedLinearizeCtxTrait,
+    ValueFunctionLinearizeCtx, ValueLinearizeCtx,
 };
 
 pub trait UnpathedCtxTrait: symtab::Symtab + Sized {
@@ -80,11 +84,18 @@ pub trait PathedCtxTrait: std::fmt::Debug {
         self.unpathed_mut().define_value(cur_path, type_)
     }
 
-    fn semantic_type_for_syntactic(&self, ty_: &types::Syntactic) -> Result<types::Semantic, symtab::SymbolError>{
-        self.unpathed().semantic_type_for_syntactic(self.path(), ParamSubstMap::empty(), ty_)
+    fn semantic_type_for_syntactic(
+        &self,
+        ty_: &types::Syntactic,
+    ) -> Result<types::Semantic, symtab::SymbolError> {
+        self.unpathed()
+            .semantic_type_for_syntactic(self.path(), ParamSubstMap::empty(), ty_)
     }
 
-    fn create_impl(&mut self, for_type: types::Syntactic) -> Result<symtab::ImplId, symtab::SymbolError> {
+    fn create_impl(
+        &mut self,
+        for_type: types::Syntactic,
+    ) -> Result<symtab::ImplId, symtab::SymbolError> {
         unimplemented!()
         // let for_type = self.unpathed_mut().semantic_type_for_syntactic(search_def_path, ParamSubstMap::empty(), for_type)?;
         // self.unpathed_mut().create_impl(self.path().clone().into(), for_type)
@@ -263,7 +274,7 @@ pub fn walk(program: BTreeSet<frontend::ast::ModuleTree>) -> symtab::SymbolTable
         let collect_ctx = UnpathedCollectCtx::new(symtab);
 
         symtab = module
-            .collect_from_parent_path(collect_ctx, prefix_segments)
+            .collect_from_parent_path(collect_ctx.with_path(prefix_segments))
             .unwrap()
             .take();
     }
@@ -285,7 +296,10 @@ pub fn walk(program: BTreeSet<frontend::ast::ModuleTree>) -> symtab::SymbolTable
         );
         let linearize_ctx = UnpathedLinearizeCtx::new(symtab);
         let (_, ctx) = module
-            .linearize_from_prefix_segments(linearize_ctx, prefix_segments)
+            .linearize_from_prefix_segments(
+                linearize_ctx.with_path(prefix_segments.clone()),
+                prefix_segments,
+            )
             .unwrap();
         symtab = ctx.take();
     }
