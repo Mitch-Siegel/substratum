@@ -7,7 +7,9 @@ pub(crate) mod type_interner;
 
 pub(crate) use semantic_types::Semantic;
 pub(crate) use syntactic_types::Syntactic;
-pub(crate) use type_interner::{GenericParam, GenericParamsList, Interner, ParamSubst, ParamSubstMap};
+pub(crate) use type_interner::{
+    GenericParam, GenericParamsList, Interner, ParamSubst, ParamSubstMap,
+};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize, Hash)]
 pub(crate) enum Mutability {

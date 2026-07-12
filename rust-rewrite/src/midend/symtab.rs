@@ -55,6 +55,7 @@ mod private {
                 SymbolDef::Value(_) => assert!(path.is_value()),
                 SymbolDef::Impl(_) => assert!(path.is_impl()),
             }
+            println!("{:?}", path);
             assert!(*path.last() == symbol.path_segment());
 
             match path.last() {

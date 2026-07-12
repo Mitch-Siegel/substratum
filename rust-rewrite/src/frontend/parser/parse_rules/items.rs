@@ -24,6 +24,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         &mut self,
         module_name: IdentifierTree,
         module_path: &std::path::Path,
+        crate_name: &Option<String>,
     ) -> Result<ItemTree, ParseError> {
         match self.peek_token()? {
             Token::Fn_ => self.parse_function_declaration_or_definition(),
@@ -38,7 +39,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
                         let parse_rules::module::ModuleResult {
                             module_tree,
                             module_worklist: child_worklist,
-                        } = self.parse_module_item(&current_parsing_module_path)?;
+                        } = self.parse_module_item(&current_parsing_module_path, crate_name)?;
                         Ok(ItemTree::Module((Ok(module_tree), child_worklist)))
                     }
                     Token::Semicolon => {

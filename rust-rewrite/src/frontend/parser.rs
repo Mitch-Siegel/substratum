@@ -25,7 +25,11 @@ pub(crate) struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub(crate) fn new(_module_name: String, module_path: &std::path::Path, lexer: Lexer<'a>) -> Self {
+    pub(crate) fn new(
+        _module_name: String,
+        module_path: &std::path::Path,
+        lexer: Lexer<'a>,
+    ) -> Self {
         let lexer_start_pos = lexer.current_loc();
         let mut module_hierarchy = Vec::new();
         for component in module_path.iter() {
@@ -234,7 +238,14 @@ impl<'a> Parser<'a> {
         mod_keyword_loc: sourceloc::SourceSpan,
         parent_module_path: &std::path::Path,
         module_name: String,
+        crate_name: &str,
     ) -> Result<parse_rules::module::ModuleResult, ParseError> {
+        let contents_crate_name = if module_name == crate_name {
+            None
+        } else {
+            Some(String::from(crate_name))
+        };
+
         let module_name_tree = ast::IdentifierTree {
             loc: mod_keyword_loc.clone(),
             value: module_name,
@@ -244,6 +255,7 @@ impl<'a> Parser<'a> {
             mod_keyword_loc,
             parent_module_path,
             module_name_tree,
+            &contents_crate_name,
         )
     }
 }

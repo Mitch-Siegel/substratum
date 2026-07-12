@@ -11,7 +11,10 @@ pub(crate) struct TypeInferenceContext<'a> {
 }
 
 impl<'a> TypeInferenceContext<'a> {
-    pub(crate) fn new(_symtab: &'a mut symtab::SymbolTable, _values: &'a mut ValueInterner) -> Self {
+    pub(crate) fn new(
+        _symtab: &'a mut symtab::SymbolTable,
+        _values: &'a mut ValueInterner,
+    ) -> Self {
         Self { _symtab, _values }
     }
 }

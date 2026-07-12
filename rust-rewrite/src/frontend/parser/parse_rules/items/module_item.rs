@@ -4,6 +4,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
     pub(crate) fn parse_module_item(
         &mut self,
         parent_module_path: &std::path::Path,
+        crate_name: &Option<String>,
     ) -> Result<parse_rules::module::ModuleResult, ParseError> {
         let (_, _span) = self.start_parsing("module item")?;
 
@@ -20,6 +21,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             mod_keyword_loc,
             parent_module_path,
             name,
+            crate_name,
         )?;
         self.expect_token(Token::RCurly)?;
 

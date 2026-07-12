@@ -78,7 +78,9 @@ impl BlockManager {
         )
     }
 
-    pub(crate) fn try_take(self) -> Result<(HashMap<usize, BasicBlock>, ValueInterner), &'static str> {
+    pub(crate) fn try_take(
+        self,
+    ) -> Result<(HashMap<usize, BasicBlock>, ValueInterner), &'static str> {
         if !self.open_branch_path.is_empty() {
             let msg = "Failing due to open branch path length > 0";
             trace::error!("{}", msg);

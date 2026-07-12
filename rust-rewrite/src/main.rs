@@ -6,7 +6,9 @@ mod backend;
 mod frontend;
 mod midend;
 
+mod args;
 mod map_ooo_iter;
+pub(crate) use args::Config;
 
 //use backend::generate_code;
 mod example_inputs {
@@ -125,19 +127,6 @@ fun money_add_dollars(m: Money, dollars: u64) {
 }";
 }
 
-#[derive(Debug)]
-enum TraceLocation {
-    NoTrace,
-    Stdout,
-    File,
-}
-
-#[derive(Debug)]
-struct CompilerArguments {
-    trace_location: TraceLocation,
-    trace_level: tracing::Level,
-}
-
 fn file_path_to_module_name(filepath_to_parse: &std::path::Path) -> (String, &std::path::Path) {
     let stem: String = filepath_to_parse
         .file_stem()
@@ -158,58 +147,40 @@ fn file_path_to_module_name(filepath_to_parse: &std::path::Path) -> (String, &st
 }
 
 fn main() {
-    let mut arguments = CompilerArguments {
-        trace_location: TraceLocation::NoTrace,
-        trace_level: tracing::Level::WARN,
-    };
+    let cfg = Config::parse();
 
-    let mut args_without_executable = std::env::args().collect::<Vec<_>>();
-    args_without_executable.remove(0);
+    println!("{:?}", cfg);
 
-    let mut input_file = String::new();
-
-    // TODO: real argument parsing
-    for argument in args_without_executable {
-        match argument.as_str() {
-            "trace_file" => arguments.trace_location = TraceLocation::File,
-            "trace_stdout" => arguments.trace_location = TraceLocation::Stdout,
-            "trace_level_trace" => arguments.trace_level = tracing::Level::TRACE,
-            "trace_level_debug" => arguments.trace_level = tracing::Level::DEBUG,
-            "trace_level_info" => arguments.trace_level = tracing::Level::INFO,
-            "trace_level_warn" => arguments.trace_level = tracing::Level::WARN,
-            "trace_level_error" => arguments.trace_level = tracing::Level::ERROR,
-            input_file_argument => input_file = input_file_argument.into(),
-        }
-        println!("{}", argument);
-    }
-
-    println!("{:?}", arguments);
-
-    match arguments.trace_location {
-        TraceLocation::NoTrace => (),
-        TraceLocation::Stdout => {
+    match &cfg.trace_file {
+        None => {
             tracing_subscriber::fmt()
                 //.event_format(trace::Print::default())
                 .pretty()
                 .with_writer(std::io::stdout)
-                .with_max_level(arguments.trace_level)
+                .with_max_level(cfg.trace_level)
                 .init();
         }
-        TraceLocation::File => {
-            let outfile = std::fs::File::create("most_recent").expect("Couldn't create trace file");
+        Some(outfile_name) => {
+            let outfile = std::fs::File::create(std::path::Path::new(outfile_name))
+                .expect(&format!("couldn't create trace file '{}'", outfile_name));
             let json_outfile = std::sync::Mutex::new(outfile);
             let writer = tracing_subscriber::fmt::writer::BoxMakeWriter::new(json_outfile);
             tracing_subscriber::fmt()
                 .with_writer(writer)
-                .with_max_level(arguments.trace_level)
+                .with_max_level(cfg.trace_level)
                 .init();
         }
     }
 
-    assert!(!input_file.is_empty(), "Input file must be provided!");
+    assert!(
+        !cfg.input_files.is_empty(),
+        "input file must be provided! (-i [file])"
+    );
     let mut module_worklist = BTreeSet::<String>::new();
-    let (_, worklist_item) = file_path_to_module_name(std::path::Path::new(&input_file));
-    module_worklist.insert(worklist_item.to_str().unwrap().into());
+    for input_file in &cfg.input_files {
+        let (_, worklist_item) = file_path_to_module_name(std::path::Path::new(&input_file));
+        module_worklist.insert(worklist_item.to_str().unwrap().into());
+    }
     let mut modules = BTreeSet::<frontend::ast::ModuleTree>::new();
 
     while let Some(filename_to_parse) = module_worklist.pop_last() {
@@ -277,7 +248,12 @@ fn main() {
             module_tree,
             module_worklist: mut parsed_worklist,
         } = parser
-            .parse(lexer_start_loc.into(), module_path, module_name)
+            .parse(
+                lexer_start_loc.into(),
+                module_path,
+                module_name,
+                &cfg.crate_name,
+            )
             .unwrap_or_else(|_| panic!("Error in file {}", filename_to_parse));
 
         module_worklist.append(&mut parsed_worklist);
@@ -285,6 +261,6 @@ fn main() {
         assert!(modules.insert(module_tree));
     }
 
-    let _symtab = midend::symbol_table_from_modules(modules);
+    let _symtab = midend::symbol_table_from_modules(modules, &cfg.crate_name);
     //backend::do_backend(symtab);
 }

@@ -1,7 +1,9 @@
 use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ItemParser<'a, 'p> {
-    pub(crate) fn parse_generic_param(&mut self) -> Result<ast::generics::GenericParamTree, ParseError> {
+    pub(crate) fn parse_generic_param(
+        &mut self,
+    ) -> Result<ast::generics::GenericParamTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("generic param")?;
 
         let param = match self.peek_token()? {

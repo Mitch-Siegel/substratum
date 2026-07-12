@@ -254,7 +254,11 @@ mod path_walk {
             unimplemented!();
         }
 
-        pub(crate) fn add_segment(&mut self, segment: midend::symtab::PathSegment, maybe_data: Option<T>) {
+        pub(crate) fn add_segment(
+            &mut self,
+            segment: midend::symtab::PathSegment,
+            maybe_data: Option<T>,
+        ) {
             self.walked_segments.push(segment);
             self.walked_segment_data.push(maybe_data);
         }

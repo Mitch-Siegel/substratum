@@ -114,7 +114,10 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
         self.finish_parsing(expr)
     }
 
-    pub(crate) fn parse_binary_expression(&mut self, lhs: Expression) -> Result<Expression, ParseError> {
+    pub(crate) fn parse_binary_expression(
+        &mut self,
+        lhs: Expression,
+    ) -> Result<Expression, ParseError> {
         self.parse_binary_expression_min_precedence(lhs, 0)
     }
 }

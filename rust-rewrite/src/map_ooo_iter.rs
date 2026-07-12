@@ -51,7 +51,10 @@ mod hash_map_ooo_iter {
     where
         K: Eq + Hash,
     {
-        pub(crate) fn new(map: &'a HashMap<K, V>, key_order: impl Iterator<Item = K> + Clone) -> Self {
+        pub(crate) fn new(
+            map: &'a HashMap<K, V>,
+            key_order: impl Iterator<Item = K> + Clone,
+        ) -> Self {
             check_hash_key_order(map, key_order.clone());
 
             // allocate the vector with its full capacity from the get-go
@@ -82,7 +85,10 @@ mod hash_map_ooo_iter {
     where
         K: Eq + Hash,
     {
-        pub(crate) fn new(map: &'a mut HashMap<K, V>, key_order: impl Iterator<Item = K> + Clone) -> Self {
+        pub(crate) fn new(
+            map: &'a mut HashMap<K, V>,
+            key_order: impl Iterator<Item = K> + Clone,
+        ) -> Self {
             check_hash_key_order(map, key_order.clone());
 
             // same as for HashMapOOOIter but with additional reference manipulation
@@ -178,7 +184,10 @@ mod btree_map_ooo_iter {
     where
         K: Eq + Ord,
     {
-        pub(crate) fn new(map: &'a BTreeMap<K, V>, key_order: impl Iterator<Item = K> + Clone) -> Self {
+        pub(crate) fn new(
+            map: &'a BTreeMap<K, V>,
+            key_order: impl Iterator<Item = K> + Clone,
+        ) -> Self {
             check_btree_key_order(map, key_order.clone());
 
             // allocate the vector with its full capacity from the get-go

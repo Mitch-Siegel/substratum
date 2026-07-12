@@ -200,7 +200,10 @@ impl WipFunction {
         Ok(())
     }
 
-    pub(crate) fn finish_branch(&mut self, loc: SourceLoc) -> Result<(), ir::block_manager::BranchError> {
+    pub(crate) fn finish_branch(
+        &mut self,
+        loc: SourceLoc,
+    ) -> Result<(), ir::block_manager::BranchError> {
         let after_branch = self.block_manager.finish_branch(self.current_block, loc)?;
         self.replace_current_block(after_branch);
         Ok(())
@@ -347,7 +350,10 @@ impl WipFunction {
         Ok(())
     }
 
-    pub(crate) fn finish_switch(&mut self, loc: SourceLoc) -> Result<(), ir::block_manager::BranchError> {
+    pub(crate) fn finish_switch(
+        &mut self,
+        loc: SourceLoc,
+    ) -> Result<(), ir::block_manager::BranchError> {
         let after_switch = self.block_manager.finish_switch(self.current_block, loc)?;
 
         self.replace_current_block(after_switch);
@@ -365,7 +371,10 @@ impl WipFunction {
         }
     }
 
-    pub(crate) fn append_statement_to_current_block(&mut self, statement: ir::IrLine) -> Result<(), ()> {
+    pub(crate) fn append_statement_to_current_block(
+        &mut self,
+        statement: ir::IrLine,
+    ) -> Result<(), ()> {
         match &statement.operation {
             ir::Operation::Lowered(ir::lowered::Operation::Jump(_)) => Err(()),
             _ => {

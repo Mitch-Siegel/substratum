@@ -137,7 +137,9 @@ impl ControlFlow {
         HashMapOOOIter::new(&self.blocks, rpo_stack.into_iter())
     }
 
-    pub(crate) fn blocks_reverse_postorder_mut(&mut self) -> HashMapOOOIterMut<'_, usize, ir::BasicBlock> {
+    pub(crate) fn blocks_reverse_postorder_mut(
+        &mut self,
+    ) -> HashMapOOOIterMut<'_, usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
         HashMapOOOIterMut::new(&mut self.blocks, rpo_stack.into_iter())

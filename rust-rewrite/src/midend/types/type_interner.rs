@@ -129,7 +129,10 @@ impl Interner {
     }
 
     #[tracing::instrument(skip(self))]
-    pub(crate) fn get_type_definition(&self, id: &Semantic) -> Result<&symtab::types::TypeDecl, String> {
+    pub(crate) fn get_type_definition(
+        &self,
+        id: &Semantic,
+    ) -> Result<&symtab::types::TypeDecl, String> {
         let path_with_params = self.id_mappings.get(id).ok_or("no type mapping for ID")?;
         trace::trace!("semantic type {} maps to {:?}", id, path_with_params);
         let instance_set = self
@@ -148,7 +151,9 @@ impl Interner {
         Ok(self.get_type_definition(id)?.syntactic())
     }
 
-    pub(crate) fn all_monomorphizations(&self) -> HashMap<symtab::RawPath, HashSet<Vec<&ParamSubst>>> {
+    pub(crate) fn all_monomorphizations(
+        &self,
+    ) -> HashMap<symtab::RawPath, HashSet<Vec<&ParamSubst>>> {
         let mut instances = HashMap::<symtab::RawPath, HashSet<Vec<&ParamSubst>>>::new();
 
         for (path, instance_set) in &self.generic_instances {

@@ -14,7 +14,12 @@ pub(crate) fn test_loc(line: u32, col: u32) -> SourceLoc {
     SourceLoc::new(String::from(""), SourcePoint::new(line, col))
 }
 
-pub(crate) fn test_span(start_line: u32, start_col: u32, end_line: u32, end_col: u32) -> SourceSpan {
+pub(crate) fn test_span(
+    start_line: u32,
+    start_col: u32,
+    end_line: u32,
+    end_col: u32,
+) -> SourceSpan {
     SourceSpan::new(
         String::from(""),
         SourcePoint::new(start_line, start_col),
@@ -62,7 +67,10 @@ where
     }
 }
 
-pub(crate) fn path_self_lower_segment<T>(start_loc: SourceLoc, data: Option<T>) -> PathSegmentTree<T>
+pub(crate) fn path_self_lower_segment<T>(
+    start_loc: SourceLoc,
+    data: Option<T>,
+) -> PathSegmentTree<T>
 where
     T: Ast,
 {
@@ -72,7 +80,10 @@ where
     }
 }
 
-pub(crate) fn path_self_upper_segment<T>(start_loc: SourceLoc, data: Option<T>) -> PathSegmentTree<T>
+pub(crate) fn path_self_upper_segment<T>(
+    start_loc: SourceLoc,
+    data: Option<T>,
+) -> PathSegmentTree<T>
 where
     T: Ast,
 {
@@ -82,7 +93,10 @@ where
     }
 }
 
-pub(crate) fn path<T>(segments: Vec<PathSegmentTree<T>>, starts_global: Option<SourceSpan>) -> PathTree<T>
+pub(crate) fn path<T>(
+    segments: Vec<PathSegmentTree<T>>,
+    starts_global: Option<SourceSpan>,
+) -> PathTree<T>
 where
     T: Ast,
 {

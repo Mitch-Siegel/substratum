@@ -22,7 +22,11 @@ impl BlockConvergences {
         }
     }
 
-    pub(crate) fn add(&mut self, froms: &[usize], to: ir::BasicBlock) -> Result<(), ConvergenceError> {
+    pub(crate) fn add(
+        &mut self,
+        froms: &[usize],
+        to: ir::BasicBlock,
+    ) -> Result<(), ConvergenceError> {
         trace::trace!("add convergence from {:?} to {}", froms, to.label);
         for from in froms {
             if self.open_convergences.insert(*from, to.label).is_some() {
@@ -38,7 +42,11 @@ impl BlockConvergences {
     }
 
     // given an existing point to which control converges, add another path it converges from
-    pub(crate) fn supplement(&mut self, froms: &[usize], to_label: usize) -> Result<(), ConvergenceError> {
+    pub(crate) fn supplement(
+        &mut self,
+        froms: &[usize],
+        to_label: usize,
+    ) -> Result<(), ConvergenceError> {
         trace::trace!("supplement convergence to {} with {:?}", to_label, froms);
         if !self.convergence_blocks.contains_key(&to_label) {
             return Err(ConvergenceError::NonexistentTo(to_label));

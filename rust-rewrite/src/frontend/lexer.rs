@@ -24,7 +24,10 @@ pub(crate) struct Lexer<'a> {
 
 // public methods:
 impl<'a> Lexer<'a> {
-    pub(crate) fn from_char_source(file: &std::path::Path, mut char_source: CharSource<'a>) -> Self {
+    pub(crate) fn from_char_source(
+        file: &std::path::Path,
+        mut char_source: CharSource<'a>,
+    ) -> Self {
         let first_char = char_source.next();
 
         let start_line = if first_char == Some('\n') { 2 } else { 1 };

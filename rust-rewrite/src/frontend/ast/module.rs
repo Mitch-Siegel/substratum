@@ -2,7 +2,7 @@ use crate::{
     frontend::ast::*,
     midend::{
         symtab::{self, Path, TypeOwner},
-        treewalk::{self, Collect, Linearize, PathedCtxTrait},
+        treewalk::{self, Collect, Linearize, PathedCtxTrait, UnpathedCtxTrait},
     },
     trace,
 };
@@ -26,8 +26,6 @@ impl ModuleTree {
         &self,
         mut ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
-        let _path = self.path_from_parent(ctx.path().clone());
-
         trace::debug!("collect for module {} ({:?}", self.name, self.module_path);
 
         let _module_path = ctx.declare_type(self.name.value.clone()).unwrap();
@@ -38,6 +36,17 @@ impl ModuleTree {
         }
 
         module_ctx.into_result()
+    }
+
+    pub(crate) fn collect_from_crate_root(
+        &self,
+        unpathed_ctx: midend::treewalk::UnpathedCollectCtx,
+        crate_name: &str,
+    ) -> midend::treewalk::CollectResult {
+        self.collect_from_parent_path(unpathed_ctx.with_path(symtab::TypePath::new(
+            None::<symtab::TypePath>,
+            String::from(crate_name),
+        )))
     }
 
     #[tracing::instrument(skip(self, ctx), level = "debug", fields(prefix_segments = format!("{:?}", parent_path)))]

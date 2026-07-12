@@ -1,7 +1,7 @@
 use crate::{
     frontend,
     midend::{
-        symtab::{self, Symtab, TypeOwner, ValueOwner},
+        symtab::{self, Path, Symbol, Symtab, TypeOwner, ValueOwner},
         types::ParamSubstMap,
         *,
     },
@@ -55,8 +55,11 @@ pub(crate) trait PathedCtxTrait: std::fmt::Debug {
     where
         Self::Path: symtab::TypeOwner,
     {
-        let cur_path = self.path().clone();
-        self.unpathed_mut().define_type(cur_path, type_)
+        let type_path = self
+            .path()
+            .clone()
+            .with_child_type(String::from(type_.name()));
+        self.unpathed_mut().define_type(type_path, type_)
     }
 
     // ===== value handling =====
@@ -74,13 +77,16 @@ pub(crate) trait PathedCtxTrait: std::fmt::Debug {
 
     fn define_value(
         &mut self,
-        type_: symtab::Value,
+        value: symtab::Value,
     ) -> Result<symtab::ValuePath, symtab::SymbolError>
     where
         Self::Path: symtab::ValueOwner,
     {
-        let cur_path = self.path().clone();
-        self.unpathed_mut().define_value(cur_path, type_)
+        let value_path = self
+            .path()
+            .clone()
+            .with_child_value(String::from(value.name()));
+        self.unpathed_mut().define_value(value_path, value)
     }
 
     fn semantic_type_for_syntactic(
@@ -263,19 +269,32 @@ pub(crate) fn module_path(module: &frontend::ast::ModuleTree) -> symtab::TypePat
     wip_path
 }
 
-pub(crate) fn walk(program: BTreeSet<frontend::ast::ModuleTree>) -> symtab::SymbolTable {
+pub(crate) fn walk(
+    program: BTreeSet<frontend::ast::ModuleTree>,
+    crate_name: &str,
+) -> symtab::SymbolTable {
     let mut symtab = symtab::SymbolTable::new();
 
     trace::debug!("collect symbols");
 
     for module in &program {
-        let prefix_segments = module_path(module);
+        let (maybe_prefix_segments, _) = module_path(module).split_last();
         let collect_ctx = UnpathedCollectCtx::new(symtab);
+        symtab = if module.name.value == crate_name {
+            module
+                .collect_from_crate_root(collect_ctx, crate_name)
+                .unwrap()
+                .take()
+        } else {
+            let prefix_segments: symtab::TypePath = maybe_prefix_segments
+                .expect("must have at least crate in module path")
+                .into();
 
-        symtab = module
-            .collect_from_parent_path(collect_ctx.with_path(prefix_segments))
-            .unwrap()
-            .take();
+            module
+                .collect_from_parent_path(collect_ctx.with_path(prefix_segments))
+                .unwrap()
+                .take()
+        }
     }
 
     for decl in symtab.decls() {
@@ -285,7 +304,10 @@ pub(crate) fn walk(program: BTreeSet<frontend::ast::ModuleTree>) -> symtab::Symb
     trace::debug!("linearize");
 
     for module in program {
-        let prefix_segments = module_path(&module);
+        let (maybe_prefix_segments, _) = module_path(&module).split_last();
+        let prefix_segments: symtab::TypePath = maybe_prefix_segments
+            .expect("must have at least crate in module path")
+            .into();
 
         trace::debug!(
             "walk module \"{}\": {:?} (prefix segments {:?})",

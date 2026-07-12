@@ -36,11 +36,12 @@ fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
 
 pub(crate) fn symbol_table_from_modules(
     modules: BTreeSet<frontend::ast::ModuleTree>,
+    crate_name: &str,
 ) -> symtab::SymbolTable {
     let _ = trace::span_auto!(trace::Level::DEBUG, "Generate symbol table from AST");
 
     tracing::debug!("Walk AST");
-    let mut symtab = treewalk::walk(modules);
+    let mut symtab = treewalk::walk(modules, crate_name);
 
     functions_to_graphviz(&symtab, "_unlowered".into());
 

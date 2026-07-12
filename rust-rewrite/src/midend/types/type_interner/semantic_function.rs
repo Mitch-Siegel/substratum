@@ -31,7 +31,11 @@ pub(crate) struct SemanticFunction {
 }
 
 impl SemanticFunction {
-    pub(crate) fn new(syntactic: Syntactic, arguments: Vec<Semantic>, return_value: Semantic) -> Self {
+    pub(crate) fn new(
+        syntactic: Syntactic,
+        arguments: Vec<Semantic>,
+        return_value: Semantic,
+    ) -> Self {
         Self {
             syntactic,
             arguments,

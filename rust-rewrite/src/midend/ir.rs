@@ -156,7 +156,11 @@ impl IrLine {
         Self::new_unlowered(loc, unlowered::new_match(scrutinee, arms))
     }
 
-    pub(crate) fn new_discriminant(loc: SourceLoc, enum_value: ValueId, destination: ValueId) -> Self {
+    pub(crate) fn new_discriminant(
+        loc: SourceLoc,
+        enum_value: ValueId,
+        destination: ValueId,
+    ) -> Self {
         Self::new_unlowered(loc, unlowered::new_discriminant(enum_value, destination))
     }
 

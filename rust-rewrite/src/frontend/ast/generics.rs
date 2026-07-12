@@ -73,7 +73,9 @@ impl GenericParamsListTree {
             .collect()
     }
 
-    pub(crate) fn linearize_ctxless(self) -> Vec<(sourceloc::SourceSpan, midend::types::GenericParam)> {
+    pub(crate) fn linearize_ctxless(
+        self,
+    ) -> Vec<(sourceloc::SourceSpan, midend::types::GenericParam)> {
         let generic_params_vec = self.into_vec_with_locs();
         generic_params_vec
             .into_iter()
