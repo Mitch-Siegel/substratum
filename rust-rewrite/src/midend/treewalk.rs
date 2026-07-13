@@ -304,25 +304,31 @@ pub(crate) fn walk(
     trace::debug!("linearize");
 
     for module in program {
-        let (maybe_prefix_segments, _) = module_path(&module).split_last();
-        let prefix_segments: symtab::TypePath = maybe_prefix_segments
-            .expect("must have at least crate in module path")
-            .into();
-
-        trace::debug!(
-            "walk module \"{}\": {:?} (prefix segments {:?})",
-            module.name,
-            module.module_path,
-            prefix_segments
-        );
         let linearize_ctx = UnpathedLinearizeCtx::new(symtab);
-        let (_, ctx) = module
-            .linearize_from_prefix_segments(
-                linearize_ctx.with_path(prefix_segments.clone()),
-                prefix_segments,
-            )
-            .unwrap();
-        symtab = ctx.take();
+        if module.name.value == crate_name {
+            let (_, unpathed) = module
+                .linearize_from_crate_root(linearize_ctx, crate_name)
+                .unwrap();
+            symtab = unpathed.take();
+        } else {
+            let (maybe_prefix_segments, _) = module_path(&module).split_last();
+            let prefix_segments: symtab::TypePath = maybe_prefix_segments
+                .expect("must have at least crate in module path")
+                .into();
+
+            trace::debug!(
+                "walk module \"{}\": {:?} (prefix segments {:?})",
+                module.name,
+                module.module_path,
+                prefix_segments
+            );
+            let (_, ctx) = module
+                .linearize_from_prefix_segments(
+                    linearize_ctx.with_path(prefix_segments.clone())
+                )
+                .unwrap();
+            symtab = ctx.take();
+        }
     }
 
     symtab

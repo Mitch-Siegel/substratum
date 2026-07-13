@@ -28,7 +28,6 @@ impl ModuleTree {
     ) -> midend::treewalk::CollectResult {
         trace::debug!("collect for module {} ({:?}", self.name, self.module_path);
 
-        let _module_path = ctx.declare_type(self.name.value.clone()).unwrap();
         let mut module_ctx = ctx.with_child_type(self.name.value.clone());
 
         for item in &self.items {
@@ -43,30 +42,33 @@ impl ModuleTree {
         unpathed_ctx: midend::treewalk::UnpathedCollectCtx,
         crate_name: &str,
     ) -> midend::treewalk::CollectResult {
-        self.collect_from_parent_path(unpathed_ctx.with_path(symtab::TypePath::new(
+        let mut module_ctx = unpathed_ctx.with_path(symtab::TypePath::new(
             None::<symtab::TypePath>,
-            String::from(crate_name),
-        )))
+            self.name.value.clone(),
+        ));
+
+        for item in &self.items {
+            module_ctx = item.collect_symbols(module_ctx)?;
+        }
+
+        module_ctx.into_result()
     }
 
-    #[tracing::instrument(skip(self, ctx), level = "debug", fields(prefix_segments = format!("{:?}", parent_path)))]
+    #[tracing::instrument(skip(self, ctx), level = "debug")]
     pub(crate) fn linearize_from_prefix_segments<C>(
         self,
         mut ctx: C,
-        parent_path: midend::symtab::TypePath,
     ) -> LinearizeResult<(), C::Unpathed>
     where
         C::Path: symtab::TypeOwner,
         C::Unpathed: treewalk::UnpathedLinearizeCtxTrait,
         C: treewalk::PathedLinearizeCtxTrait<Unpathed = treewalk::UnpathedLinearizeCtx>,
     {
-        let path = self.path_from_parent(parent_path);
-
-        let module_name: String = path.last().raw().into();
+        let module_name: String = self.name.value;
 
         trace::warning!(
             "here with path {}, module name {}, ctx path ",
-            path,
+            ctx.path(),
             module_name
         );
 
@@ -79,6 +81,38 @@ impl ModuleTree {
         trace::warning!("got module path of \"{}\"", module_path);
 
         let mut ctx = ctx.with_child_type(module_name);
+        for item in self.items {
+            (_, ctx) = item.linearize(ctx).expect("unable to linearize item");
+        }
+
+        ctx.into_result(())
+    }
+
+    pub(crate) fn linearize_from_crate_root(
+        self,
+        unpathed_ctx: treewalk::UnpathedLinearizeCtx,
+        crate_name: &str,
+    ) -> LinearizeResult<(), treewalk::UnpathedLinearizeCtx> {
+        let module_name: String = self.name.value;
+
+        let mut ctx = unpathed_ctx.with_path(symtab::TypePath::new(
+            None::<symtab::TypePath>,
+            String::from(crate_name),
+        ));
+
+        trace::warning!(
+            "here with path {}, module name {}, ctx path ",
+            ctx.path(),
+            module_name
+        );
+        // let module_path = ctx
+        //     .define_type(midend::symtab::Type::from(
+        //         midend::symtab::types::Module::new(module_name.clone()),
+        //     ))
+        //     .unwrap();
+
+        // trace::warning!("got module path of \"{}\"", module_path);
+
         for item in self.items {
             (_, ctx) = item.linearize(ctx).expect("unable to linearize item");
         }
@@ -128,7 +162,7 @@ where
         ctx: C,
     ) -> treewalk::LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
         let path = ctx.path().clone();
-        self.linearize_from_prefix_segments(ctx, path)
+        self.linearize_from_prefix_segments(ctx)
     }
 }
 

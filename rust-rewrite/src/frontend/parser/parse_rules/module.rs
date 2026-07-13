@@ -37,7 +37,16 @@ impl<'a, 'p> ModuleParser<'a, 'p> {
         assert_eq!(self.module_parse_stack.pop().unwrap(), name);
 
         let module_path_vec: Vec<String> = match crate_name {
-            Some(name) => vec![name.clone()],
+            Some(name) => {
+                // TODO: more rigorous module path testing for these code paths
+                if module_path.ancestors().count() > 1
+                    && module_path.ancestors().next().unwrap().to_str().unwrap() != name
+                {
+                    vec![name.clone()]
+                } else {
+                    vec![]
+                }
+            }
             None => vec![],
         }
         .into_iter()
