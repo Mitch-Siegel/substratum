@@ -178,8 +178,7 @@ fn main() {
     );
     let mut module_worklist = BTreeSet::<String>::new();
     for input_file in &cfg.input_files {
-        let (_, worklist_item) = file_path_to_module_name(std::path::Path::new(&input_file));
-        module_worklist.insert(worklist_item.to_str().unwrap().into());
+        module_worklist.insert(input_file.clone());
     }
     let mut modules = BTreeSet::<frontend::ast::ModuleTree>::new();
 
@@ -196,12 +195,19 @@ fn main() {
                 module_parent_path.display()
             );
 
+            println!(
+                "Module name: \"{}\", parent path: \"{}\"",
+                module_name,
+                module_parent_path.display()
+            );
+
             // first, try from [worklist_item].sb
             let direct_source_file = module_parent_path
                 .join(module_name.clone())
                 .with_extension("sb");
             trace::trace!("Try file \"{}\"", direct_source_file.display());
 
+            println!("opened direct source file: {}", direct_source_file.display());
             let (opened_file, opened_path) =
                 if let Ok(file) = std::fs::File::open(direct_source_file.clone()) {
                     trace::trace!("success");
@@ -223,7 +229,10 @@ fn main() {
                             .with_extension("sb");
                         trace::trace!("Try file \"{}\"", library_source_file.display());
                         (
-                            std::fs::File::open(library_source_file.clone()).unwrap(),
+                            std::fs::File::open(library_source_file.clone()).expect(&format!(
+                                "Unable to open input file {}",
+                                library_source_file.display()
+                            )),
                             library_source_file,
                         )
                     }
