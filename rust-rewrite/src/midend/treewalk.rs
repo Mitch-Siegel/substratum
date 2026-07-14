@@ -323,9 +323,7 @@ pub(crate) fn walk(
                 prefix_segments
             );
             let (_, ctx) = module
-                .linearize_from_prefix_segments(
-                    linearize_ctx.with_path(prefix_segments.clone())
-                )
+                .linearize_from_prefix_segments(linearize_ctx.with_path(prefix_segments.clone()))
                 .unwrap();
             symtab = ctx.take();
         }

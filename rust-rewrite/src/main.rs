@@ -207,7 +207,6 @@ fn main() {
                 .with_extension("sb");
             trace::trace!("Try file \"{}\"", direct_source_file.display());
 
-            println!("opened direct source file: {}", direct_source_file.display());
             let (opened_file, opened_path) =
                 if let Ok(file) = std::fs::File::open(direct_source_file.clone()) {
                     trace::trace!("success");
@@ -263,7 +262,7 @@ fn main() {
                 module_name,
                 &cfg.crate_name,
             )
-            .unwrap_or_else(|_| panic!("Error in file {}", filename_to_parse));
+            .unwrap_or_else(|e| panic!("Error in file {}: {}", filename_to_parse, e));
 
         module_worklist.append(&mut parsed_worklist);
 

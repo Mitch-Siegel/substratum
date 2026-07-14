@@ -395,8 +395,8 @@ where
     C: treewalk::PathedLinearizeCtxTrait<Unpathed = U, Path = P>,
 {
     type Data = midend::types::Syntactic;
-    fn linearize_inner(self, _ctx: C) -> LinearizeResult<Self::Data, U> {
-        unimplemented!();
+    fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, U> {
+        ctx.into_result(self.type_)
     }
 }
 
