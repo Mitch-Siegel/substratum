@@ -281,10 +281,7 @@ pub(crate) fn walk(
         let (maybe_prefix_segments, _) = module_path(module).split_last();
         let collect_ctx = UnpathedCollectCtx::new(symtab);
         symtab = if module.name.value == crate_name {
-            module
-                .collect_from_crate_root(collect_ctx, crate_name)
-                .unwrap()
-                .take()
+            module.collect_from_crate_root(collect_ctx).unwrap().take()
         } else {
             let prefix_segments: symtab::TypePath = maybe_prefix_segments
                 .expect("must have at least crate in module path")

@@ -2,8 +2,8 @@ use crate::{
     frontend::ast::{types::TypeNoBoundsTree, *},
     midend::{
         self,
-        symtab::{self, TypePath},
-        treewalk::{self, PathedCtxTrait},
+        symtab::{self, TypePath, ValueOwner},
+        treewalk::{self, PathedCtxTrait, UnpathedCtxTrait},
     },
 };
 
@@ -199,22 +199,46 @@ impl midend::treewalk::Collect<midend::symtab::TypePath> for FunctionDefinitionT
     }
 }
 
-impl<P, C> treewalk::Linearize<treewalk::UnpathedLinearizeCtx, P, C> for FunctionDefinitionTree
+impl<P>
+    treewalk::Linearize<
+        treewalk::UnpathedLinearizeCtx,
+        P,
+        treewalk::PathedCtx<treewalk::UnpathedLinearizeCtx, P>,
+    > for FunctionDefinitionTree
 where
     P: symtab::Path + symtab::ValueOwner,
-    C: treewalk::PathedLinearizeCtxTrait<Unpathed = treewalk::UnpathedLinearizeCtx, Path = P>,
 {
     type Data = symtab::values::Function;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        mut _ctx: C,
+        mut ctx: treewalk::PathedCtx<treewalk::UnpathedLinearizeCtx, P>,
     ) -> LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
         let declared_prototype;
-        (declared_prototype, _ctx) = self.prototype.linearize(_ctx)?;
-        let _function_name = declared_prototype.name.clone();
+        (declared_prototype, ctx) = self.prototype.linearize(ctx)?;
+        let function_name = declared_prototype.name.clone();
 
-        unimplemented!("generate function linearize ctx here");
+        // unimplemented!("generate function linearize ctx here");
+        let function_path = ctx.path().clone().with_child_value(function_name);
+        let unit_type = ctx.semantic_type_for_syntactic(&midend::types::Syntactic::Unit)?;
+        let arg_def_paths = declared_prototype
+            .arguments
+            .iter()
+            .map(|arg| function_path.clone().with_child_value(arg.name.clone()))
+            .collect();
+        let unpathed_function_ctx = treewalk::UnpathedFunctionLinearizeCtx::new(
+            ctx,
+            declared_prototype,
+            unit_type,
+            arg_def_paths,
+        );
+
+        let function_ctx = unpathed_function_ctx.with_path(function_path);
+        let (return_value_id, function_ctx) = self.body.linearize(function_ctx)?;
+
+        function_ctx.finalize(return_value_id)
+
+        // let function_ctx = treewalk::FunctionLinearizeCtx::new()
         // ctx.create_function(declared_prototype).unwrap();
 
         // let ctx = ctx

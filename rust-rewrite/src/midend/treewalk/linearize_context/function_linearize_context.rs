@@ -16,7 +16,7 @@ use crate::{
 pub(crate) struct UnpathedFunctionLinearizeCtx {
     base: UnpathedLinearizeCtx,
     function_path: symtab::ValuePath,
-    _function: WipFunction,
+    function: WipFunction,
 }
 
 impl UnpathedFunctionLinearizeCtx {
@@ -36,8 +36,26 @@ impl UnpathedFunctionLinearizeCtx {
         Self {
             base,
             function_path: function_path.clone(),
-            _function: WipFunction::new(prototype, function_path, unit_type, arg_def_paths),
+            function: WipFunction::new(prototype, function_path, unit_type, arg_def_paths),
         }
+    }
+
+    pub(crate) fn finalize<P>(
+        self,
+        path: P,
+        _return_value_id: ir::ValueId,
+    ) -> treewalk::LinearizeResult<symtab::values::Function, UnpathedLinearizeCtx>
+    where
+        P: symtab::Path,
+    {
+        assert_eq!(
+            Into::<symtab::RawPath>::into(self.function_path),
+            Into::<symtab::RawPath>::into(path)
+        );
+
+        let function = self.function.finish().unwrap();
+
+        Ok((function, self.base))
     }
 }
 
@@ -108,6 +126,7 @@ impl symtab::Symtab for UnpathedFunctionLinearizeCtx {
 }
 
 pub(crate) struct WipFunction {
+    prototype: symtab::values::FunctionPrototype,
     block_manager: ir::BlockManager,
     current_block: usize,
 }
@@ -115,7 +134,7 @@ pub(crate) struct WipFunction {
 impl WipFunction {
     #[tracing::instrument(level = "debug")]
     pub(crate) fn new(
-        prototype: symtab::values::function::FunctionPrototype,
+        prototype: symtab::values::FunctionPrototype,
         def_path: symtab::ValuePath,
         unit_type: types::Semantic,
         arg_def_paths: Vec<symtab::ValuePath>,
@@ -134,15 +153,9 @@ impl WipFunction {
         }
 
         Self {
+            prototype,
             block_manager,
             current_block: start_block_label,
-        }
-    }
-
-    pub(crate) fn from_existing(block_manager: ir::BlockManager, current_block: usize) -> Self {
-        Self {
-            block_manager,
-            current_block,
         }
     }
 
@@ -390,7 +403,14 @@ impl WipFunction {
             .unwrap();
     }
 
-    pub(crate) fn ensure_finished(&mut self) -> Result<(), ir::block_manager::BranchError> {
-        self.block_manager.ensure_finished()
+    pub(crate) fn finish(self) -> Result<symtab::values::Function, ir::block_manager::BranchError> {
+        self.block_manager.ensure_finished()?;
+
+        let (blocks, values) = self.block_manager.try_take().unwrap();
+
+        Ok(symtab::values::Function::new(
+            self.prototype,
+            Some(ir::ControlFlow::new(blocks, values)),
+        ))
     }
 }

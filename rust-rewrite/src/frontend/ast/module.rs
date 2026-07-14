@@ -1,7 +1,7 @@
 use crate::{
     frontend::ast::*,
     midend::{
-        symtab::{self, Path, TypeOwner},
+        symtab::{self, TypeOwner},
         treewalk::{self, Collect, Linearize, PathedCtxTrait, UnpathedCtxTrait},
     },
     trace,
@@ -24,7 +24,7 @@ impl ModuleTree {
     #[tracing::instrument(skip(self, ctx), level = "debug")]
     pub(crate) fn collect_from_parent_path(
         &self,
-        mut ctx: midend::treewalk::TypeCollectCtx,
+        ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
         trace::debug!("collect for module {} ({:?}", self.name, self.module_path);
 
@@ -40,7 +40,6 @@ impl ModuleTree {
     pub(crate) fn collect_from_crate_root(
         &self,
         unpathed_ctx: midend::treewalk::UnpathedCollectCtx,
-        crate_name: &str,
     ) -> midend::treewalk::CollectResult {
         let mut module_ctx = unpathed_ctx.with_path(symtab::TypePath::new(
             None::<symtab::TypePath>,
@@ -161,7 +160,6 @@ where
         self,
         ctx: C,
     ) -> treewalk::LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
-        let path = ctx.path().clone();
         self.linearize_from_prefix_segments(ctx)
     }
 }

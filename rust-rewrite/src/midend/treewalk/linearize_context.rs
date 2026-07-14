@@ -303,6 +303,17 @@ impl UnpathedLinearizeCtxTrait for UnpathedLinearizeCtx {}
 pub(crate) type LinearizeCtx<P> = PathedCtx<UnpathedLinearizeCtx, P>;
 // TODO: remove P from this
 pub(crate) type FunctionLinearizeCtx<P> = PathedCtx<UnpathedFunctionLinearizeCtx, P>;
+impl<P> FunctionLinearizeCtx<P>
+where
+    P: symtab::Path,
+{
+    pub(crate) fn finalize(
+        self,
+        return_value_id: ir::ValueId,
+    ) -> treewalk::LinearizeResult<symtab::values::Function, UnpathedLinearizeCtx> {
+        self.unpathed.finalize(self.path, return_value_id)
+    }
+}
 
 pub(crate) type ValueLinearizeCtx = LinearizeCtx<symtab::ValuePath>;
 pub(crate) type ImplLinearizeCtx = LinearizeCtx<symtab::ImplPath>;

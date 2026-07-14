@@ -2,7 +2,7 @@ use crate::{
     frontend::ast::*,
     midend::{
         symtab,
-        treewalk::{self},
+        treewalk::{self, PathedCtxTrait},
     },
 };
 use std::collections::BTreeSet;
@@ -76,23 +76,17 @@ impl midend::treewalk::Collect<midend::symtab::TypePath> for ItemTree {
     }
 }
 
-impl<C> treewalk::Linearize<treewalk::UnpathedLinearizeCtx, symtab::TypePath, C> for ItemTree
-where
-    C: treewalk::PathedLinearizeCtxTrait<
-        Unpathed = treewalk::UnpathedLinearizeCtx,
-        Path = symtab::TypePath,
-    >,
-    // TypeNoBoundsTree: treewalk::Linearize<
-    //     treewalk::UnpathedLinearizeCtx,
-    //     symtab::TypePath,
-    //     C,
-    //     Data = Option<midend::types::Syntactic>,
-    // >,
+impl
+    treewalk::Linearize<
+        treewalk::UnpathedLinearizeCtx,
+        symtab::TypePath,
+        treewalk::PathedCtx<treewalk::UnpathedLinearizeCtx, symtab::TypePath>,
+    > for ItemTree
 {
     type Data = ();
     fn linearize_inner(
         self,
-        mut ctx: C,
+        mut ctx: treewalk::PathedCtx<treewalk::UnpathedLinearizeCtx, symtab::TypePath>,
     ) -> treewalk::LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
         let ctx = match self {
             ItemTree::FunctionDeclaration(function_declaration) => {
