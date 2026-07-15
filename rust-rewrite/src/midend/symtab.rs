@@ -155,30 +155,36 @@ pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
 
     // ===== Definition =====
     // define 'symbol' at 'path', returning path or error
-    fn define_type(&mut self, path: impl TypeOwner, symbol: Type) -> Result<TypePath, SymbolError> {
-        self.define(path.into(), SymbolDef::Type(symbol))
+    fn define_type(
+        &mut self,
+        parent_path: impl TypeOwner,
+        symbol: Type,
+    ) -> Result<TypePath, SymbolError> {
+        self.define(parent_path.into(), SymbolDef::Type(symbol))
             .map(TypePath::from)
     }
 
     // define 'symbol' at 'path', returning path or error
     fn define_value(
         &mut self,
-        path: impl ValueOwner,
+        parent_path: impl ValueOwner,
         symbol: Value,
     ) -> Result<ValuePath, SymbolError> {
-        self.define(path.into(), SymbolDef::Value(symbol))
+        self.define(parent_path.into(), SymbolDef::Value(symbol))
             .map(ValuePath::from)
     }
 
     // ===== Typed Lookups =====
     /// Perform a full lookup, searching for the type segment ending `path` at any of its parents
     /// returns the path at which the declaration is found
-    fn lookup_type_decl(&self, path: &TypePath) -> Result<TypePath, SymbolError> {
-        let (parent_path, type_segment) = path.clone().split_last();
-        let lookup_path = RawPath::new(Vec::new(), type_segment);
+    fn lookup_type_decl(
+        &self,
+        search_path: &impl Path,
+        type_: TypeSegment,
+    ) -> Result<TypePath, SymbolError> {
         let raw_path = self.lookup_decl(
-            parent_path.expect("lookup_type_decl called on root path"),
-            lookup_path,
+            search_path.clone().into(),
+            RawPath::new(vec![], type_.into()),
         )?;
 
         Ok(raw_path.into())
@@ -186,13 +192,14 @@ pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
 
     /// Perform a full lookup, searching for the type segment ending `path` at any of its parents
     /// returns the type and path at which it was found
-    fn lookup_type_def(&self, path: &TypePath) -> Result<(&Type, TypePath), SymbolError> {
-        let (parent_path, type_segment) = path.clone().split_last();
-        let lookup_path = RawPath::new(Vec::new(), type_segment);
-
+    fn lookup_type_def(
+        &self,
+        search_path: &impl Path,
+        type_: TypeSegment,
+    ) -> Result<(&Type, TypePath), SymbolError> {
         match self.lookup_def(
-            parent_path.expect("lookup_type_def called on root path"),
-            lookup_path,
+            search_path.clone().into(),
+            RawPath::new(vec![], type_.into()),
         )? {
             (SymbolDef::Type(t), found_path) => Ok((t, found_path.into())),
             (_, _) => {
@@ -205,14 +212,12 @@ pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
     /// returns the mutable type and path at which it was found
     fn lookup_type_def_mut(
         &mut self,
-        path: &TypePath,
+        search_path: &impl Path,
+        type_: TypeSegment,
     ) -> Result<(&mut Type, TypePath), SymbolError> {
-        let (parent_path, type_segment) = path.clone().split_last();
-        let lookup_path = RawPath::new(Vec::new(), type_segment);
-
         match self.lookup_def_mut(
-            parent_path.expect("lookup_type_def_mut called on root path"),
-            lookup_path,
+            search_path.clone().into(),
+            RawPath::new(vec![], type_.into()),
         )? {
             (SymbolDef::Type(t), found_path) => Ok((t, found_path.into())),
             (_, _) => {
@@ -223,24 +228,27 @@ pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
 
     /// Perform a full lookup, searching for the value segment ending `path` at any of its parents
     /// returns the path at which the declaration is found
-    fn lookup_value_decl(&self, path: &ValuePath) -> Result<RawPath, SymbolError> {
-        let (parent_path, value_segment) = path.clone().split_last();
-        let lookup_path = RawPath::new(Vec::new(), value_segment);
+    fn lookup_value_decl(
+        &self,
+        search_path: &impl Path,
+        value: ValueSegment,
+    ) -> Result<RawPath, SymbolError> {
         self.lookup_decl(
-            parent_path.expect("lookup_value_decl called on root path"),
-            lookup_path,
+            search_path.clone().into(),
+            RawPath::new(vec![], value.into()),
         )
     }
 
     /// Perform a full lookup, searching for the value segment ending `path` at any of its parents
     /// returns the value and path at which it was found
-    fn lookup_value_def(&self, path: &ValuePath) -> Result<(&Value, ValuePath), SymbolError> {
-        let (parent_path, value_segment) = path.clone().split_last();
-        let lookup_path = RawPath::new(Vec::new(), value_segment);
-
+    fn lookup_value_def(
+        &self,
+        search_path: &impl Path,
+        value: ValueSegment,
+    ) -> Result<(&Value, ValuePath), SymbolError> {
         match self.lookup_def(
-            parent_path.expect("lookup_value_def called on root path"),
-            lookup_path,
+            search_path.clone().into(),
+            RawPath::new(vec![], value.into()),
         )? {
             (SymbolDef::Value(v), found_path) => Ok((v, found_path.into())),
             (_, _) => {
@@ -251,14 +259,12 @@ pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
 
     fn lookup_value_def_mut(
         &mut self,
-        path: &ValuePath,
+        search_path: &impl Path,
+        value: ValueSegment,
     ) -> Result<(&mut Value, ValuePath), SymbolError> {
-        let (parent_path, value_segment) = path.clone().split_last();
-        let lookup_path = RawPath::new(Vec::new(), value_segment);
-
         match self.lookup_def_mut(
-            parent_path.expect("lookup_value_def_mut called on root path"),
-            lookup_path,
+            search_path.clone().into(),
+            RawPath::new(vec![], value.into()),
         )? {
             (SymbolDef::Value(v), found_path) => Ok((v, found_path.into())),
             (_, _) => {
@@ -419,13 +425,11 @@ impl Symtab for SymbolTable {
 
     fn semantic_type_for_syntactic(
         &self,
-        _search_def_path: &impl Path,
-        _generic_params: midend::types::ParamSubstMap,
-        _ty_: &midend::types::Syntactic,
+        search_path: &impl Path,
+        generic_params: midend::types::ParamSubstMap,
+        ty_: &midend::types::Syntactic,
     ) -> Result<midend::types::Semantic, SymbolError> {
-        unimplemented!();
-        /*
-        let (_, path) = self.lookup_type(search_def_path, ty_)?;
+        let path = self.lookup_type_decl(search_path, TypeSegment(ty_.to_string()))?;
         trace::trace!(
             "found definition of syntactic type {} at defpath {}",
             ty_,
@@ -435,7 +439,6 @@ impl Symtab for SymbolTable {
             .types
             .semantic_for_defpath(path, generic_params)
             .unwrap())
-        */
     }
 }
 

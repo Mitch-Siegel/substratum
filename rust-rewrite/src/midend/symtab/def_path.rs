@@ -141,10 +141,10 @@ impl std::fmt::Debug for PathSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}(", self.raw())?;
         match self {
-            Self::Type(name) => write!(f, "T:{}", name),
-            Self::Value(name) => write!(f, "V:{}", name),
-            Self::Macro(name) => write!(f, "M:{}", name),
-            Self::Impl(id) => write!(f, "I:Impl({})", id.0),
+            Self::Type(name) => write!(f, " Type:{}", name),
+            Self::Value(name) => write!(f, "Value:{}", name),
+            Self::Macro(name) => write!(f, "Macro:{}", name),
+            Self::Impl(id) => write!(f, " Impl:({})", id.0),
         }?;
         write!(f, ")")
     }
@@ -330,7 +330,7 @@ impl std::fmt::Debug for RawPath {
 }
 
 #[allow(unused)]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct TypePath(pub(in crate::midend::symtab) RawPath);
 #[allow(unused)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

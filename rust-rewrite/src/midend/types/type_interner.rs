@@ -8,12 +8,12 @@ pub(crate) use monomorphization::*;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 struct DefPathWithParamSubsts {
-    pub def_path: symtab::RawPath,
+    pub def_path: symtab::TypePath,
     pub param_substs: ParamSubstMap,
 }
 
 impl DefPathWithParamSubsts {
-    pub(crate) fn new(def_path: symtab::RawPath, param_substs: ParamSubstMap) -> Self {
+    pub(crate) fn new(def_path: symtab::TypePath, param_substs: ParamSubstMap) -> Self {
         Self {
             def_path,
             param_substs,
@@ -37,7 +37,7 @@ impl std::fmt::Debug for DefPathWithParamSubsts {
 pub(crate) struct Interner {
     id_mappings: HashMap<Semantic, DefPathWithParamSubsts>,
     reverse_id_mappings: HashMap<DefPathWithParamSubsts, Semantic>,
-    generic_instances: HashMap<symtab::RawPath, monomorphization::InstanceSet>,
+    generic_instances: HashMap<symtab::TypePath, monomorphization::InstanceSet>,
 }
 
 impl Interner {
@@ -57,17 +57,15 @@ impl Interner {
 
     pub(crate) fn insert_type(
         &mut self,
-        def_path: symtab::RawPath,
+        def_path: symtab::TypePath,
         definition: symtab::types::TypeDecl,
     ) -> Result<Semantic, symtab::SymbolError> {
-        assert!(&def_path.is_type());
-
         let next_id = self.next_id();
         // Ensure that we never overwrite any type
         let no_subst = DefPathWithParamSubsts::new(def_path.clone(), ParamSubstMap::empty());
         let overwritten_id = self.id_mappings.insert(next_id, no_subst.clone());
         match overwritten_id {
-            Some(_) => return Err(symtab::SymbolError::AlreadyDefined(def_path.clone())),
+            Some(_) => return Err(symtab::SymbolError::TypeAlreadyDefined(def_path.clone())),
             None => next_id,
         };
 
@@ -82,7 +80,7 @@ impl Interner {
     #[tracing::instrument(skip(self), level = "debug")]
     pub(crate) fn semantic_for_defpath(
         &self,
-        def_path: symtab::RawPath,
+        def_path: symtab::TypePath,
         param_substs: ParamSubstMap,
     ) -> Option<Semantic> {
         self.reverse_id_mappings
@@ -93,14 +91,14 @@ impl Interner {
     #[tracing::instrument(skip(self), level = "debug")]
     pub(crate) fn record_monomorphization(
         &mut self,
-        def_path: symtab::RawPath,
+        def_path: symtab::TypePath,
         generic_params: ParamSubstMap,
     ) -> Result<Semantic, symtab::SymbolError> {
         let instances = match self.generic_instances.get_mut(&def_path) {
             Some(i) => Ok(i),
             None => {
                 trace::trace!("no generic instances exist for defpath {:?}", def_path);
-                Err(symtab::SymbolError::Undefined(def_path.clone()))
+                Err(symtab::SymbolError::UndefinedType(def_path.clone()))
             }
         }?;
 
@@ -153,8 +151,8 @@ impl Interner {
 
     pub(crate) fn all_monomorphizations(
         &self,
-    ) -> HashMap<symtab::RawPath, HashSet<Vec<&ParamSubst>>> {
-        let mut instances = HashMap::<symtab::RawPath, HashSet<Vec<&ParamSubst>>>::new();
+    ) -> HashMap<symtab::TypePath, HashSet<Vec<&ParamSubst>>> {
+        let mut instances = HashMap::<symtab::TypePath, HashSet<Vec<&ParamSubst>>>::new();
 
         for (path, instance_set) in &self.generic_instances {
             let mut queue = Vec::new();

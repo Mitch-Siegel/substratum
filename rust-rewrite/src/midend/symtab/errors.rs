@@ -6,8 +6,10 @@ pub(crate) enum SymbolError {
     // undeclared/undefined errors?
     Undeclared(RawPath),
     Undefined(RawPath),
+    UndefinedType(TypePath),
     AlreadyDeclared(RawPath),
     AlreadyDefined(RawPath),
+    TypeAlreadyDefined(TypePath),
     PathError(PathError),
 }
 
@@ -21,9 +23,11 @@ impl std::fmt::Display for SymbolError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Undefined(path) => write!(f, "undefined symbol {}", path),
+            Self::UndefinedType(path) => write!(f, "undefined type {}", path),
             Self::Undeclared(path) => write!(f, "undeclared symbol {}", path),
             Self::AlreadyDeclared(path) => write!(f, "DefPath {} is already declared", path),
             Self::AlreadyDefined(path) => write!(f, "DefPath {} is already defined", path),
+            Self::TypeAlreadyDefined(path) => write!(f, "type {} is already defined", path),
             Self::PathError(pe) => {
                 write!(f, "{}", pe)
             }
