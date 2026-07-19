@@ -24,6 +24,29 @@ pub(crate) use types::Type;
 pub(crate) use values::Value;
 pub(crate) use visitor::*;
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum UseBinding {
+    OriginalName,
+    AsName(String),
+    Multiple(Vec<Box<UseBinding>>),
+    Glob,
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct UseDeclaration {
+    target_path: RawPath,
+    local_binding: UseBinding,
+}
+
+impl UseDeclaration {
+    pub(crate) fn new_original_name(target_path: RawPath) -> Self {
+        Self {
+            target_path,
+            local_binding: UseBinding::OriginalName,
+        }
+    }
+}
+
 pub(crate) trait SymtabBase {
     fn insert(
         &mut self,
@@ -34,6 +57,10 @@ pub(crate) trait SymtabBase {
     fn lookup_at(&self, path: &RawPath) -> Result<Option<&SymbolDef>, SymbolError>;
 
     fn lookup_at_mut(&mut self, path: &RawPath) -> Result<Option<&mut SymbolDef>, SymbolError>;
+
+    fn insert_use_declaration(&mut self, path: RawPath, use_declaration: UseDeclaration);
+
+    fn get_use_declarations_at(&self, path: &RawPath) -> Option<&BTreeSet<UseDeclaration>>;
 }
 
 mod private {
@@ -94,6 +121,32 @@ mod private {
             }
         }
 
+        fn try_resolve_use(&self, use_: &UseDeclaration, lookup_path: &RawPath) -> Option<RawPath> {
+            println!("WOWIE ZOWIE: {:?}", use_);
+            match &use_.local_binding {
+                UseBinding::OriginalName => {
+                    if use_.target_path == *lookup_path {
+                        Some(lookup_path.clone())
+                    } else {
+                        None
+                    }
+                }
+                UseBinding::AsName(use_as_name) => {
+                    if lookup_path.len() == 1 && lookup_path.last().to_string() == *use_as_name {
+                        Some(use_.target_path.clone())
+                    } else {
+                        None
+                    }
+                }
+                UseBinding::Multiple(_used) => {
+                    unimplemented!();
+                }
+                UseBinding::Glob => {
+                    unimplemented!();
+                }
+            }
+        }
+
         fn lookup_decl(
             &self,
             search_path: RawPath,
@@ -109,14 +162,25 @@ mod private {
                     .chain(lookup_segments.to_owned())
                     .collect::<Vec<_>>();
                 let search_path = RawPath::new(all_prefix_segments, symbol_segment.to_owned());
+
+                // lookup directly at
                 match self.lookup_at(&search_path) {
                     Ok(Some(_)) | Ok(None) => {
                         return Ok(search_path);
                     }
-                    Err(_) => {
-                        search_segments.pop().unwrap();
+                    Err(_) => {}
+                }
+
+                if let Some(use_directives) = self.get_use_declarations_at(&search_path) {
+                    for use_ in use_directives {
+                        match self.try_resolve_use(use_, &search_path) {
+                            Some(path) => return Ok(path),
+                            None => (),
+                        }
                     }
                 }
+
+                search_segments.pop().unwrap();
             }
 
             Err(SymbolError::Undeclared(lookup_path))
@@ -296,6 +360,7 @@ pub(crate) struct SymbolTable {
     children: BTreeMap<RawPath, HashSet<RawPath>>,
     // mapping from type definitions to implementations that match them
     impls: BTreeMap<TypePath, HashSet<ImplPath>>,
+    use_declarations: BTreeMap<RawPath, BTreeSet<UseDeclaration>>,
 }
 
 impl Default for SymbolTable {
@@ -305,6 +370,7 @@ impl Default for SymbolTable {
             symbols: BTreeMap::new(),
             children: BTreeMap::new(),
             impls: BTreeMap::new(),
+            use_declarations: BTreeMap::new(),
         }
     }
 }
@@ -403,6 +469,17 @@ impl SymtabBase for SymbolTable {
             Some(maybe_symbol) => Ok(maybe_symbol.as_mut()),
             None => Err(SymbolError::Undeclared(path.clone())),
         }
+    }
+
+    fn insert_use_declaration(&mut self, path: RawPath, use_declaration: UseDeclaration) {
+        self.use_declarations
+            .entry(path)
+            .or_default()
+            .insert(use_declaration);
+    }
+
+    fn get_use_declarations_at(&self, path: &RawPath) -> Option<&BTreeSet<UseDeclaration>> {
+        self.use_declarations.get(path)
     }
 }
 

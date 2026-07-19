@@ -96,6 +96,21 @@ impl symtab::SymtabBase for UnpathedFunctionLinearizeCtx {
     ) -> Result<Option<&mut symtab::SymbolDef>, symtab::SymbolError> {
         self.base.lookup_at_mut(path)
     }
+
+    fn insert_use_declaration(
+        &mut self,
+        path: symtab::RawPath,
+        use_declaration: symtab::UseDeclaration,
+    ) {
+        self.base.insert_use_declaration(path, use_declaration);
+    }
+
+    fn get_use_declarations_at(
+        &self,
+        path: &symtab::RawPath,
+    ) -> Option<&BTreeSet<symtab::UseDeclaration>> {
+        self.base.get_use_declarations_at(path)
+    }
 }
 
 impl symtab::Symtab for UnpathedFunctionLinearizeCtx {

@@ -26,27 +26,5 @@ fn create_core_types(symtab: &mut SymbolTable) {
 }
 
 pub(crate) fn create_core(symtab: &mut SymbolTable) {
-    /*
-    let core_module_path = symtab
-        .insert(DefPath::empty(), Module::new("core".into()))
-        .unwrap();
-    symtab
-        .insert(
-            core_module_path,
-            Import::new(
-                "core".into(),
-                DefPath::empty()
-                    .with_component(
-                        ModuleName {
-                            name: "core".into(),
-                        }
-                        .into(),
-                    )
-                    .unwrap(),
-            ),
-        )
-        .unwrap();
-    */
-
     create_core_types(symtab);
 }

@@ -1,7 +1,7 @@
 use crate::{
     frontend::ast::*,
     midend::{
-        symtab::{self, TypeOwner},
+        symtab::{self, SymtabBase, TypeOwner},
         treewalk::{self, Collect, Linearize, PathedCtxTrait, UnpathedCtxTrait},
     },
     trace,

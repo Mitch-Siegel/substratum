@@ -53,6 +53,21 @@ impl symtab::SymtabBase for UnpathedCollectCtx {
     ) -> Result<Option<&mut symtab::SymbolDef>, symtab::SymbolError> {
         self.symtab.lookup_at_mut(path)
     }
+
+    fn insert_use_declaration(
+        &mut self,
+        path: symtab::RawPath,
+        use_declaration: symtab::UseDeclaration,
+    ) {
+        self.symtab.insert_use_declaration(path, use_declaration);
+    }
+
+    fn get_use_declarations_at(
+        &self,
+        path: &symtab::RawPath,
+    ) -> Option<&BTreeSet<symtab::UseDeclaration>> {
+        self.symtab.get_use_declarations_at(path)
+    }
 }
 
 impl symtab::Symtab for UnpathedCollectCtx {

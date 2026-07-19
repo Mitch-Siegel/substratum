@@ -1,7 +1,7 @@
 use crate::{
     frontend,
     midend::{
-        symtab::{self, Path, Symbol, Symtab, TypeOwner, ValueOwner},
+        symtab::{self, Path, Symbol, Symtab, SymtabBase, TypeOwner, ValueOwner},
         types::ParamSubstMap,
         *,
     },
@@ -104,6 +104,12 @@ pub(crate) trait PathedCtxTrait: std::fmt::Debug {
         unimplemented!()
         // let for_type = self.unpathed_mut().semantic_type_for_syntactic(search_def_path, ParamSubstMap::empty(), for_type)?;
         // self.unpathed_mut().create_impl(self.path().clone().into(), for_type)
+    }
+
+    fn insert_use_declaration(&mut self, use_declaration: symtab::UseDeclaration) {
+        let path: symtab::RawPath = self.path().clone().into();
+        self.unpathed_mut()
+            .insert_use_declaration(path, use_declaration);
     }
 }
 
