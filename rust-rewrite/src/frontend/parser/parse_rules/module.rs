@@ -2,7 +2,7 @@ use crate::frontend::parser::parse_rules::*;
 #[derive(Debug)]
 pub(crate) struct ModuleResult {
     pub(crate) module_tree: ModuleTree,
-    pub(crate) module_worklist: BTreeSet<String>,
+    pub(crate) module_worklist: BTreeSet<WorklistItem>,
 }
 
 impl<'a, 'p> ModuleParser<'a, 'p> {
@@ -17,7 +17,7 @@ impl<'a, 'p> ModuleParser<'a, 'p> {
 
         self.module_parse_stack.push(name.clone());
 
-        let mut module_worklist = BTreeSet::<String>::new();
+        let mut module_worklist = BTreeSet::<WorklistItem>::new();
         let mut items = Vec::<ItemTree>::new();
         loop {
             match self.peek_token()? {

@@ -1,4 +1,9 @@
-use std::collections::{BTreeSet, VecDeque};
+use std::{
+    collections::{BTreeSet, VecDeque},
+    fmt::Display,
+    fs::File,
+    path::{Path, PathBuf},
+};
 
 use crate::{
     frontend::{
@@ -240,12 +245,6 @@ impl<'a> Parser<'a> {
         module_name: String,
         crate_name: &str,
     ) -> Result<parse_rules::module::ModuleResult, ParseError> {
-        let contents_crate_name = if module_name == crate_name {
-            None
-        } else {
-            Some(String::from(crate_name))
-        };
-
         let module_name_tree = ast::IdentifierTree {
             loc: mod_keyword_loc.clone(),
             value: module_name,
@@ -255,9 +254,179 @@ impl<'a> Parser<'a> {
             mod_keyword_loc,
             parent_module_path,
             module_name_tree,
-            &contents_crate_name,
+            &Some(String::from(crate_name)),
         )
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+pub(in crate::frontend) struct WorklistItem {
+    module_name: String,
+    parent_modules: Vec<String>,
+}
+
+impl WorklistItem {
+    fn new(module_name: String, parent_modules: Vec<String>) -> Self {
+        Self {
+            module_name,
+            parent_modules,
+        }
+    }
+}
+
+impl Display for WorklistItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.parent_modules
+                .iter()
+                .chain(std::iter::once(&self.module_name))
+                .cloned()
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
+    }
+}
+
+fn file_path_to_module_name<'a>(
+    filepath_to_parse: &'a std::path::Path,
+    crate_path: &std::path::PathBuf,
+) -> (String, &'a std::path::Path) {
+    let stem: String = filepath_to_parse
+        .file_stem()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .into();
+    let module_name: String = match stem.as_str() {
+        "mod" | "lib" => filepath_to_parse.parent().unwrap().to_str().unwrap().into(),
+        _ => stem,
+    };
+    (
+        module_name,
+        filepath_to_parse
+            .strip_prefix(crate_path)
+            .unwrap()
+            .parent()
+            .unwrap_or(std::path::Path::new("")),
+    )
+}
+
+fn lex_and_parse_file(
+    crate_name: &str,
+    name: String,
+    path: &Path,
+    file: File,
+) -> Result<ModuleResult, ParseError> {
+    let lexer = Lexer::from_file(path, file);
+
+    let lexer_start_loc = lexer.current_loc();
+
+    let mut parser = Parser::new(name.clone(), path, lexer);
+
+    parser.parse(lexer_start_loc.into(), path, name, crate_name)
+}
+
+#[derive(Debug)]
+enum FindParseModuleError {
+    ModuleNotFound(String),
+    ParseError(ParseError),
+}
+
+impl Display for FindParseModuleError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ModuleNotFound(name) => write!(f, "unable to find module {}", name),
+            Self::ParseError(e) => write!(f, "parse error: {}", e),
+        }
+    }
+}
+
+impl From<ParseError> for FindParseModuleError {
+    fn from(value: ParseError) -> Self {
+        Self::ParseError(value)
+    }
+}
+
+fn find_and_parse_module(
+    item: WorklistItem,
+    crate_name: &str,
+    crate_path: &PathBuf,
+    allow_subdir: bool,
+) -> Result<ModuleResult, FindParseModuleError> {
+    let parent_module_path: PathBuf = item.parent_modules.iter().collect();
+    let full_parent_path = crate_path.clone().join(parent_module_path.clone());
+
+    let direct_mod_path = full_parent_path
+        .clone()
+        .join(item.module_name.clone())
+        .with_extension("sb");
+    println!("trying direct mod path: {:?}", direct_mod_path);
+    if let Ok(infile) = File::open(direct_mod_path) {
+        return Ok(lex_and_parse_file(
+            crate_name,
+            item.module_name,
+            &parent_module_path,
+            infile,
+        )?);
+    }
+
+    if allow_subdir {
+        let subdir_path: PathBuf = vec![item.module_name.clone(), String::from("mod.sb")]
+            .iter()
+            .collect();
+
+        let subdir_mod_path = full_parent_path.clone().join(subdir_path);
+
+        if let Ok(infile) = File::open(subdir_mod_path) {
+            return Ok(lex_and_parse_file(
+                crate_name,
+                item.module_name,
+                &parent_module_path,
+                infile,
+            )?);
+        }
+    }
+
+    return Err(FindParseModuleError::ModuleNotFound(item.module_name));
+}
+
+pub(crate) fn parse_crate(
+    crate_name: &str,
+    bin_name: &str,
+    crate_path: PathBuf,
+) -> Result<BTreeSet<ast::ModuleTree>, ParseError> {
+    let mut modules = BTreeSet::new();
+    let mut worklist = BTreeSet::<WorklistItem>::new();
+
+    let ModuleResult {
+        module_tree,
+        module_worklist,
+    } = find_and_parse_module(
+        WorklistItem::new(String::from(bin_name), vec![]),
+        crate_name,
+        &crate_path,
+        false,
+    )
+    .expect("error parsing crate root ");
+    modules.insert(module_tree);
+    worklist.extend(module_worklist.into_iter());
+
+    while let Some(worklist_item) = worklist.pop_last() {
+        let module_name = worklist_item.module_name.clone();
+        let ModuleResult {
+            module_tree,
+            mut module_worklist,
+        } = find_and_parse_module(worklist_item, crate_name, &crate_path, true)
+            .unwrap_or_else(|e| panic!("Error in file {}: {}", module_name, e));
+
+        worklist.append(&mut module_worklist);
+
+        assert!(modules.insert(module_tree));
+    }
+
+    Ok(modules)
 }
 
 #[cfg(test)]

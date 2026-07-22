@@ -45,6 +45,14 @@ arg_struct! {
             config.crate_name = args.next().expect("expected a value");
             true
         },
+        "-crate-path" => crate_path: std::path::PathBuf where default = std::env::current_dir().expect("unable to get working directory"), parse_fn = &mut |config, args| {
+            config.crate_path = args.next().expect("expected a value").into();
+            true
+        },
+        "-bin" => bin_name: String where default = String::from("main"), parse_fn = &mut |config, args| {
+            config.bin_name = args.next().expect("expected a value");
+            true
+        },
         "-trace-file" => trace_file: Option<String> where default = None, parse_fn = &mut |config, args| {
             config.trace_file = Some(args.next().expect("expected a value"));
             true

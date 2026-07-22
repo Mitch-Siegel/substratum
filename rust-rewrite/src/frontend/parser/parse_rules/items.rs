@@ -48,14 +48,21 @@ impl<'a, 'p> ItemParser<'a, 'p> {
 
                         let worklist_string: String = current_parsing_module_path
                             .clone()
-                            .join(module_name.value)
+                            .join(module_name.value.clone())
                             .to_str()
                             .unwrap()
                             .into();
                         trace::debug!("Add module worklist string: \"{}\"", worklist_string);
 
-                        let child_worklist: BTreeSet<String> =
-                            std::iter::once(worklist_string).collect();
+                        let child_worklist: BTreeSet<WorklistItem> =
+                            std::iter::once(WorklistItem::new(
+                                module_name.value,
+                                current_parsing_module_path
+                                    .iter()
+                                    .map(|os_str| String::from(os_str.to_str().unwrap()))
+                                    .collect(),
+                            ))
+                            .collect();
                         self.expect_token(Token::Semicolon)?;
                         Ok(ItemTree::Module((Err(mod_loc), child_worklist)))
                     }

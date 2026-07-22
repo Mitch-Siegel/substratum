@@ -1,5 +1,5 @@
 use crate::{
-    frontend::ast::*,
+    frontend::{ast::*, parser::WorklistItem},
     midend::{
         symtab,
         treewalk::{self, PathedCtxTrait},
@@ -24,10 +24,11 @@ pub(crate) enum ItemTree {
     StructDefinition(StructDefinitionTree),
     EnumDefinition(EnumDefinitionTree),
     Implementation(ImplementationTree),
+    // TODO: why is this in the AST? can't this just get returned from the parsing logic?
     Module(
         (
             Result<module::ModuleTree, sourceloc::SourceSpan>,
-            BTreeSet<String>,
+            BTreeSet<WorklistItem>,
         ),
     ),
 }
