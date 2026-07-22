@@ -83,8 +83,9 @@ impl Ast for FunctionDeclarationTree {
 impl midend::treewalk::Collect<TypePath> for FunctionDeclarationTree {
     fn collect_inner(
         &self,
-        mut ctx: midend::treewalk::TypeCollectCtx,
+        ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
+        let mut ctx = ctx.with_child_value(self.name.value.clone());
         for arg in &self.arguments {
             ctx.declare_value(arg.name.value.clone())?;
         }
