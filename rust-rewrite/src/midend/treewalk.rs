@@ -304,6 +304,17 @@ pub(crate) fn walk(
         println!("{}", decl);
     }
 
+    for (path, uses) in symtab.uses() {
+        println!(
+            "{}: {}",
+            path,
+            uses.iter()
+                .map(|use_| format!("{}", use_))
+                .collect::<Vec<String>>()
+                .join(",\n\t")
+        );
+    }
+
     trace::debug!("linearize");
 
     for module in program {

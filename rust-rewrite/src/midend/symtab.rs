@@ -32,6 +32,25 @@ enum UseBinding {
     Glob,
 }
 
+impl std::fmt::Display for UseBinding {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UseBinding::OriginalName => Ok(()),
+            UseBinding::AsName(as_) => write!(f, " as {}", as_),
+            UseBinding::Multiple(multiples) => write!(
+                f,
+                "::{{{}}}",
+                multiples
+                    .iter()
+                    .map(|other| format!("{}", other))
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
+            UseBinding::Glob => write!(f, "::*"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct UseDeclaration {
     target_path: RawPath,
@@ -39,11 +58,17 @@ pub(crate) struct UseDeclaration {
 }
 
 impl UseDeclaration {
-    pub(crate) fn new_original_name(target_path: RawPath) -> Self {
+    pub(crate) fn new_original_name(target_path: impl Path) -> Self {
         Self {
-            target_path,
+            target_path: target_path.into(),
             local_binding: UseBinding::OriginalName,
         }
+    }
+}
+
+impl std::fmt::Display for UseDeclaration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "use {}{}", self.target_path, self.local_binding)
     }
 }
 
@@ -122,10 +147,9 @@ mod private {
         }
 
         fn try_resolve_use(&self, use_: &UseDeclaration, lookup_path: &RawPath) -> Option<RawPath> {
-            println!("WOWIE ZOWIE: {:?}", use_);
             match &use_.local_binding {
                 UseBinding::OriginalName => {
-                    if use_.target_path == *lookup_path {
+                    if use_.target_path.last() == lookup_path.last() {
                         Some(lookup_path.clone())
                     } else {
                         None
@@ -161,19 +185,20 @@ mod private {
                     .into_iter()
                     .chain(lookup_segments.to_owned())
                     .collect::<Vec<_>>();
-                let search_path = RawPath::new(all_prefix_segments, symbol_segment.to_owned());
+                let full_search_path = RawPath::new(all_prefix_segments, symbol_segment.to_owned());
 
                 // lookup directly at
-                match self.lookup_at(&search_path) {
+                match self.lookup_at(&full_search_path) {
                     Ok(Some(_)) | Ok(None) => {
-                        return Ok(search_path);
+                        return Ok(full_search_path);
                     }
                     Err(_) => {}
                 }
 
-                if let Some(use_directives) = self.get_use_declarations_at(&search_path) {
+                let search_parent_path = full_search_path.clone().split_last().0.unwrap();
+                if let Some(use_directives) = self.get_use_declarations_at(&search_parent_path) {
                     for use_ in use_directives {
-                        match self.try_resolve_use(use_, &search_path) {
+                        match self.try_resolve_use(use_, &lookup_path) {
                             Some(path) => return Ok(path),
                             None => (),
                         }
@@ -419,6 +444,10 @@ impl SymbolTable {
         self.symbols
             .iter_mut()
             .filter_map(|(path, maybe_def)| maybe_def.as_mut().map(|def| (path, def)))
+    }
+
+    pub(crate) fn uses(&self) -> impl Iterator<Item = (&RawPath, &BTreeSet<UseDeclaration>)> {
+        self.use_declarations.iter()
     }
 }
 
