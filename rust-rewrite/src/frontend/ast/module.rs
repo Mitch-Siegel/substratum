@@ -46,17 +46,6 @@ impl ModuleTree {
             self.name.value.clone(),
         ));
 
-        // cheesily add uses for intrinsic types
-        // TODO: figure out a more elegant way to handle this
-        let core_module_path =
-            symtab::TypePath::new(None::<symtab::TypePath>, String::from("core"));
-
-        for intrinsic_name in vec!["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "()"] {
-            module_ctx.insert_use_declaration(symtab::UseDeclaration::new_original_name(
-                symtab::TypePath::new(Some(core_module_path.clone()), String::from(intrinsic_name)),
-            ));
-        }
-
         for item in &self.items {
             module_ctx = item.collect_symbols(module_ctx)?;
         }

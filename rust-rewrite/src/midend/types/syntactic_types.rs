@@ -17,7 +17,10 @@ pub(crate) enum Syntactic {
     Reference(Mutability, Box<Syntactic>),
     Pointer(Mutability, Box<Syntactic>),
     Tuple(Vec<Option<Syntactic>>),
-    Function(Vec<Syntactic>, Box<Syntactic>), // (arguments, return_type)
+    Function {
+        args: Vec<Syntactic>,
+        ret_ty: Box<Syntactic>,
+    }, // (arguments, return_type)
 }
 
 impl Syntactic {
@@ -64,12 +67,12 @@ impl Display for Syntactic {
                 }
                 write!(f, ")")
             }
-            Self::Function(args, return_type) => {
+            Self::Function { args, ret_ty } => {
                 write!(f, "fn(")?;
                 for arg in args {
                     write!(f, "{}, ", arg)?;
                 }
-                write!(f, ") -> {}", return_type)
+                write!(f, ") -> {}", ret_ty)
             }
         }
     }

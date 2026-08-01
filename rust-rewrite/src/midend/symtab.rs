@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashSet};
 
 use crate::{
-    midend::{self, *},
+    midend::{self, types as midend_types, *},
     trace,
 };
 pub(crate) use errors::*;
@@ -9,7 +9,6 @@ pub(crate) use errors::*;
 mod def_path;
 
 mod errors;
-pub(crate) mod intrinsics;
 pub(crate) mod symbols;
 pub(crate) mod visitor;
 
@@ -418,7 +417,6 @@ impl std::fmt::Debug for SymbolTable {
 impl SymbolTable {
     pub(crate) fn new() -> Self {
         let mut symtab = Self::default();
-        intrinsics::create_core(&mut symtab);
 
         symtab
     }
@@ -532,19 +530,42 @@ impl Symtab for SymbolTable {
     fn semantic_type_for_syntactic(
         &self,
         search_path: &impl Path,
-        generic_params: midend::types::ParamSubstMap,
-        ty_: &midend::types::Syntactic,
-    ) -> Result<midend::types::Semantic, SymbolError> {
-        let path = self.lookup_type_decl(search_path, TypeSegment(ty_.to_string()))?;
-        trace::trace!(
-            "found definition of syntactic type {} at defpath {}",
-            ty_,
-            path
-        );
-        Ok(self
-            .types
-            .semantic_for_defpath(path, generic_params)
-            .unwrap())
+        generic_params: midend_types::ParamSubstMap,
+        ty_: &midend_types::Syntactic,
+    ) -> Result<midend_types::Semantic, SymbolError> {
+        match ty_ {
+            midend_types::Syntactic::Unit => Ok(midend_types::Semantic::Unit),
+            midend_types::Syntactic::U8 => Ok(midend_types::Semantic::U8),
+            midend_types::Syntactic::U16 => Ok(midend_types::Semantic::U16),
+            midend_types::Syntactic::U32 => Ok(midend_types::Semantic::U32),
+            midend_types::Syntactic::U64 => Ok(midend_types::Semantic::U64),
+            midend_types::Syntactic::I8 => Ok(midend_types::Semantic::I8),
+            midend_types::Syntactic::I16 => Ok(midend_types::Semantic::I16),
+            midend_types::Syntactic::I32 => Ok(midend_types::Semantic::I32),
+            midend_types::Syntactic::I64 => Ok(midend_types::Semantic::I64),
+            midend_types::Syntactic::GenericParam(name) | midend_types::Syntactic::Named(name) => {
+                let path = self.lookup_type_decl(search_path, TypeSegment(name.clone()))?;
+                trace::trace!(
+                    "found definition of syntactic type {} at defpath {}",
+                    ty_,
+                    path
+                );
+                Ok(self
+                    .types
+                    .semantic_for_defpath(path, generic_params)
+                    .unwrap())
+            }
+            midend_types::Syntactic::_Self => unimplemented!("semantic type for Self"),
+            midend_types::Syntactic::Reference(_, _) => {
+                unimplemented!("semantic type for reference")
+            }
+            midend_types::Syntactic::Pointer(_, _) => unimplemented!("semantic type for pointer"),
+            midend_types::Syntactic::Tuple(_) => unimplemented!("semantic type for tuple"),
+            midend_types::Syntactic::Function {
+                args: _args,
+                ret_ty: _ret_ty,
+            } => unimplemented!("semantic type for function"),
+        }
     }
 }
 

@@ -64,7 +64,7 @@ impl
         let (syntactic, generic_params, def_path, symtab) = value;
 
         match &syntactic {
-            Syntactic::Function(args, return_type) => {
+            Syntactic::Function { args, ret_ty } => {
                 let mut semantic_args = Vec::<Semantic>::new();
                 for arg in args.iter() {
                     match symtab.semantic_type_for_syntactic(def_path, generic_params.clone(), arg)
@@ -75,12 +75,9 @@ impl
                 }
 
                 let semantic_return_type =
-                    match symtab.semantic_type_for_syntactic(def_path, generic_params, return_type)
-                    {
+                    match symtab.semantic_type_for_syntactic(def_path, generic_params, ret_ty) {
                         Ok(ty_) => ty_,
-                        _ => Err(SemanticFunctionError::UnresolvableType(
-                            *return_type.clone(),
-                        ))?,
+                        _ => Err(SemanticFunctionError::UnresolvableType(*ret_ty.clone()))?,
                     };
 
                 Ok(Self::new(syntactic, semantic_args, semantic_return_type))

@@ -50,7 +50,7 @@ impl Interner {
     }
 
     fn next_id(&self) -> Semantic {
-        Semantic {
+        Semantic::UserDefined {
             id: self.id_mappings.len(),
         }
     }
