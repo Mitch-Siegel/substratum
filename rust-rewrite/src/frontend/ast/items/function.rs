@@ -219,14 +219,14 @@ where
         (declared_prototype, ctx) = self.prototype.linearize(ctx)?;
         let function_name = declared_prototype.name.clone();
 
-        // unimplemented!("generate function linearize ctx here");
-        let function_path = ctx.path().clone().with_child_value(function_name);
+        let function_path = ctx.path().clone().with_child_value(function_name.clone());
         let unit_type = ctx.semantic_type_for_syntactic(&midend::types::Syntactic::Unit)?;
         let arg_def_paths = declared_prototype
             .arguments
             .iter()
             .map(|arg| function_path.clone().with_child_value(arg.name.clone()))
             .collect();
+
         let unpathed_function_ctx = treewalk::UnpathedFunctionLinearizeCtx::new(
             ctx,
             declared_prototype,

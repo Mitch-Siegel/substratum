@@ -170,8 +170,9 @@ pub(crate) trait Path:
         &self[self.len() - 1]
     }
 
+    /// TRUE if self is a prefix of other OR self == other
     fn is_prefix_of(&self, other: &impl Path) -> bool {
-        if self.len() >= other.len() {
+        if self.len() > other.len() {
             return false;
         }
 
