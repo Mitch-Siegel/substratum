@@ -6,11 +6,7 @@ use operands::*;
 #[allow(unused)]
 #[enum_delegate::register]
 pub(crate) trait Lowerable {
-    fn lower<P: symtab::Path>(
-        self,
-        context: &mut treewalk::FunctionLinearizeCtx<P>,
-        loc: SourceLoc,
-    );
+    fn lower(self, context: &mut treewalk::FunctionLinearizeCtx, loc: SourceLoc);
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

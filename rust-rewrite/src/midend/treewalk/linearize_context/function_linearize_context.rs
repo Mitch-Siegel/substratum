@@ -1,9 +1,9 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use crate::{
     frontend::sourceloc::SourceLoc,
     midend::{
-        symtab::Path,
+        symtab::{Path, Symtab, SymtabBase},
         treewalk::{
             PathedCtx, PathedCtxTrait, UnpathedCtxTrait, UnpathedLinearizeCtx,
             UnpathedLinearizeCtxTrait,
@@ -12,6 +12,18 @@ use crate::{
     },
     trace,
 };
+
+struct BlockIdMgr {
+    ids: BTreeMap<symtab::ScopeId, Box<BlockIdMgr>>,
+}
+
+impl BlockIdMgr {
+    fn new() -> Self {
+        Self {
+            ids: BTreeMap::new(),
+        }
+    }
+}
 
 pub(crate) struct UnpathedFunctionLinearizeCtx {
     base: UnpathedLinearizeCtx,
@@ -38,6 +50,33 @@ impl UnpathedFunctionLinearizeCtx {
             function_path: function_path.clone(),
             function: WipFunction::new(prototype, function_path, unit_type, arg_def_paths),
         }
+    }
+
+    pub(crate) fn reserve_subscope(
+        &mut self,
+        parent_path: &impl symtab::ScopeOwner,
+    ) -> symtab::ScopePath {
+        let next_subscope_index = self
+            .children_of_path(parent_path)
+            .into_iter()
+            .filter(|path| match path.last() {
+                symtab::PathSegment::Scope(_) => true,
+                _ => false,
+            })
+            .count();
+
+        let reserved_scope_id = symtab::ScopeId(next_subscope_index);
+
+        self.declare_scope(parent_path.clone().with_child_scope(reserved_scope_id))
+            .unwrap()
+    }
+
+    pub(crate) fn into_pathed_ctx(
+        mut self,
+        function_path: symtab::ValuePath,
+    ) -> PathedCtx<Self, symtab::ScopePath> {
+        let main_scope = self.reserve_subscope(&function_path);
+        self.with_path(main_scope)
     }
 
     pub(crate) fn finalize<P>(
@@ -80,6 +119,7 @@ impl symtab::SymtabBase for UnpathedFunctionLinearizeCtx {
         path: symtab::RawPath,
         maybe_symbol: Option<symtab::SymbolDef>,
     ) -> Result<symtab::RawPath, symtab::SymbolError> {
+        assert!(self.function_path.is_prefix_of(&path));
         self.base.insert(path, maybe_symbol)
     }
 
@@ -87,6 +127,7 @@ impl symtab::SymtabBase for UnpathedFunctionLinearizeCtx {
         &self,
         path: &symtab::RawPath,
     ) -> Result<Option<&symtab::SymbolDef>, symtab::SymbolError> {
+        assert!(self.function_path.is_prefix_of(path));
         self.base.lookup_at(path)
     }
 
@@ -94,6 +135,7 @@ impl symtab::SymtabBase for UnpathedFunctionLinearizeCtx {
         &mut self,
         path: &symtab::RawPath,
     ) -> Result<Option<&mut symtab::SymbolDef>, symtab::SymbolError> {
+        assert!(self.function_path.is_prefix_of(path));
         self.base.lookup_at_mut(path)
     }
 
@@ -102,6 +144,7 @@ impl symtab::SymtabBase for UnpathedFunctionLinearizeCtx {
         path: symtab::RawPath,
         use_declaration: symtab::UseDeclaration,
     ) {
+        assert!(self.function_path.is_prefix_of(&path));
         self.base.insert_use_declaration(path, use_declaration);
     }
 
@@ -109,7 +152,13 @@ impl symtab::SymtabBase for UnpathedFunctionLinearizeCtx {
         &self,
         path: &symtab::RawPath,
     ) -> Option<&BTreeSet<symtab::UseDeclaration>> {
+        assert!(self.function_path.is_prefix_of(path));
         self.base.get_use_declarations_at(path)
+    }
+
+    fn children_of_path(&self, path: &impl symtab::Path) -> BTreeSet<symtab::RawPath> {
+        assert!(self.function_path.is_prefix_of(path));
+        self.base.children_of_path(path)
     }
 }
 
@@ -144,6 +193,7 @@ pub(crate) struct WipFunction {
     prototype: symtab::values::FunctionPrototype,
     block_manager: ir::BlockManager,
     current_block: usize,
+    // subscope_hierarchy: Vec<usize>,
 }
 
 impl WipFunction {
@@ -197,7 +247,7 @@ impl WipFunction {
         self.block_manager.get_mut(&old_current).unwrap()
     }
 
-    fn set_current_block(&mut self, label: usize) -> &symtab::ValuePath {
+    fn set_current_block(&mut self, label: usize) -> &symtab::ScopePath {
         // sanity check - look up the block to ensure it exists
         self.block_manager.get_mut(&label).unwrap();
 
@@ -242,8 +292,8 @@ impl WipFunction {
     pub(crate) fn unconditional_branch_from_current(
         &mut self,
         loc: SourceLoc,
-        parent_scope_def_path: symtab::ValuePath,
-        true_scope_def_path: symtab::ValuePath,
+        parent_scope_def_path: symtab::ScopePath,
+        true_scope_def_path: symtab::ScopePath,
     ) -> Result<(), ir::block_manager::BranchError> {
         trace::debug!("create unconditional branch from current block");
 
@@ -269,9 +319,9 @@ impl WipFunction {
         &mut self,
         loc: SourceLoc,
         condition: ir::lowered::operands::JumpCondition,
-        parent_scope_def_path: symtab::ValuePath,
-        true_scope_def_path: symtab::ValuePath,
-        false_scope_def_path: symtab::ValuePath,
+        parent_scope_def_path: symtab::ScopePath,
+        true_scope_def_path: symtab::ScopePath,
+        false_scope_def_path: symtab::ScopePath,
     ) -> Result<(), ir::block_manager::BranchError> {
         trace::debug!("create conditional branch from current block");
 
@@ -294,8 +344,8 @@ impl WipFunction {
     pub(crate) fn create_loop(
         &mut self,
         loc: SourceLoc,
-        parent_scope_def_path: symtab::ValuePath,
-        loop_scope_def_path: symtab::ValuePath,
+        parent_scope_def_path: symtab::ScopePath,
+        loop_scope_def_path: symtab::ScopePath,
     ) -> Result<usize, ir::block_manager::BranchError> {
         trace::debug!("create loop");
 
@@ -337,8 +387,8 @@ impl WipFunction {
     pub(crate) fn create_switch(
         &mut self,
         loc: SourceLoc,
-        parent_scope_def_path: symtab::ValuePath,
-        switch_scope_def_path: symtab::ValuePath,
+        parent_scope_def_path: symtab::ScopePath,
+        switch_scope_def_path: symtab::ScopePath,
     ) -> Result<(), ir::block_manager::BranchError> {
         let switch_block = self.block_manager.create_switch(
             self.current_block,
@@ -355,7 +405,7 @@ impl WipFunction {
     // returns the label of the first block in the case
     pub(crate) fn create_switch_case(
         &mut self,
-        case_scope_def_path: symtab::ValuePath,
+        case_scope_def_path: symtab::ScopePath,
     ) -> Result<usize, ir::block_manager::BranchError> {
         let case_label = self
             .block_manager

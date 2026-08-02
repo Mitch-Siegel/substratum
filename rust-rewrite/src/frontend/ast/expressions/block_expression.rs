@@ -45,15 +45,15 @@ impl midend::treewalk::Collect<ValuePath> for BlockExpressionTree {
 impl
     treewalk::Linearize<
         treewalk::UnpathedFunctionLinearizeCtx,
-        ValuePath,
-        treewalk::ValueFunctionLinearizeCtx,
+        symtab::ScopePath,
+        treewalk::FunctionLinearizeCtx,
     > for BlockExpressionTree
 {
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         mut self,
-        mut ctx: treewalk::ValueFunctionLinearizeCtx,
+        mut ctx: treewalk::FunctionLinearizeCtx,
     ) -> treewalk::LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
         let parent_def_path = ctx.path().clone();
         let true_scope_def_path = ctx.reserve_subscope();

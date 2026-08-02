@@ -7,8 +7,8 @@ impl BlockManager {
         &mut self,
         from: usize,
         loc: SourceLoc,
-        parent_def_path: symtab::ValuePath,
-        true_def_path: symtab::ValuePath,
+        parent_def_path: symtab::ScopePath,
+        true_def_path: symtab::ScopePath,
     ) -> Result<usize, BranchError> {
         self.max_block += 2;
         let true_block = ir::BasicBlock::new(self.max_block - 1, true_def_path);
@@ -47,9 +47,9 @@ impl BlockManager {
         from: usize,
         loc: SourceLoc,
         jump_condition: ir::lowered::operands::JumpCondition,
-        parent_def_path: symtab::ValuePath,
-        true_def_path: symtab::ValuePath,
-        false_def_path: symtab::ValuePath,
+        parent_def_path: symtab::ScopePath,
+        true_def_path: symtab::ScopePath,
+        false_def_path: symtab::ScopePath,
     ) -> Result<usize, BranchError> {
         self.max_block += 3;
         let true_block = ir::BasicBlock::new(self.max_block - 2, true_def_path);
@@ -160,8 +160,8 @@ impl BlockManager {
         &mut self,
         before_loop: usize,
         loc: SourceLoc,
-        parent_def_path: symtab::ValuePath,
-        loop_def_path: symtab::ValuePath,
+        parent_def_path: symtab::ScopePath,
+        loop_def_path: symtab::ScopePath,
     ) -> Result<(usize, usize), BranchError> {
         self.max_block += 3;
         let loop_top = ir::BasicBlock::new(self.max_block - 2, loop_def_path.clone());
@@ -305,8 +305,8 @@ impl BlockManager {
         &mut self,
         before_switch: usize,
         loc: SourceLoc,
-        parent_def_path: symtab::ValuePath,
-        switch_def_path: symtab::ValuePath,
+        parent_def_path: symtab::ScopePath,
+        switch_def_path: symtab::ScopePath,
     ) -> Result<usize, BranchError> {
         self.max_block += 2;
         let switch_block = ir::BasicBlock::new(self.max_block - 1, switch_def_path);
@@ -346,7 +346,7 @@ impl BlockManager {
     pub(crate) fn create_switch_case(
         &mut self,
         switch_label: usize,
-        case_def_path: symtab::ValuePath,
+        case_def_path: symtab::ScopePath,
     ) -> Result<usize, BranchError> {
         // verify that we are in the correct state to create a new arm
         match &self.last_branch()?.kind {

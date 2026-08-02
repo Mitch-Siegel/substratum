@@ -234,7 +234,7 @@ where
             arg_def_paths,
         );
 
-        let function_ctx = unpathed_function_ctx.with_path(function_path);
+        let function_ctx = unpathed_function_ctx.into_pathed_ctx(function_path);
         let (return_value_id, function_ctx) = self.body.linearize(function_ctx)?;
 
         function_ctx.finalize(return_value_id)

@@ -1,4 +1,7 @@
-use crate::{frontend::sourceloc, midend::treewalk::*};
+use crate::{
+    frontend::sourceloc,
+    midend::{symtab::Symtab, treewalk::*},
+};
 
 use std::collections::HashSet;
 
@@ -40,7 +43,7 @@ impl UnpathedLinearizeCtx {
     }
 }
 
-impl<P: symtab::Path> PathedCtx<UnpathedFunctionLinearizeCtx, P> {
+impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
     // pub(crate) fn create_function(
     //     &mut self,
     //     _prototype: symtab::values::function::FunctionPrototype,
@@ -130,26 +133,19 @@ impl<P: symtab::Path> PathedCtx<UnpathedFunctionLinearizeCtx, P> {
     // }
 
     // reserves a subscope, returning its defpath
-    pub(crate) fn reserve_subscope(&mut self) -> symtab::ValuePath {
-        unimplemented!();
-        /*
-        let next_subscope_index = self
-            .symtab()
-            .children(&self.def_path())
-            .into_iter()
-            .filter(|path| match path.last() {
-                DefPathComponent::Scope(_) => true,
-                _ => false,
-            })
-            .count();
+    pub(crate) fn reserve_subscope(&mut self) -> symtab::ScopePath {
+        let path = self.path().clone();
+        self.unpathed.reserve_subscope(&path)
+    }
 
-        self.symtab
-            .define::<symtab::Scope>(
-                self.def_path().clone(),
-                symtab::Scope::new(next_subscope_index),
-            )
-            .unwrap()
-        */
+    pub(crate) fn with_child_scope(
+        mut self,
+    ) -> PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
+        let path = self.reserve_subscope();
+        Self {
+            unpathed: self.unpathed,
+            path,
+        }
     }
 
     pub(crate) fn self_variable(&self) -> Result<symtab::ValuePath, symtab::SymbolError> {
@@ -271,6 +267,10 @@ impl symtab::SymtabBase for UnpathedLinearizeCtx {
     ) -> Option<&BTreeSet<symtab::UseDeclaration>> {
         self.symtab.get_use_declarations_at(path)
     }
+
+    fn children_of_path(&self, path: &impl symtab::Path) -> BTreeSet<symtab::RawPath> {
+        self.symtab.children_of_path(path)
+    }
 }
 
 impl symtab::Symtab for UnpathedLinearizeCtx {
@@ -317,11 +317,8 @@ impl UnpathedLinearizeCtxTrait for UnpathedLinearizeCtx {}
 
 pub(crate) type LinearizeCtx<P> = PathedCtx<UnpathedLinearizeCtx, P>;
 // TODO: remove P from this
-pub(crate) type FunctionLinearizeCtx<P> = PathedCtx<UnpathedFunctionLinearizeCtx, P>;
-impl<P> FunctionLinearizeCtx<P>
-where
-    P: symtab::Path,
-{
+pub(crate) type FunctionLinearizeCtx = PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath>;
+impl FunctionLinearizeCtx {
     pub(crate) fn finalize(
         self,
         return_value_id: ir::ValueId,
@@ -334,8 +331,6 @@ pub(crate) type ValueLinearizeCtx = LinearizeCtx<symtab::ValuePath>;
 pub(crate) type ImplLinearizeCtx = LinearizeCtx<symtab::ImplPath>;
 
 pub(crate) type LinearizeResult<D, U> = Result<(D, U), LinearizeError>;
-
-pub(crate) type ValueFunctionLinearizeCtx = FunctionLinearizeCtx<symtab::ValuePath>;
 
 impl<P> PathedCtx<UnpathedLinearizeCtx, P>
 where

@@ -8,7 +8,7 @@ pub(crate) struct FieldPointerOperands {
 }
 
 impl Lowerable for FieldPointerOperands {
-    fn lower<P: symtab::Path>(self, _ctx: &mut treewalk::FunctionLinearizeCtx<P>, _loc: SourceLoc) {
+    fn lower(self, _ctx: &mut treewalk::FunctionLinearizeCtx, _loc: SourceLoc) {
         unimplemented!();
     }
 }

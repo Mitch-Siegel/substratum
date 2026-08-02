@@ -57,15 +57,15 @@ impl midend::treewalk::Collect<ValuePath> for IfExpressionTree {
 impl
     midend::treewalk::Linearize<
         treewalk::UnpathedFunctionLinearizeCtx,
-        symtab::ValuePath,
-        treewalk::FunctionLinearizeCtx<symtab::ValuePath>,
+        symtab::ScopePath,
+        treewalk::FunctionLinearizeCtx,
     > for IfExpressionTree
 {
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        mut ctx: treewalk::FunctionLinearizeCtx<midend::symtab::ValuePath>,
+        mut ctx: treewalk::FunctionLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data, midend::treewalk::UnpathedFunctionLinearizeCtx>
     {
         // FUTURE: optimize condition walk to use different jumps

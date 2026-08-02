@@ -85,6 +85,8 @@ pub(crate) trait SymtabBase {
     fn insert_use_declaration(&mut self, path: RawPath, use_declaration: UseDeclaration);
 
     fn get_use_declarations_at(&self, path: &RawPath) -> Option<&BTreeSet<UseDeclaration>>;
+
+    fn children_of_path(&self, path: &impl Path) -> BTreeSet<RawPath>;
 }
 
 mod private {
@@ -260,6 +262,10 @@ pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
     ) -> Result<ValuePath, SymbolError> {
         self.define(parent_path.into(), SymbolDef::Value(symbol))
             .map(ValuePath::from)
+    }
+
+    fn declare_scope(&mut self, path: ScopePath) -> Result<ScopePath, SymbolError> {
+        self.declare(path.into()).map(ScopePath::from)
     }
 
     // ===== Typed Lookups =====
@@ -507,6 +513,15 @@ impl SymtabBase for SymbolTable {
 
     fn get_use_declarations_at(&self, path: &RawPath) -> Option<&BTreeSet<UseDeclaration>> {
         self.use_declarations.get(path)
+    }
+
+    fn children_of_path(&self, path: &impl Path) -> BTreeSet<RawPath> {
+        self.children
+            .get(&path.clone().into())
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .collect()
     }
 }
 

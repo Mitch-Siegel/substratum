@@ -46,15 +46,15 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for StatementTree {
 impl
     treewalk::Linearize<
         treewalk::UnpathedFunctionLinearizeCtx,
-        symtab::ValuePath,
-        treewalk::ValueFunctionLinearizeCtx,
+        symtab::ScopePath,
+        treewalk::FunctionLinearizeCtx,
     > for StatementTree
 {
     type Data = Option<midend::ir::ValueId>;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        ctx: treewalk::ValueFunctionLinearizeCtx,
+        ctx: treewalk::FunctionLinearizeCtx,
     ) -> treewalk::LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
         let (maybe_value, ctx) = match self {
             Self::Item(_) => unimplemented!(),

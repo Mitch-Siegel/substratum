@@ -1,6 +1,6 @@
 use crate::{
     frontend::sourceloc::SourceLoc,
-    midend::{ir::*, *},
+    midend::{ir::*, symtab::ValueOwner, *},
     trace,
 };
 
@@ -58,10 +58,15 @@ pub(crate) struct BlockManager {
 impl BlockManager {
     // returns (Self, start_block)
     // where start_block is the first basic block in the function
-    pub(crate) fn new(unit_type: types::Semantic, def_path: symtab::ValuePath) -> (Self, usize) {
+    pub(crate) fn new(
+        unit_type: types::Semantic,
+        parent_def_path: symtab::ValuePath,
+    ) -> (Self, usize) {
         // set up the initlal convergence - must always end up at the end_block
-        let start_block = BasicBlock::new(0, def_path.clone());
-        let end_block = BasicBlock::new(1, def_path);
+        let start_block_path = parent_def_path.clone().with_scope(symtab::ScopeId(0));
+        let end_block_path = parent_def_path.clone().with_scope(symtab::ScopeId(1));
+        let start_block = BasicBlock::new(0, start_block_path);
+        let end_block = BasicBlock::new(1, end_block_path);
         let mut convergences = BlockConvergences::new();
         convergences.add(&[start_block.label], end_block).unwrap();
 
@@ -188,25 +193,6 @@ impl BlockManager {
 
 /// implementation of manipulation functions such as splitting
 impl BlockManager {
-    pub(crate) fn split_block_at_statement(
-        &mut self,
-        block: usize,
-        stmt_idx: usize,
-    ) -> Result<(usize, IrLine), BranchError> {
-        let split_block = self.get_mut(&block).unwrap();
-        let def_path = split_block.def_path().clone();
-        let mut after_split = split_block.split_at(stmt_idx);
-        let at_split = after_split.remove(0);
-
-        self.open_branch_path
-            .push(Branch::new(block, BranchKind::BlockSplit(after_split)));
-
-        let split_to_block = self
-            .create_unconditional_branch(block, at_split.loc.clone(), def_path.clone(), def_path)
-            .unwrap();
-        Ok((split_to_block, at_split))
-    }
-
     pub(crate) fn finish_block_split(
         &mut self,
         split_end_label: usize,

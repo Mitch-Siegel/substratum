@@ -68,6 +68,10 @@ impl symtab::SymtabBase for UnpathedCollectCtx {
     ) -> Option<&BTreeSet<symtab::UseDeclaration>> {
         self.symtab.get_use_declarations_at(path)
     }
+
+    fn children_of_path(&self, path: &impl symtab::Path) -> BTreeSet<symtab::RawPath> {
+        self.symtab.children_of_path(path)
+    }
 }
 
 impl symtab::Symtab for UnpathedCollectCtx {

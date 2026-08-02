@@ -21,8 +21,8 @@ impl Display for FieldExpressionTree {
 impl
     treewalk::Linearize<
         midend::treewalk::UnpathedFunctionLinearizeCtx,
-        symtab::ValuePath,
-        treewalk::FunctionLinearizeCtx<symtab::ValuePath>,
+        symtab::ScopePath,
+        treewalk::FunctionLinearizeCtx,
     > for FieldExpressionTree
 {
     type Data = (midend::ir::ValueId, String);
@@ -32,7 +32,7 @@ impl
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        ctx: treewalk::FunctionLinearizeCtx<midend::symtab::ValuePath>,
+        ctx: treewalk::FunctionLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
         let (receiver, ctx) = self.receiver.linearize(ctx)?;
 

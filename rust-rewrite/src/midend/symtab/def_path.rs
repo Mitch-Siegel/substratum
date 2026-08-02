@@ -42,6 +42,12 @@ pub(crate) struct ImplSegment(pub ImplId);
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub(crate) struct ImplId(pub usize);
 
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) struct ScopeSegment(pub ScopeId);
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub(crate) struct ScopeId(pub usize);
+
 impl TryFrom<PathSegment> for TypeSegment {
     type Error = ();
     fn try_from(value: PathSegment) -> Result<Self, Self::Error> {
@@ -82,19 +88,35 @@ impl TryFrom<PathSegment> for ImplSegment {
     }
 }
 
+impl TryFrom<PathSegment> for ScopeSegment {
+    type Error = ();
+    fn try_from(value: PathSegment) -> Result<Self, Self::Error> {
+        match value {
+            PathSegment::Scope(data) => Ok(Self(data)),
+            _ => Err(()),
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum PathSegment {
     Type(String),
     Value(String),
     Macro(String),
     Impl(ImplId),
+    Scope(ScopeId),
 }
 
 impl PathSegment {
     pub(crate) fn can_own(&self, other: &Self) -> bool {
         matches!(
             (self, other),
-            (Self::Type(_), _) | (Self::Value(_), Self::Value(_)) | (Self::Value(_), Self::Type(_))
+            (Self::Type(_), _)
+                | (Self::Value(_), Self::Value(_))
+                | (Self::Value(_), Self::Type(_))
+                | (Self::Value(_), Self::Scope(_))
+                | (Self::Scope(_), Self::Scope(_))
+                | (Self::Scope(_), Self::Value(_))
         )
     }
 
@@ -102,16 +124,14 @@ impl PathSegment {
         match self {
             Self::Type(name) | Self::Value(name) | Self::Macro(name) => name,
             Self::Impl(_) => panic!("no raw name for Impl segments"),
+            Self::Scope(_) => panic!("no raw name for Scope segments"),
         }
     }
 }
 
 impl From<PathSegment> for String {
     fn from(value: PathSegment) -> String {
-        match value {
-            PathSegment::Type(s) | PathSegment::Value(s) | PathSegment::Macro(s) => s,
-            PathSegment::Impl(_) => panic!("no raw name for Impl segments"),
-        }
+        String::from(value.raw())
     }
 }
 
@@ -145,6 +165,7 @@ impl std::fmt::Debug for PathSegment {
             Self::Value(name) => write!(f, "Value:{}", name),
             Self::Macro(name) => write!(f, "Macro:{}", name),
             Self::Impl(id) => write!(f, " Impl:({})", id.0),
+            Self::Scope(id) => write!(f, "Scope:({})", id.0),
         }?;
         write!(f, ")")
     }
@@ -217,6 +238,10 @@ impl RawPath {
         matches!(self.last, PathSegment::Impl(_))
     }
 
+    pub(crate) fn is_scope(&self) -> bool {
+        matches!(self.last, PathSegment::Scope(_))
+    }
+
     pub(crate) fn with_segment(mut self, segment: PathSegment) -> Result<Self, PathError> {
         if self.last.can_own(&segment) {
             let old_last = std::mem::replace(&mut self.last, segment);
@@ -261,6 +286,13 @@ pub(crate) trait ValueOwner: Path {
             .unwrap()
             .into()
     }
+
+    fn with_scope(self, id: ScopeId) -> ScopePath {
+        self.into()
+            .with_segment(PathSegment::Scope(id))
+            .unwrap()
+            .into()
+    }
 }
 pub(crate) trait MacroOwner: Path {
     #[allow(unused)]
@@ -277,6 +309,15 @@ pub(crate) trait ImplOwner: Path {
     fn with_child_impl(self, id: ImplId) -> ImplPath {
         self.into()
             .with_segment(PathSegment::Impl(id))
+            .unwrap()
+            .into()
+    }
+}
+
+pub(crate) trait ScopeOwner: Path {
+    fn with_child_scope(self, id: ScopeId) -> ScopePath {
+        self.into()
+            .with_segment(PathSegment::Scope(id))
             .unwrap()
             .into()
     }
@@ -343,12 +384,19 @@ pub(crate) struct MacroPath(pub(in crate::midend::symtab) RawPath);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct ImplPath(pub(in crate::midend::symtab) RawPath);
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct ScopePath(pub(in crate::midend::symtab) RawPath);
+
 impl TypeOwner for TypePath {}
 impl ValueOwner for TypePath {}
 
 impl ValueOwner for ValuePath {}
+impl ScopeOwner for ValuePath {}
 
 impl ValueOwner for ImplPath {}
+
+impl ValueOwner for ScopePath {}
+impl ScopeOwner for ScopePath {}
 
 impl TypePath {
     pub(crate) fn new(parent: Option<impl Path>, name: String) -> Self {
@@ -383,6 +431,13 @@ impl From<RawPath> for MacroPath {
 impl From<RawPath> for ImplPath {
     fn from(value: RawPath) -> Self {
         assert!(value.is_impl());
+        Self(value)
+    }
+}
+
+impl From<RawPath> for ScopePath {
+    fn from(value: RawPath) -> Self {
+        assert!(value.is_scope());
         Self(value)
     }
 }
@@ -486,6 +541,39 @@ impl IntoIterator for ImplPath {
     }
 }
 
+impl std::ops::Index<usize> for ScopePath {
+    type Output = PathSegment;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+impl Path for ScopePath {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn split_last(self) -> (Option<RawPath>, PathSegment) {
+        self.0.split_last()
+    }
+}
+
+impl From<ScopePath> for RawPath {
+    fn from(value: ScopePath) -> Self {
+        value.0
+    }
+}
+
+impl IntoIterator for ScopePath {
+    type Item = PathSegment;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter().collect::<Vec<_>>().into_iter()
+    }
+}
+
 impl std::fmt::Display for TypePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Type {}", self.0)
@@ -501,5 +589,11 @@ impl std::fmt::Display for ValuePath {
 impl std::fmt::Display for ImplPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Impl {}", self.0)
+    }
+}
+
+impl std::fmt::Display for ScopePath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Scope {}", self.0)
     }
 }

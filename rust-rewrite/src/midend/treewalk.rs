@@ -18,7 +18,7 @@ pub(crate) use collect_ctx::UnpathedCollectCtx;
 pub(crate) use linearize_context::{
     FunctionLinearizeCtx, ImplLinearizeCtx, Linearize, LinearizeCtx, LinearizeError,
     LinearizeResult, PathedLinearizeCtxTrait, UnpathedFunctionLinearizeCtx, UnpathedLinearizeCtx,
-    UnpathedLinearizeCtxTrait, ValueFunctionLinearizeCtx, ValueLinearizeCtx,
+    UnpathedLinearizeCtxTrait, ValueLinearizeCtx,
 };
 
 pub(crate) trait UnpathedCtxTrait: symtab::Symtab + Sized {

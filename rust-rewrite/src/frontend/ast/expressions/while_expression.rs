@@ -2,7 +2,7 @@ use crate::{
     frontend::ast::expressions::*,
     midend::{
         symtab::ValuePath,
-        treewalk::{PathedCtxTrait, ValueFunctionLinearizeCtx},
+        treewalk::{FunctionLinearizeCtx, PathedCtxTrait},
     },
 };
 
@@ -35,15 +35,15 @@ impl midend::treewalk::Collect<ValuePath> for WhileExpressionTree {
 impl
     midend::treewalk::Linearize<
         midend::treewalk::UnpathedFunctionLinearizeCtx,
-        ValuePath,
-        ValueFunctionLinearizeCtx,
+        symtab::ScopePath,
+        FunctionLinearizeCtx,
     > for WhileExpressionTree
 {
     type Data = midend::ir::ValueId;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        mut ctx: ValueFunctionLinearizeCtx,
+        mut ctx: FunctionLinearizeCtx,
     ) -> midend::treewalk::LinearizeResult<Self::Data, midend::treewalk::UnpathedFunctionLinearizeCtx>
     {
         let loc = self.loc();

@@ -71,15 +71,15 @@ impl midend::treewalk::Collect<ValuePath> for ComparisonExpressionTree {
 impl
     treewalk::Linearize<
         treewalk::UnpathedFunctionLinearizeCtx,
-        symtab::ValuePath,
-        treewalk::ValueFunctionLinearizeCtx,
+        symtab::ScopePath,
+        treewalk::FunctionLinearizeCtx,
     > for ComparisonExpressionTree
 {
     type Data = midend::ir::lowered::operands::BinaryComparisonOperands;
     #[tracing::instrument(skip(self, ctx), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        ctx: treewalk::ValueFunctionLinearizeCtx,
+        ctx: treewalk::FunctionLinearizeCtx,
     ) -> LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
         match self {
             ComparisonExpressionTree::LThan(operands) => {
@@ -205,19 +205,18 @@ impl midend::treewalk::Collect<ValuePath> for ArithmeticExpressionTree {
         }
     }
 }
-
 impl
     midend::treewalk::Linearize<
         midend::treewalk::UnpathedFunctionLinearizeCtx,
-        symtab::ValuePath,
-        treewalk::ValueFunctionLinearizeCtx,
+        symtab::ScopePath,
+        treewalk::FunctionLinearizeCtx,
     > for ArithmeticExpressionTree
 {
     type Data = midend::ir::lowered::operands::BinaryArithmeticOperands;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,
-        ctx: treewalk::ValueFunctionLinearizeCtx,
+        ctx: treewalk::FunctionLinearizeCtx,
     ) -> LinearizeResult<Self::Data, midend::treewalk::UnpathedFunctionLinearizeCtx> {
         match self {
             ArithmeticExpressionTree::Add(operands) => {
