@@ -20,9 +20,11 @@ impl Symbol for Module {
     fn path_segment(&self) -> PathSegment {
         PathSegment::Type(self.name.clone())
     }
+}
 
-    fn into_repr(self) -> SymbolDef {
-        SymbolDef::Type(Type::Module(self))
+impl From<Module> for SymbolDef {
+    fn from(value: Module) -> Self {
+        Self::from(Type::Module(value))
     }
 }
 

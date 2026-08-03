@@ -1,6 +1,5 @@
 use crate::midend::ir::{symtab, types, value, ValueError, ValueId, ValueInterner};
 
-#[enum_delegate::register]
 pub(crate) trait OperandTypeInference {
     fn infer_types(&mut self, ctx: &TypeInferenceContext) -> bool;
 }

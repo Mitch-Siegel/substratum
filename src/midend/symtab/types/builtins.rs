@@ -48,12 +48,14 @@ impl Symbol for BuiltinType {
         }
     }
 
-    fn into_repr(self) -> symtab::SymbolDef {
-        symtab::Type::Builtin(self).into_repr()
-    }
-
     fn path_segment(&self) -> symtab::PathSegment {
         PathSegment::Type(self.name().into())
+    }
+}
+
+impl From<BuiltinType> for symtab::SymbolDef {
+    fn from(value: BuiltinType) -> Self {
+        Self::Type(symtab::Type::Builtin(value))
     }
 }
 

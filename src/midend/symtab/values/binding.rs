@@ -52,9 +52,11 @@ impl Symbol for LocalBinding {
     fn path_segment(&self) -> PathSegment {
         PathSegment::Value(self.name().into())
     }
+}
 
-    fn into_repr(self) -> SymbolDef {
-        SymbolDef::Value(Value::LocalBinding(self))
+impl From<LocalBinding> for SymbolDef {
+    fn from(value: LocalBinding) -> Self {
+        Self::Value(Value::LocalBinding(value))
     }
 }
 

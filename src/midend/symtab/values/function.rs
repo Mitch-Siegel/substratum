@@ -44,9 +44,11 @@ impl Symbol for Function {
     fn path_segment(&self) -> PathSegment {
         PathSegment::Value(self.name().into())
     }
+}
 
-    fn into_repr(self) -> SymbolDef {
-        SymbolDef::Value(Value::Function(Box::new(self)))
+impl From<Function> for SymbolDef {
+    fn from(value: Function) -> Self {
+        Self::Value(Value::Function(Box::new(value)))
     }
 }
 

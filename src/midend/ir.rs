@@ -25,10 +25,18 @@ pub(crate) use control_flow::ControlFlow;
 pub(crate) use value::*;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-#[enum_delegate::implement(OperandTypeInference)]
 pub(crate) enum Operation {
     Lowered(lowered::Operation),
     Unlowered(unlowered::Operation),
+}
+
+impl OperandTypeInference for Operation {
+    fn infer_types(&mut self, ctx: &TypeInferenceContext) -> bool {
+        match self {
+            Self::Lowered(l) => l.infer_types(ctx),
+            Self::Unlowered(u) => u.infer_types(ctx),
+        }
+    }
 }
 
 impl Display for Operation {

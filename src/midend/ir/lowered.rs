@@ -9,7 +9,6 @@ use std::fmt::Display;
 
 /// ## Enum of all operations
 #[derive(Debug, Serialize, Clone, PartialEq, Eq)]
-#[enum_delegate::implement(OperandTypeInference)]
 pub(crate) enum Operation {
     Assignment(AssignmentOperands),
     BinaryArithmetic(BinaryArithmeticExpressionOperands),
@@ -92,6 +91,23 @@ impl IrOperation for Operation {
             Self::Jump(_) | Self::Switch(_) => {
                 vec![]
             }
+        }
+    }
+}
+
+impl OperandTypeInference for Operation {
+    fn infer_types(&mut self, ctx: &TypeInferenceContext) -> bool {
+        match self {
+            Self::Assignment(a) => a.infer_types(ctx),
+            Self::BinaryArithmetic(ba) => ba.infer_types(ctx),
+            Self::BinaryComparison(bc) => bc.infer_types(ctx),
+            Self::Jump(j) => j.infer_types(ctx),
+            Self::FunctionCall(fc) => fc.infer_types(ctx),
+            Self::Call(c) => c.infer_types(ctx),
+            Self::Load(l) => l.infer_types(ctx),
+            Self::Store(s) => s.infer_types(ctx),
+            Self::ComputeFieldAddress(cfa) => cfa.infer_types(ctx),
+            Self::Switch(sw) => sw.infer_types(ctx),
         }
     }
 }

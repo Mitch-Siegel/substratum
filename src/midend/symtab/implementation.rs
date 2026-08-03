@@ -30,8 +30,10 @@ impl Symbol for Implementation {
     fn path_segment(&self) -> def_path::PathSegment {
         def_path::PathSegment::Impl(self.id)
     }
+}
 
-    fn into_repr(self) -> SymbolDef {
-        SymbolDef::Impl(self)
+impl From<Implementation> for SymbolDef {
+    fn from(value: Implementation) -> Self {
+        Self::Impl(value)
     }
 }

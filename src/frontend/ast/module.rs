@@ -75,7 +75,7 @@ impl ModuleTree {
         );
 
         let module_path = ctx
-            .define_type(midend::symtab::Type::from(
+            .define_type(midend::symtab::Type::Module(
                 midend::symtab::types::Module::new(module_name.clone()),
             ))
             .unwrap();

@@ -20,10 +20,7 @@ pub(crate) enum Syntactic {
     Reference(Mutability, Box<Self>),
     Pointer(Mutability, Box<Self>),
     Tuple(Vec<Option<Self>>),
-    Function {
-        args: Vec<Self>,
-        ret_ty: Box<Self>,
-    }, // (arguments, return_type)
+    Function { args: Vec<Self>, ret_ty: Box<Self> }, // (arguments, return_type)
 }
 
 impl Syntactic {

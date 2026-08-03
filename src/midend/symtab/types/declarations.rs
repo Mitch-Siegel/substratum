@@ -60,12 +60,14 @@ impl Symbol for TypeDecl {
         }
     }
 
-    fn into_repr(self) -> symtab::SymbolDef {
-        symtab::Type::Decl(self).into_repr()
-    }
-
     fn path_segment(&self) -> symtab::PathSegment {
         PathSegment::Type(self.name().into())
+    }
+}
+
+impl From<TypeDecl> for symtab::SymbolDef {
+    fn from(value: TypeDecl) -> Self {
+        Self::from(symtab::Type::Decl(value))
     }
 }
 

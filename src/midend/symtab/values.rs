@@ -20,18 +20,17 @@ impl Symbol for Value {
         }
     }
 
-    fn into_repr(self) -> SymbolDef {
-        match self {
-            Self::Function(f) => f.into_repr(),
-            Self::LocalBinding(lb) => lb.into_repr(),
-        }
-    }
-
     fn path_segment(&self) -> PathSegment {
         match self {
             Self::Function(f) => f.path_segment(),
             Self::LocalBinding(lb) => lb.path_segment(),
         }
+    }
+}
+
+impl From<Value> for SymbolDef {
+    fn from(value: Value) -> Self {
+        Self::Value(value)
     }
 }
 

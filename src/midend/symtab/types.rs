@@ -9,7 +9,6 @@ pub(crate) use declarations::*;
 pub(crate) use module::Module;
 
 #[derive(Debug)]
-#[enum_delegate::implement(Symbol)]
 pub(crate) enum Type {
     Module(Module),
     //UseDeclaration
@@ -23,6 +22,34 @@ pub(crate) enum Type {
     //Trait
     //GenericTypeParam(()),
     //ExternBlock
+}
+
+impl Symbol for Type {
+    fn name(&self) -> &str {
+        match self {
+            Self::Module(m) => m.name(),
+            Self::Builtin(b) => b.name(),
+            Self::Decl(d) => d.name(),
+        }
+    }
+
+    fn path_segment(&self) -> PathSegment {
+        match self {
+            Self::Module(m) => m.path_segment(),
+            Self::Builtin(b) => b.path_segment(),
+            Self::Decl(d) => d.path_segment(),
+        }
+    }
+}
+
+impl From<Type> for SymbolDef {
+    fn from(value: Type) -> Self {
+        match value {
+            Type::Module(m) => Self::from(m),
+            Type::Builtin(b) => Self::from(b),
+            Type::Decl(d) => Self::from(d),
+        }
+    }
 }
 
 impl std::fmt::Display for Type {

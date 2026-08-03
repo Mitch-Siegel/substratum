@@ -8,17 +8,25 @@ pub(crate) mod operands;
 use operands::{DiscriminantOperands, FieldPointerOperands, MatchArm, MatchOperands};
 
 #[allow(unused)]
-#[enum_delegate::register]
 pub(crate) trait Lowerable {
     fn lower(self, context: &mut treewalk::FunctionLinearizeCtx, loc: SourceLoc);
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-#[enum_delegate::implement(Lowerable)]
 pub(crate) enum Operation {
     Match(MatchOperands),
     Discriminant(DiscriminantOperands),
     GetFieldPointer(FieldPointerOperands),
+}
+
+impl Lowerable for Operation {
+    fn lower(self, context: &mut treewalk::FunctionLinearizeCtx, loc: SourceLoc) {
+        match self {
+            Self::Match(m) => m.lower(context, loc),
+            Self::Discriminant(d) => d.lower(context, loc),
+            Self::GetFieldPointer(gfp) => gfp.lower(context, loc),
+        }
+    }
 }
 
 impl OperandTypeInference for Operation {
