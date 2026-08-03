@@ -127,7 +127,7 @@ impl std::fmt::Display for PatternConstructor {
 #[allow(unused)]
 #[derive(Debug)]
 pub(crate) enum LoweredPattern {
-    Constructor(PatternConstructor, Vec<LoweredPattern>), // fields = subpatterns
+    Constructor(PatternConstructor, Vec<Self>), // fields = subpatterns
     Identifier(String),
     //Wildcard,
 }

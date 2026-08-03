@@ -16,7 +16,7 @@ use crate::{
 };
 
 struct BlockIdMgr {
-    ids: BTreeMap<symtab::ScopeId, Box<BlockIdMgr>>,
+    ids: BTreeMap<symtab::ScopeId, Box<Self>>,
 }
 
 impl BlockIdMgr {

@@ -267,7 +267,7 @@ pub(crate) fn module_path(module: &frontend::ast::ModuleTree) -> symtab::TypePat
     // FUTURE: support module declarations within functions (value namespace)
     let mut wip_path = symtab::TypePath::new(
         None::<symtab::TypePath>,
-        module_path_segments.next().unwrap().to_string(),
+        module_path_segments.next().unwrap().clone(),
     );
     for segment in module_path_segments {
         wip_path = wip_path.with_child_type(segment.clone());

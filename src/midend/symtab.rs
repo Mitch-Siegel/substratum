@@ -27,7 +27,7 @@ pub(crate) use visitor::*;
 enum UseBinding {
     OriginalName,
     AsName(String),
-    Multiple(Vec<UseBinding>),
+    Multiple(Vec<Self>),
     Glob,
 }
 

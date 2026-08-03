@@ -17,12 +17,12 @@ pub(crate) enum Syntactic {
     GenericParam(String),
     _Self,
     Named(String),
-    Reference(Mutability, Box<Syntactic>),
-    Pointer(Mutability, Box<Syntactic>),
-    Tuple(Vec<Option<Syntactic>>),
+    Reference(Mutability, Box<Self>),
+    Pointer(Mutability, Box<Self>),
+    Tuple(Vec<Option<Self>>),
     Function {
-        args: Vec<Syntactic>,
-        ret_ty: Box<Syntactic>,
+        args: Vec<Self>,
+        ret_ty: Box<Self>,
     }, // (arguments, return_type)
 }
 
