@@ -19,7 +19,7 @@ mod errors;
 mod parse_rules;
 
 pub(crate) use errors::ParseError;
-pub(crate) use parse_rules::module::ModuleResult;
+pub(in crate::frontend) use parse_rules::module::ModuleResult;
 
 pub(crate) struct Parser<'a> {
     lexer: Lexer<'a>,
@@ -238,7 +238,7 @@ impl<'a> Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub(crate) fn parse(
+    pub(in crate::frontend) fn parse(
         &mut self,
         mod_keyword_loc: sourceloc::SourceSpan,
         parent_module_path: &std::path::Path,
@@ -352,11 +352,11 @@ impl From<ParseError> for FindParseModuleError {
 fn find_and_parse_module(
     item: WorklistItem,
     crate_name: &str,
-    crate_path: &PathBuf,
+    crate_path: &Path,
     allow_subdir: bool,
 ) -> Result<ModuleResult, FindParseModuleError> {
     let parent_module_path: PathBuf = item.parent_modules.iter().collect();
-    let full_parent_path = crate_path.clone().join(parent_module_path.clone());
+    let full_parent_path = crate_path.join(parent_module_path.clone());
 
     let direct_mod_path = full_parent_path
         .clone()
@@ -373,7 +373,7 @@ fn find_and_parse_module(
     }
 
     if allow_subdir {
-        let subdir_path: PathBuf = vec![item.module_name.clone(), String::from("mod.sb")]
+        let subdir_path: PathBuf = [item.module_name.clone(), String::from("mod.sb")]
             .iter()
             .collect();
 
@@ -389,7 +389,7 @@ fn find_and_parse_module(
         }
     }
 
-    return Err(FindParseModuleError::ModuleNotFound(item.module_name));
+    Err(FindParseModuleError::ModuleNotFound(item.module_name))
 }
 
 pub(crate) fn parse_crate(
@@ -411,7 +411,7 @@ pub(crate) fn parse_crate(
     )
     .expect("error parsing crate root ");
     modules.insert(module_tree);
-    worklist.extend(module_worklist.into_iter());
+    worklist.extend(module_worklist);
 
     while let Some(worklist_item) = worklist.pop_last() {
         let module_name = worklist_item.module_name.clone();

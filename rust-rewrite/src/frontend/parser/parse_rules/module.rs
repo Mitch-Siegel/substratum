@@ -1,12 +1,12 @@
 use crate::frontend::parser::parse_rules::*;
 #[derive(Debug)]
-pub(crate) struct ModuleResult {
-    pub(crate) module_tree: ModuleTree,
-    pub(crate) module_worklist: BTreeSet<WorklistItem>,
+pub(in crate::frontend) struct ModuleResult {
+    pub module_tree: ModuleTree,
+    pub module_worklist: BTreeSet<WorklistItem>,
 }
 
 impl<'a, 'p> ModuleParser<'a, 'p> {
-    pub(crate) fn parse_module_contents(
+    pub(in crate::frontend) fn parse_module_contents(
         &mut self,
         mod_keyword_loc: sourceloc::SourceSpan,
         module_path: &std::path::Path,

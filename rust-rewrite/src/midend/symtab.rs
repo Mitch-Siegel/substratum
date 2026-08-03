@@ -27,7 +27,7 @@ pub(crate) use visitor::*;
 enum UseBinding {
     OriginalName,
     AsName(String),
-    Multiple(Vec<Box<UseBinding>>),
+    Multiple(Vec<UseBinding>),
     Glob,
 }
 
@@ -199,9 +199,8 @@ mod private {
                 let search_parent_path = full_search_path.clone().split_last().0.unwrap();
                 if let Some(use_directives) = self.get_use_declarations_at(&search_parent_path) {
                     for use_ in use_directives {
-                        match self.try_resolve_use(use_, &lookup_path) {
-                            Some(path) => return Ok(path),
-                            None => (),
+                        if let Some(path) = self.try_resolve_use(use_, &lookup_path) {
+                            return Ok(path);
                         }
                     }
                 }
@@ -422,9 +421,7 @@ impl std::fmt::Debug for SymbolTable {
 
 impl SymbolTable {
     pub(crate) fn new() -> Self {
-        let symtab = Self::default();
-
-        symtab
+        Self::default()
     }
 
     pub(crate) fn children(&self, def_path: &RawPath) -> HashSet<&RawPath> {

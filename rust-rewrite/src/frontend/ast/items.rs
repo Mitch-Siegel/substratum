@@ -1,11 +1,10 @@
 use crate::{
-    frontend::{ast::*, parser::WorklistItem},
+    frontend::ast::*,
     midend::{
         symtab,
         treewalk::{self, PathedCtxTrait},
     },
 };
-use std::collections::BTreeSet;
 
 pub(crate) mod enum_definition;
 pub(crate) mod function;

@@ -20,7 +20,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         Ok(ItemTree::StructDefinition(self.parse_struct_definition()?))
     }
 
-    pub(crate) fn parse_item(
+    pub(in crate::frontend) fn parse_item(
         &mut self,
         module_name: IdentifierTree,
         module_path: &std::path::Path,

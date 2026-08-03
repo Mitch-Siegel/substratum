@@ -59,10 +59,7 @@ impl UnpathedFunctionLinearizeCtx {
         let next_subscope_index = self
             .children_of_path(parent_path)
             .into_iter()
-            .filter(|path| match path.last() {
-                symtab::PathSegment::Scope(_) => true,
-                _ => false,
-            })
+            .filter(|path| matches!(path.last(), symtab::PathSegment::Scope(_)))
             .count();
 
         let reserved_scope_id = symtab::ScopeId(next_subscope_index);

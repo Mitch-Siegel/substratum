@@ -1,4 +1,4 @@
-od trace;
+mod trace;
 
 mod backend;
 mod frontend;
@@ -141,7 +141,7 @@ fn main() {
         }
         Some(outfile_name) => {
             let outfile = std::fs::File::create(std::path::Path::new(outfile_name))
-                .expect(&format!("couldn't create trace file '{}'", outfile_name));
+                .unwrap_or_else(|_| panic!("couldn't create trace file '{}'", outfile_name));
             let json_outfile = std::sync::Mutex::new(outfile);
             let writer = tracing_subscriber::fmt::writer::BoxMakeWriter::new(json_outfile);
             tracing_subscriber::fmt()
