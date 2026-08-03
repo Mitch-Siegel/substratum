@@ -357,7 +357,7 @@ where
 
     #[allow(clippy::needless_pass_by_ref_mut)]
     pub(crate) fn function_mut(&mut self) -> &mut treewalk::linearize_context::WipFunction {
-        unimplemented!();
+        self.unpathed.function_mut()
     }
 }
 

@@ -97,6 +97,10 @@ impl UnpathedFunctionLinearizeCtx {
 
         Ok((function, self.base))
     }
+
+    pub(crate) fn function_mut(&mut self) -> &mut WipFunction {
+        &mut self.function
+    }
 }
 
 impl UnpathedCtxTrait for UnpathedFunctionLinearizeCtx {
