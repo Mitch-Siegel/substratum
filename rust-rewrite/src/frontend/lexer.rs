@@ -1,4 +1,7 @@
-use crate::{frontend::sourceloc::*, trace};
+use crate::{
+    frontend::sourceloc::{SourceLoc, SourcePoint, SourceSpan},
+    trace,
+};
 pub(crate) use char_source::CharSource;
 
 mod char_source;
@@ -62,15 +65,14 @@ impl<'a> Lexer<'a> {
             self.current_token = Some(self.lex()?);
         }
 
-        let peeked = match self.current_token.clone() {
-            Some(t) => t,
-            None => {
-                let eof_point = SourcePoint::new(self.cur_line, self.cur_col);
-                (
-                    Token::Eof,
-                    SourceSpan::new(self.cur_file.clone(), eof_point, eof_point),
-                )
-            }
+        let peeked = if let Some(t) = self.current_token.clone() {
+            t
+        } else {
+            let eof_point = SourcePoint::new(self.cur_line, self.cur_col);
+            (
+                Token::Eof,
+                SourceSpan::new(self.cur_file.clone(), eof_point, eof_point),
+            )
         };
 
         #[cfg(feature = "loud_lexing")]
@@ -106,7 +108,7 @@ impl<'a> Lexer<'a> {
 
         loop {
             let next_token = self.next()?;
-            println!("next_token: {:?}", next_token);
+            println!("next_token: {next_token:?}");
             match next_token.0 {
                 Token::Eof => {
                     tokens.push(next_token);
@@ -118,14 +120,14 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        println!("Lexer::lex_all(): {:?}", tokens);
+        println!("Lexer::lex_all(): {tokens:?}");
 
         Ok(tokens)
     }
 }
 
 // private methods
-impl<'a> Lexer<'a> {
+impl Lexer<'_> {
     fn peek_char(&self) -> Option<char> {
         // #[cfg(feature = "loud_lexing")]
         // println!("Lexer::peek_char: {:?}", self.current_char);
@@ -193,10 +195,10 @@ impl<'a> Lexer<'a> {
             "let" => Some(Token::Let),
             "super" => Some(Token::Super),
             _ => {
-                if !identifier.is_empty() {
-                    Some(Token::Identifier(identifier))
-                } else {
+                if identifier.is_empty() {
                     None
+                } else {
+                    Some(Token::Identifier(identifier))
                 }
             }
         };
@@ -238,6 +240,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn lex(&mut self) -> Result<(Token, SourceSpan), LexError> {
         #[cfg(feature = "loud_lexing")]
         println!("Lexer::lex()");

@@ -1,4 +1,6 @@
-use crate::midend::ir::block_manager::*;
+use crate::midend::ir::block_manager::{
+    ir, symtab, trace, BlockManager, Branch, BranchError, BranchKind, ConvergenceResult, SourceLoc,
+};
 
 /// Conditional and unconditional branches
 impl BlockManager {
@@ -33,7 +35,7 @@ impl BlockManager {
             true_block.label,
             ir::lowered::operands::JumpCondition::Unconditional,
         );
-        let from_block = self.get_mut(&from).unwrap();
+        let from_block = self.get_mut(from).unwrap();
         from_block.push(unconditional_jump);
 
         let true_block_label = true_block.label;
@@ -65,7 +67,7 @@ impl BlockManager {
         );
 
         let conditional_jump = ir::IrLine::new_jump(loc.clone(), true_block.label, jump_condition);
-        let from_block = self.get_mut(&from).unwrap();
+        let from_block = self.get_mut(from).unwrap();
         from_block.push(conditional_jump);
         let unconditional_jump = ir::IrLine::new_jump(
             loc,
@@ -187,7 +189,7 @@ impl BlockManager {
             loop_top.label,
             ir::lowered::operands::JumpCondition::Unconditional,
         );
-        let before_loop_block = self.get_mut(&before_loop).unwrap();
+        let before_loop_block = self.get_mut(before_loop).unwrap();
         before_loop_block.push(loop_entry);
 
         let loop_jump = ir::IrLine::new_jump(
@@ -256,7 +258,7 @@ impl BlockManager {
         loc: SourceLoc,
         loop_bottom_actions: Vec<ir::IrLine>,
     ) -> Result<usize, BranchError> {
-        let loop_bottom_block = self.get_mut(&loop_bottom).unwrap();
+        let loop_bottom_block = self.get_mut(loop_bottom).unwrap();
         // insert any IRs that need to be at the bottom of the loop but before the looping jump itself
         for loop_bottom_ir in loop_bottom_actions {
             loop_bottom_block.push(loop_bottom_ir);
@@ -277,7 +279,7 @@ impl BlockManager {
             ir::lowered::operands::JumpCondition::Unconditional,
         );
 
-        let loop_bottom_block = self.get_mut(&loop_bottom).unwrap();
+        let loop_bottom_block = self.get_mut(loop_bottom).unwrap();
         loop_bottom_block.push(loop_jump);
 
         // now that we are in loop_bottom, create_loop() should have a convergence for us
@@ -323,7 +325,7 @@ impl BlockManager {
             switch_block.label,
             ir::lowered::operands::JumpCondition::Unconditional,
         );
-        let before_switch_block = self.get_mut(&before_switch).unwrap();
+        let before_switch_block = self.get_mut(before_switch).unwrap();
         before_switch_block.push(unconditional_jump);
 
         self.convergences
@@ -371,7 +373,7 @@ impl BlockManager {
         let case_block = ir::BasicBlock::new(self.max_block, case_def_path);
         let after_switch_label = self
             .convergences
-            .convergence_label_of_block(&switch_label)
+            .convergence_label_of_block(switch_label)
             .unwrap();
         self.convergences
             .supplement(&[case_block.label], *after_switch_label)?;

@@ -1,6 +1,6 @@
-use crate::frontend::parser::parse_rules::*;
+use crate::frontend::parser::parse_rules::{ast, ExpressionParser, ParseError, Token};
 
-impl<'a, 'p> ExpressionParser<'a, 'p> {
+impl ExpressionParser<'_, '_> {
     pub(crate) fn parse_while_expression(
         &mut self,
     ) -> Result<ast::expressions::WhileExpressionTree, ParseError> {

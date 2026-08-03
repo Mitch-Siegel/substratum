@@ -1,6 +1,9 @@
-use crate::frontend::{ast::expressions::MatchExpressionTree, parser::parse_rules::*};
+use crate::frontend::{
+    ast::expressions::MatchExpressionTree,
+    parser::parse_rules::{ast, Ast, ExpressionParser, ParseError, Token},
+};
 
-impl<'a, 'p> ExpressionParser<'a, 'p> {
+impl ExpressionParser<'_, '_> {
     fn parse_matched_pattern(
         &mut self,
     ) -> Result<ast::expressions::match_expression::PatternTree, ParseError> {
@@ -37,7 +40,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
                 )
             }
             _ => self.unexpected_token(&[
-                Token::Identifier("".into()),
+                Token::Identifier(String::new()),
                 Token::UnsignedDecimalConstant(0),
             ])?,
         };
@@ -54,38 +57,35 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
 
         let mut arms = Vec::<ast::expressions::match_expression::MatchArmTree>::new();
         loop {
-            match self.peek_token()? {
-                Token::RCurly => break,
-                _ => {
-                    let pattern = self.parse_matched_pattern()?;
-                    self.expect_token(Token::FatArrow)?;
-                    let expression = match self.peek_token()? {
-                        Token::LCurly => self.parse_block_expression()?,
-                        _ => {
-                            let single_expression = self.parse_expression()?;
-                            let dummy_loc = single_expression.loc();
-                            ast::expressions::BlockExpressionTree {
-                                open_brace_loc: dummy_loc.clone(),
-                                statements: vec![ast::statements::StatementTree::Expression(
-                                    single_expression,
-                                )],
-                                close_brace_loc: dummy_loc,
-                            }
-                        }
-                    };
-                    arms.push(ast::expressions::match_expression::MatchArmTree {
-                        pattern,
-                        expression,
-                    });
-
-                    match self.peek_token()? {
-                        Token::Comma => {
-                            self.expect_token(Token::Comma)?;
-                        }
-                        Token::RParen => break,
-                        _ => self.unexpected_token(&[Token::Comma, Token::RParen])?,
-                    }
+            if let Token::RCurly = self.peek_token()? {
+                break;
+            }
+            let pattern = self.parse_matched_pattern()?;
+            self.expect_token(Token::FatArrow)?;
+            let expression = if let Token::LCurly = self.peek_token()? {
+                self.parse_block_expression()?
+            } else {
+                let single_expression = self.parse_expression()?;
+                let dummy_loc = single_expression.loc();
+                ast::expressions::BlockExpressionTree {
+                    open_brace_loc: dummy_loc.clone(),
+                    statements: vec![ast::statements::StatementTree::Expression(
+                        single_expression,
+                    )],
+                    close_brace_loc: dummy_loc,
                 }
+            };
+            arms.push(ast::expressions::match_expression::MatchArmTree {
+                pattern,
+                expression,
+            });
+
+            match self.peek_token()? {
+                Token::Comma => {
+                    self.expect_token(Token::Comma)?;
+                }
+                Token::RParen => break,
+                _ => self.unexpected_token(&[Token::Comma, Token::RParen])?,
             }
         }
 

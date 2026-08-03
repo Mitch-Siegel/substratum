@@ -1,4 +1,7 @@
-use crate::frontend::ast::*;
+use crate::frontend::ast::{
+    midend, sourceloc, symtab, treewalk, Ast, Display, Expression, LinearizeResult,
+    NameReflectable, ReflectName,
+};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CallParamsTree {
@@ -18,14 +21,15 @@ impl Ast for CallParamsTree {
 
 impl Display for CallParamsTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut params = String::new();
-        for p in &self.params {
-            if !params.is_empty() {
-                params += ", ";
-            }
-            params += &format!("{}", p);
-        }
-        write!(f, "{}", params)
+        write!(
+            f,
+            "{}",
+            self.params
+                .iter()
+                .map(|param| format!("{param}"))
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
     }
 }
 

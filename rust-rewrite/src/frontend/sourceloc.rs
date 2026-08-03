@@ -13,7 +13,7 @@ impl SourcePoint {
         Self { line, col }
     }
 
-    pub(crate) fn valid(&self) -> bool {
+    pub(crate) fn valid(self) -> bool {
         self.line != 0 && self.col != 0
     }
 }
@@ -33,7 +33,7 @@ pub(crate) struct SourceLoc {
 impl SourceLoc {
     pub(crate) fn none() -> Self {
         SourceLoc {
-            file: "".into(),
+            file: String::new(),
             point: SourcePoint::default(),
         }
     }
@@ -64,7 +64,7 @@ impl Display for SourceLoc {
 
 impl std::fmt::Debug for SourceLoc {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{self}")
     }
 }
 

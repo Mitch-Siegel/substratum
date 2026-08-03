@@ -1,4 +1,7 @@
-use crate::midend::{types::*, *};
+use crate::midend::{
+    treewalk, types,
+    types::{Display, Mutability, Semantic, Serialize},
+};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, serde::Deserialize, Hash)]
 pub(crate) enum Syntactic {
@@ -52,16 +55,15 @@ impl Display for Syntactic {
             Self::I16 => write!(f, "i16"),
             Self::I32 => write!(f, "i32"),
             Self::I64 => write!(f, "i64"),
-            Self::GenericParam(name) => write!(f, "{}", name),
+            Self::GenericParam(name) | Self::Named(name) => write!(f, "{name}"),
             Self::_Self => write!(f, "self"),
-            Self::Named(name) => write!(f, "{}", name),
-            Self::Reference(mutability, to) => write!(f, "&{} {}", mutability, to),
-            Self::Pointer(mutability, to) => write!(f, "*{} {}", mutability, to),
+            Self::Reference(mutability, to) => write!(f, "&{mutability} {to}"),
+            Self::Pointer(mutability, to) => write!(f, "*{mutability} {to}"),
             Self::Tuple(elements) => {
                 write!(f, "(")?;
                 for element in elements {
                     match element {
-                        Some(ty) => write!(f, "{}, ", ty)?,
+                        Some(ty) => write!(f, "{ty}, ")?,
                         None => write!(f, "_, ")?,
                     }
                 }
@@ -70,9 +72,9 @@ impl Display for Syntactic {
             Self::Function { args, ret_ty } => {
                 write!(f, "fn(")?;
                 for arg in args {
-                    write!(f, "{}, ", arg)?;
+                    write!(f, "{arg}, ")?;
                 }
-                write!(f, ") -> {}", ret_ty)
+                write!(f, ") -> {ret_ty}")
             }
         }
     }

@@ -1,4 +1,10 @@
-use crate::{frontend::sourceloc, midend::treewalk::*};
+use crate::{
+    frontend::sourceloc,
+    midend::treewalk::{
+        ir, symtab, treewalk, types, BTreeSet, PathedCtx, PathedCtxTrait,
+        UnpathedCtxTrait,
+    },
+};
 
 use std::collections::HashSet;
 
@@ -132,7 +138,7 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
     // reserves a subscope, returning its defpath
     pub(crate) fn reserve_subscope(&mut self) -> symtab::ScopePath {
         let path = self.path().clone();
-        self.unpathed.reserve_subscope(&path)
+        self.unpathed.reserve_subscope(path)
     }
 
     pub(crate) fn with_child_scope(
@@ -333,6 +339,8 @@ impl<P> PathedCtx<UnpathedLinearizeCtx, P>
 where
     P: symtab::Path,
 {
+    // allow for ergonomics: just stick this at the bottom of linearizing functions
+    #[allow(clippy::unnecessary_wraps)]
     pub(crate) fn into_result<T>(self, result_data: T) -> LinearizeResult<T, UnpathedLinearizeCtx> {
         Ok((result_data, self.unpathed))
     }
@@ -341,6 +349,8 @@ impl<P> PathedCtx<UnpathedFunctionLinearizeCtx, P>
 where
     P: symtab::Path,
 {
+    // allow for ergonomics: just stick this at the bottom of functions that return results
+    #[allow(clippy::unnecessary_wraps)]
     pub(crate) fn into_result<T>(
         self,
         result_data: T,

@@ -1,4 +1,7 @@
-use crate::frontend::parser::parse_rules::*;
+use crate::frontend::parser::parse_rules::{
+    parse_rules, trace, BTreeSet, IdentifierTree, ItemParser, ItemTree, ParseError, Token,
+    WorklistItem,
+};
 
 mod enum_definition;
 mod function;
@@ -7,7 +10,7 @@ mod implementation;
 mod module_item;
 mod struct_definition;
 
-impl<'a, 'p> ItemParser<'a, 'p> {
+impl ItemParser<'_, '_> {
     fn parse_implementation_item(&mut self) -> Result<ItemTree, ParseError> {
         Ok(ItemTree::Implementation(self.parse_implementation()?))
     }
@@ -24,7 +27,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         &mut self,
         module_name: IdentifierTree,
         module_path: &std::path::Path,
-        crate_name: &Option<String>,
+        crate_name: Option<&String>,
     ) -> Result<(ItemTree, Option<BTreeSet<WorklistItem>>), ParseError> {
         match self.peek_token()? {
             Token::Fn_ => Ok((self.parse_function_declaration_or_definition()?, None)),

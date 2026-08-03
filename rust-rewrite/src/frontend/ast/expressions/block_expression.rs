@@ -1,5 +1,8 @@
 use crate::{
-    frontend::ast::*,
+    frontend::ast::{
+        midend, sourceloc, symtab, treewalk, Ast, Display, NameReflectable, ReflectName,
+        StatementTree,
+    },
     midend::{symtab::ValuePath, treewalk::PathedCtxTrait},
 };
 
@@ -21,11 +24,11 @@ impl Ast for BlockExpressionTree {
 
 impl Display for BlockExpressionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut statement_string = String::from("");
+        let mut statement_string = String::new();
         for statement in &self.statements {
-            statement_string.push_str(format!("{}\n", statement).as_str());
+            statement_string.push_str(format!("{statement}\n").as_str());
         }
-        write!(f, "Block Expression: {}", statement_string)
+        write!(f, "Block Expression: {statement_string}")
     }
 }
 
@@ -57,13 +60,11 @@ impl
     ) -> treewalk::LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
         let parent_def_path = ctx.path().clone();
         let true_scope_def_path = ctx.reserve_subscope();
-        ctx.function_mut()
-            .unconditional_branch_from_current(
-                self.open_brace_loc.start(),
-                parent_def_path,
-                true_scope_def_path,
-            )
-            .unwrap();
+        ctx.function_mut().unconditional_branch_from_current(
+            self.open_brace_loc.start(),
+            parent_def_path,
+            true_scope_def_path,
+        );
 
         let last_statement = self.statements.pop();
         for statement in self.statements {

@@ -1,4 +1,9 @@
-use crate::midend::{symtab::Path, types::*, *};
+use crate::midend::{
+    symtab,
+    symtab::Path,
+    trace,
+    types::{Semantic, Syntactic},
+};
 use std::collections::{HashMap, HashSet};
 
 pub(crate) mod monomorphization;
@@ -85,7 +90,7 @@ impl Interner {
     ) -> Option<Semantic> {
         self.reverse_id_mappings
             .get(&DefPathWithParamSubsts::new(def_path, param_substs))
-            .cloned()
+            .copied()
     }
 
     #[tracing::instrument(skip(self), level = "debug")]
@@ -94,12 +99,11 @@ impl Interner {
         def_path: symtab::TypePath,
         generic_params: ParamSubstMap,
     ) -> Result<Semantic, symtab::SymbolError> {
-        let instances = match self.generic_instances.get_mut(&def_path) {
-            Some(i) => Ok(i),
-            None => {
-                trace::trace!("no generic instances exist for defpath {:?}", def_path);
-                Err(symtab::SymbolError::UndefinedType(def_path.clone()))
-            }
+        let instances = if let Some(i) = self.generic_instances.get_mut(&def_path) {
+            Ok(i)
+        } else {
+            trace::trace!("no generic instances exist for defpath {:?}", def_path);
+            Err(symtab::SymbolError::UndefinedType(def_path.clone()))
         }?;
 
         let path_with_params = DefPathWithParamSubsts::new(def_path, generic_params.clone());

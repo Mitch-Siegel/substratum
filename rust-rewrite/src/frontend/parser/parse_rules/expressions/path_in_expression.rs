@@ -1,6 +1,8 @@
-use crate::frontend::parser::parse_rules::*;
+use crate::frontend::parser::parse_rules::{
+    ast, ExpressionParser, GenericArgsListTree, ParseError, Parser, Token,
+};
 
-impl<'a, 'p> ExpressionParser<'a, 'p> {
+impl ExpressionParser<'_, '_> {
     fn try_parse_expr_segment_data(
         parser: &mut Parser,
     ) -> Result<Option<GenericArgsListTree>, ParseError> {

@@ -1,6 +1,6 @@
-use crate::frontend::parser::parse_rules::*;
+use crate::frontend::parser::parse_rules::{ast, Expression, ExpressionParser, ParseError, Token};
 
-impl<'a, 'p> ExpressionParser<'a, 'p> {
+impl ExpressionParser<'_, '_> {
     pub(crate) fn parse_primary_expression(&mut self) -> Result<ast::Expression, ParseError> {
         let (_start_loc, _span) = self.start_parsing("primary expression")?;
 
@@ -17,7 +17,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
                 expr
             }
             _ => self.unexpected_token(&[
-                Token::Identifier("".into()),
+                Token::Identifier(String::new()),
                 Token::UnsignedDecimalConstant(0),
                 Token::LParen,
             ])?,

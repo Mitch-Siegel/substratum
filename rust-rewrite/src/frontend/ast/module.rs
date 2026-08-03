@@ -1,5 +1,8 @@
 use crate::{
-    frontend::ast::*,
+    frontend::ast::{
+        midend, sourceloc, Ast, Display, IdentifierTree, ItemTree, LinearizeResult,
+        NameReflectable, ReflectName,
+    },
     midend::{
         symtab::{self, TypeOwner},
         treewalk::{self, Collect, Linearize, PathedCtxTrait, UnpathedCtxTrait},
@@ -81,7 +84,7 @@ impl ModuleTree {
 
         let mut ctx = ctx.with_child_type(module_name);
         for item in self.items {
-            (_, ctx) = item.linearize(ctx).expect("unable to linearize item");
+            ((), ctx) = item.linearize(ctx).expect("unable to linearize item");
         }
 
         ctx.into_result(())
@@ -114,7 +117,7 @@ impl ModuleTree {
         // trace::warning!("got module path of \"{}\"", module_path);
 
         for item in self.items {
-            (_, ctx) = item.linearize(ctx).expect("unable to linearize item");
+            ((), ctx) = item.linearize(ctx).expect("unable to linearize item");
         }
 
         ctx.into_result(())
@@ -130,7 +133,7 @@ impl Ast for ModuleTree {
             .unwrap();
 
         for item in &self.items {
-            loc = loc.merge(&item.loc()).unwrap()
+            loc = loc.merge(&item.loc()).unwrap();
         }
 
         loc
@@ -169,7 +172,7 @@ impl Display for ModuleTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Module {}", self.name)?;
         for item in &self.items {
-            writeln!(f, " - {}", item)?;
+            writeln!(f, " - {item}")?;
         }
         Ok(())
     }

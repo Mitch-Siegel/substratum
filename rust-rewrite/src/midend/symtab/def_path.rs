@@ -7,21 +7,20 @@ pub(crate) enum PathError {
 
 impl std::fmt::Display for PathError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
 impl std::fmt::Debug for PathError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::CantOwn(owner, owned) => write!(
+            Self::CantOwn(owner, segment) => write!(
                 f,
-                "def path component {:?} can't own component {:?}",
-                owner, owned
+                "def path component {owner:?} can't own component {segment:?}"
             ),
             Self::PopEmpty => write!(f, "pop from empty defpath"),
             Self::WithoutLastSingleSegment(p) => {
-                write!(f, ".without_last() call would leave path {} empty", p)
+                write!(f, ".without_last() call would leave path {p} empty")
             }
         }
     }
@@ -112,11 +111,11 @@ impl PathSegment {
         matches!(
             (self, other),
             (Self::Type(_), _)
-                | (Self::Value(_), Self::Value(_))
+                | (
+                    Self::Value(_) | Self::Scope(_),
+                    Self::Value(_) | Self::Scope(_)
+                )
                 | (Self::Value(_), Self::Type(_))
-                | (Self::Value(_), Self::Scope(_))
-                | (Self::Scope(_), Self::Scope(_))
-                | (Self::Scope(_), Self::Value(_))
         )
     }
 
@@ -161,9 +160,9 @@ impl std::fmt::Debug for PathSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}(", self.raw())?;
         match self {
-            Self::Type(name) => write!(f, " Type:{}", name),
-            Self::Value(name) => write!(f, "Value:{}", name),
-            Self::Macro(name) => write!(f, "Macro:{}", name),
+            Self::Type(name) => write!(f, " Type:{name}"),
+            Self::Value(name) => write!(f, "Value:{name}"),
+            Self::Macro(name) => write!(f, "Macro:{name}"),
             Self::Impl(id) => write!(f, " Impl:({})", id.0),
             Self::Scope(id) => write!(f, "Scope:({})", id.0),
         }?;
@@ -259,11 +258,11 @@ impl Path for RawPath {
     }
 
     fn split_last(mut self) -> (Option<RawPath>, PathSegment) {
-        let prefix_path = if !self.prefix_segments.is_empty() {
+        let prefix_path = if self.prefix_segments.is_empty() {
+            None
+        } else {
             let new_last = self.prefix_segments.pop().unwrap();
             Some(RawPath::new(self.prefix_segments, new_last))
-        } else {
-            None
         };
 
         (prefix_path, self.last)
@@ -350,7 +349,7 @@ impl IntoIterator for RawPath {
 impl std::fmt::Display for RawPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (index, component) in self.prefix_segments.iter().enumerate() {
-            write!(f, "{}", component)?;
+            write!(f, "{component}")?;
             if index < (self.prefix_segments.len()) {
                 write!(f, "::")?;
             }
@@ -362,7 +361,7 @@ impl std::fmt::Display for RawPath {
 impl std::fmt::Debug for RawPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (index, component) in self.prefix_segments.iter().enumerate() {
-            write!(f, "{:?}", component)?;
+            write!(f, "{component:?}")?;
             if index < (self.prefix_segments.len()) {
                 write!(f, "::")?;
             }

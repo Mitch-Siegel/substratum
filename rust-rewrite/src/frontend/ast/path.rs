@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::{
-    frontend::ast::*,
+    frontend::ast::{sourceloc, treewalk, Ast, Display, IdentifierTree, LinearizeResult},
     midend::{self, treewalk::linearize_context::UnpathedLinearizeCtxTrait},
 };
 
@@ -29,7 +29,7 @@ where
                 d
             }
             Self::Ident(i, d) => {
-                write!(f, "{}", i)?;
+                write!(f, "{i}")?;
                 d
             }
             Self::SelfLower(d) => {
@@ -43,7 +43,7 @@ where
         };
 
         if let Some(data) = maybe_data {
-            write!(f, "::{}", data)?;
+            write!(f, "::{data}")?;
         }
         Ok(())
     }
@@ -61,9 +61,7 @@ impl Ast for IdentSegment {
     fn loc(&self) -> sourceloc::SourceSpan {
         match self {
             Self::Ident(ident) => ident.loc(),
-            Self::Super(loc) => loc.clone(),
-            Self::SelfUpper(loc) => loc.clone(),
-            Self::SelfLower(loc) => loc.clone(),
+            Self::Super(loc) | Self::SelfUpper(loc) | Self::SelfLower(loc) => loc.clone(),
         }
     }
 }
@@ -71,7 +69,7 @@ impl Ast for IdentSegment {
 impl std::fmt::Display for IdentSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            IdentSegment::Ident(ident) => write!(f, "{}", ident),
+            IdentSegment::Ident(ident) => write!(f, "{ident}"),
             IdentSegment::Super(_) => write!(f, "super"),
             IdentSegment::SelfLower(_) => write!(f, "self"),
             IdentSegment::SelfUpper(_) => write!(f, "Self"),
@@ -130,7 +128,7 @@ where
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.ident)?;
         if let Some(args) = &self.data {
-            write!(f, "<{}>", args)?;
+            write!(f, "<{args}>")?;
         }
         Ok(())
     }
@@ -176,10 +174,10 @@ where
         let mut first = true;
         for segment in &self.segments {
             if first {
-                write!(f, "{}", segment)?;
+                write!(f, "{segment}")?;
                 first = false;
             } else {
-                write!(f, "::{}", segment)?;
+                write!(f, "::{segment}")?;
             }
         }
 
@@ -189,7 +187,7 @@ where
 
 mod path_walk {
     use crate::{
-        frontend::ast::path::*,
+        frontend::ast::path::{sourceloc, FinishedPathWalk},
         midend::{self},
     };
     use std::collections::HashMap;
@@ -226,12 +224,12 @@ mod path_walk {
         }
 
         pub(crate) fn do_crate(&mut self) -> Result<(), PathWalkError> {
-            if !self.did_excl_first {
+            if self.did_excl_first {
+                Err(PathWalkError::AlreadyDidExclFirst)
+            } else {
                 self.context_segments.clear();
                 self.did_excl_first = true;
                 Ok(())
-            } else {
-                Err(PathWalkError::AlreadyDidExclFirst)
             }
         }
 
@@ -323,8 +321,8 @@ mod path_walk {
                 last_ident: segment_name,
                 last_segment_data: maybe_data,
                 type_path,
-                _value_path: value_path,
-                _macro_path: macro_path,
+                value_path,
+                macro_path,
             }
         }
     }
@@ -343,8 +341,8 @@ where
     last_ident: String,
     last_segment_data: Option<T>,
     type_path: Option<midend::symtab::RawPath>,
-    _value_path: Option<midend::symtab::RawPath>,
-    _macro_path: Option<midend::symtab::RawPath>,
+    value_path: Option<midend::symtab::RawPath>,
+    macro_path: Option<midend::symtab::RawPath>,
 }
 
 impl<T> FinishedPathWalk<T>
@@ -382,7 +380,7 @@ where
     pub(crate) fn _into_value(
         self,
     ) -> Result<(midend::symtab::RawPath, HashMap<midend::symtab::RawPath, T>), String> {
-        let path = self._value_path.ok_or(format!(
+        let path = self.value_path.ok_or(format!(
             "path {} (@{}) is not valid as value",
             midend::symtab::RawPath::new(
                 self.prefix_segments,
@@ -399,7 +397,7 @@ where
     pub(crate) fn _into_macro(
         self,
     ) -> Result<(midend::symtab::RawPath, HashMap<midend::symtab::RawPath, T>), String> {
-        let path = self._macro_path.ok_or(format!(
+        let path = self.macro_path.ok_or(format!(
             "path {} is not valid as macro",
             midend::symtab::RawPath::new(
                 self.prefix_segments,
@@ -429,11 +427,8 @@ impl<T> PathWalkState<T>
 where
     T: Ast + std::fmt::Display + std::fmt::Debug,
 {
-    fn error(action: PathSegmentAction<T>, loc: sourceloc::SourceSpan) -> ! {
-        panic!(
-            "path segment {} is not allowed in this position ({})",
-            action, loc
-        );
+    fn error(action: &PathSegmentAction<T>, loc: &sourceloc::SourceSpan) -> ! {
+        panic!("path segment {action} is not allowed in this position ({loc})");
     }
 
     fn start(context_segments: Vec<midend::symtab::PathSegment>) -> Self {
@@ -468,7 +463,7 @@ where
         path_span: &sourceloc::SourceSpan,
         action: PathSegmentAction<T>,
         size_hint: usize,
-        loc: sourceloc::SourceSpan,
+        loc: &sourceloc::SourceSpan,
         symtab: &impl midend::symtab::Symtab,
     ) -> Result<Self, String> {
         match self {
@@ -488,13 +483,13 @@ where
                 PathSegmentAction::Ident(ident, maybe_data) => Ok(Self::do_ident(
                     ctx, path_span, ident, maybe_data, size_hint, symtab,
                 )),
-                _ => Self::error(action, loc),
+                PathSegmentAction::SelfLower(_) => Self::error(&action, loc),
             },
             PathWalkState::StartGlobal(ctx) => match action {
                 PathSegmentAction::Ident(ident, maybe_data) => Ok(Self::do_ident(
                     ctx, path_span, ident, maybe_data, size_hint, symtab,
                 )),
-                _ => Self::error(action, loc),
+                _ => Self::error(&action, loc),
             },
             PathWalkState::LeadingLowerSupers(_ctx) => {
                 unimplemented!()
@@ -508,7 +503,7 @@ where
     pub(crate) fn finish(self) -> Result<FinishedPathWalk<T>, String> {
         match self {
             PathWalkState::Finished(state) => Ok(*state),
-            other => Err(format!("unfinished path walk in sate {:?}", other)),
+            other => Err(format!("unfinished path walk in sate {other:?}")),
         }
     }
 }
@@ -542,7 +537,7 @@ where
                     &path_span,
                     action,
                     segments.size_hint().0,
-                    segment_loc,
+                    &segment_loc,
                     ctx.unpathed(),
                 )
                 .unwrap();

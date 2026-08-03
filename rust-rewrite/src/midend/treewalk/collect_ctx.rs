@@ -1,4 +1,7 @@
-use crate::midend::treewalk::*;
+use crate::midend::treewalk::{
+    symtab, BTreeSet, CollectCtx, CollectResult, PathedCtx,
+    UnpathedCtxTrait,
+};
 
 use std::collections::HashSet;
 
@@ -26,6 +29,8 @@ impl UnpathedCtxTrait for UnpathedCollectCtx {
 }
 
 impl<P: symtab::Path> PathedCtx<UnpathedCollectCtx, P> {
+    // allow wrap in result for ergonomics returning from linearze
+    #[allow(clippy::unnecessary_wraps)]
     pub(crate) fn into_result(self) -> CollectResult {
         Ok(self.unpathed)
     }

@@ -1,7 +1,11 @@
-use crate::midend::{ir::*, *};
+use crate::midend::{
+    frontend, ir,
+    ir::{OperandTypeInference, Serialize, SourceLoc, TypeInferenceContext, ValueId},
+    treewalk, types,
+};
 
 pub(crate) mod operands;
-use operands::*;
+use operands::{DiscriminantOperands, FieldPointerOperands, MatchArm, MatchOperands};
 
 #[allow(unused)]
 #[enum_delegate::register]

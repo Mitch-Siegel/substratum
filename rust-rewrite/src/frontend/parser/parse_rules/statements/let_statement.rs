@@ -1,6 +1,6 @@
-use crate::frontend::parser::parse_rules::*;
+use crate::frontend::parser::parse_rules::{ast, ParseError, StatementParser, Token};
 
-impl<'a, 'p> StatementParser<'a, 'p> {
+impl StatementParser<'_, '_> {
     pub(crate) fn parse_let_statement(&mut self) -> Result<ast::statements::LetTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("let statement")?;
 

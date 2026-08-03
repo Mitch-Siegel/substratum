@@ -1,4 +1,4 @@
-use crate::midend::*;
+use crate::midend::symtab;
 
 mod function;
 use function::lower_function;
@@ -20,7 +20,7 @@ pub(crate) fn lower_symtab(mut symtab: symtab::SymbolTable) -> symtab::SymbolTab
     let functions_to_lower = symtab::Visitor::visit(&symtab, check_symbol_for_lowering);
 
     for to_lower in functions_to_lower.0 {
-        symtab = lower_function(to_lower, symtab);
+        symtab = lower_function(&to_lower, symtab);
     }
 
     symtab

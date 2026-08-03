@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::{midend::ir::block_manager::*, trace};
+use crate::{
+    midend::ir::block_manager::{ir, ConvergenceError, Debug},
+    trace,
+};
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum ConvergenceResult {
@@ -62,15 +65,14 @@ impl BlockConvergences {
     }
 
     pub(crate) fn converge(&mut self, from: usize) -> Result<ConvergenceResult, ConvergenceError> {
-        let converge_to = match self.open_convergences.remove(&from) {
-            Some(label) => label,
-            None => return Err(ConvergenceError::NonexistentFrom(from)),
+        let Some(converge_to) = self.open_convergences.remove(&from) else {
+            return Err(ConvergenceError::NonexistentFrom(from));
         };
 
         let remaining_with_same_target = self
             .open_convergences
             .values()
-            .map(|to| if *to == converge_to { 1 } else { 0 })
+            .map(|to| usize::from(*to == converge_to))
             .sum::<usize>();
 
         if remaining_with_same_target > 0 {
@@ -118,8 +120,8 @@ impl BlockConvergences {
             .collect::<HashMap<usize, usize>>();
     }
 
-    pub(crate) fn convergence_label_of_block(&self, block: &usize) -> Option<&usize> {
-        self.open_convergences.get(block)
+    pub(crate) fn convergence_label_of_block(&self, block: usize) -> Option<&usize> {
+        self.open_convergences.get(&block)
     }
 
     pub(crate) fn is_empty(&self) -> bool {

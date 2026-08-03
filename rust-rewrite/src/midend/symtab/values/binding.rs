@@ -1,4 +1,4 @@
-use crate::midend::symtab::{Symbol, *};
+use crate::midend::symtab::{midend, PathSegment, Symbol, SymbolDef, Value};
 use serde::Serialize;
 use std::fmt::Display;
 
@@ -15,7 +15,7 @@ impl Display for Variable {
             "{}: {}",
             self.name,
             match &self.type_ {
-                Some(type_) => format!("{}", type_),
+                Some(type_) => format!("{type_}"),
                 None => "?Unknown Type?".into(),
             },
         )
@@ -61,8 +61,8 @@ impl Symbol for LocalBinding {
 impl std::fmt::Display for LocalBinding {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::FunctionParam(fp) => write!(f, "{}", fp),
-            Self::Let(v) => write!(f, "{}", v),
+            Self::FunctionParam(fp) => write!(f, "{fp}"),
+            Self::Let(v) => write!(f, "{v}"),
         }
     }
 }

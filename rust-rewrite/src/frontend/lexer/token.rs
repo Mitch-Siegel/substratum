@@ -228,9 +228,9 @@ impl Display for Token {
             Self::Colon => write!(f, ":"),
             Self::PathSep => write!(f, "::"),
             Self::Super => write!(f, "super"),
-            Self::Identifier(string) => write!(f, "Identifier({})", string),
+            Self::Identifier(string) => write!(f, "Identifier({string})"),
             Self::UnsignedDecimalConstant(constant) => {
-                write!(f, "UnsignedDecimalConstant({})", constant)
+                write!(f, "UnsignedDecimalConstant({constant})")
             }
             Self::Eof => write!(f, "EOF"),
         }

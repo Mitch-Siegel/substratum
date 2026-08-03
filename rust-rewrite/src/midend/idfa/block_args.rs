@@ -1,6 +1,9 @@
 use std::collections::BTreeSet;
 
-use crate::midend::{idfa::*, ir};
+use crate::midend::{
+    idfa::{idfa_base, IdfaImplementor},
+    ir,
+};
 
 pub(crate) type Fact = ir::ValueId;
 pub(crate) type BlockFacts = idfa_base::BlockFacts<Fact>;
@@ -12,7 +15,7 @@ pub(crate) struct BlockArgs<'a> {
 
 impl<'a> IdfaImplementor<'a, Fact> for BlockArgs<'a> {
     fn f_transfer(facts: &mut BlockFacts, _to_transfer: BTreeSet<Fact>) -> BTreeSet<Fact> {
-        facts.gen_facts.clone()
+        facts.gen.clone()
     }
 
     fn f_find_gen_kills(control_flow: &'a ir::ControlFlow, facts: &mut super::Facts<Fact>) {
@@ -21,12 +24,12 @@ impl<'a> IdfaImplementor<'a, Fact> for BlockArgs<'a> {
 
             for statement in block {
                 for read in statement.read_value_ids() {
-                    if !block_facts.kill_facts.contains(&read) {
-                        block_facts.gen_facts.insert(read);
+                    if !block_facts.kill.contains(&read) {
+                        block_facts.gen.insert(read);
                     }
                 }
                 for write in statement.write_value_ids() {
-                    block_facts.kill_facts.insert(write);
+                    block_facts.kill.insert(write);
                 }
             }
         }

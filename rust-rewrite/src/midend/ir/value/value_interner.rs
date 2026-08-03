@@ -1,4 +1,4 @@
-use crate::midend::ir::value::*;
+use crate::midend::ir::value::{symtab, types, Value, ValueId, ValueKind};
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -13,11 +13,11 @@ pub(crate) enum ValueError {
 impl std::fmt::Display for ValueError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::NoSuchValueId(id) => write!(f, "no such value id ({})", id),
-            Self::IdHasNoType(id) => write!(f, "value id ({}) has no type", id),
+            Self::NoSuchValueId(id) => write!(f, "no such value id ({id})"),
+            Self::IdHasNoType(id) => write!(f, "value id ({id}) has no type"),
             Self::ValueHasNoType => write!(f, "value has no type"),
-            Self::ValueAlreadyHasType(ty) => write!(f, "value already has type {}", ty),
-            Self::IdAlreadyHasType(id, ty) => write!(f, "value id {} already has type {}", id, ty),
+            Self::ValueAlreadyHasType(ty) => write!(f, "value already has type {ty}"),
+            Self::IdAlreadyHasType(id, ty) => write!(f, "value id {id} already has type {ty}"),
         }
     }
 }
@@ -58,34 +58,34 @@ impl ValueInterner {
         self.insert(temp_value).unwrap()
     }
 
-    /// given a ValueId, return a reference to the full backing Value (or NoSuchValueId error
+    /// given a `ValueId`, return a reference to the full backing Value (or `NoSuchValueId` error
     /// if not interned)
-    pub(crate) fn value_for_id(&self, val: &ValueId) -> Result<&Value, ValueError> {
+    pub(crate) fn value_for_id(&self, val: ValueId) -> Result<&Value, ValueError> {
         self.values
             .get(val.index)
-            .ok_or(ValueError::NoSuchValueId(*val))
+            .ok_or(ValueError::NoSuchValueId(val))
     }
 
-    /// given a ValueId, return a mutable reference to the full backing value (or NoSuchValueId
+    /// given a `ValueId`, return a mutable reference to the full backing value (or `NoSuchValueId`
     /// error if not interned)
-    pub(crate) fn value_mut_for_id(&mut self, val: &ValueId) -> Result<&mut Value, ValueError> {
+    pub(crate) fn value_mut_for_id(&mut self, val: ValueId) -> Result<&mut Value, ValueError> {
         self.values
             .get_mut(val.index)
-            .ok_or(ValueError::NoSuchValueId(*val))
+            .ok_or(ValueError::NoSuchValueId(val))
     }
 
-    /// given a ValueId, return the semantic type of the value (or HasNoType error if type is
+    /// given a `ValueId`, return the semantic type of the value (or `HasNoType` error if type is
     /// unknown)
-    pub(crate) fn semantic_for_id(&self, val: &ValueId) -> Result<types::Semantic, ValueError> {
+    pub(crate) fn semantic_for_id(&self, val: ValueId) -> Result<types::Semantic, ValueError> {
         self.value_for_id(val)?
             .ty
-            .ok_or(ValueError::IdHasNoType(*val))
+            .ok_or(ValueError::IdHasNoType(val))
     }
 
-    /// given the DefPath, return its ValueID. Requires &mut self as this method may
-    /// generate a new ValueId if one does not already exist for the variable
-    pub(crate) fn id_for_path(&mut self, def_path: symtab::ValuePath) -> ValueId {
-        match self.pathed_ids.get(&def_path) {
+    /// given the `DefPath`, return its `ValueID`. Requires &mut self as this method may
+    /// generate a new `ValueId` if one does not already exist for the variable
+    pub(crate) fn id_for_path(&mut self, def_path: &symtab::ValuePath) -> ValueId {
+        match self.pathed_ids.get(def_path) {
             Some(id) => *id,
             None => self
                 .insert(Value::new(ValueKind::Variable(def_path.clone()), None))
@@ -93,12 +93,12 @@ impl ValueInterner {
         }
     }
 
-    /// given a ValueId, return an option containing the DefPath of the associated variable, or
-    /// None if the backing value has a kind other than Variable. Returns NoSuchValueId in
+    /// given a `ValueId`, return an option containing the `DefPath` of the associated variable, or
+    /// None if the backing value has a kind other than Variable. Returns `NoSuchValueId` in
     /// error cases
     pub(crate) fn def_path_for_id(
         &self,
-        id: &ValueId,
+        id: ValueId,
     ) -> Result<Option<&symtab::ValuePath>, ValueError> {
         match &self.value_for_id(id)?.kind {
             ValueKind::Variable(def_path) => Ok(Some(def_path)),
@@ -119,20 +119,19 @@ impl ValueInterner {
     }
 
     fn insert(&mut self, value: Value) -> Result<ValueId, ()> {
-        match self.ids.get(&value) {
-            Some(_) => Err(()),
-            None => {
-                let new_id = self.next_id();
-                if let ValueKind::Variable(variable_path) = &value.kind {
-                    assert!(self
-                        .pathed_ids
-                        .insert(variable_path.clone(), new_id)
-                        .is_none());
-                }
-                self.ids.insert(value.clone(), new_id);
-                self.values.push(value);
-                Ok(new_id)
+        if self.ids.contains_key(&value) {
+            Err(())
+        } else {
+            let new_id = self.next_id();
+            if let ValueKind::Variable(variable_path) = &value.kind {
+                assert!(self
+                    .pathed_ids
+                    .insert(variable_path.clone(), new_id)
+                    .is_none());
             }
+            self.ids.insert(value.clone(), new_id);
+            self.values.push(value);
+            Ok(new_id)
         }
     }
 }
@@ -141,11 +140,11 @@ impl ValueInterner {
 impl ValueInterner {
     pub(crate) fn assign_type_to_id(
         &mut self,
-        val: &ValueId,
+        val: ValueId,
         ty: types::Semantic,
     ) -> Result<types::Semantic, ValueError> {
         match self.value_mut_for_id(val)?.ty.replace(ty) {
-            Some(existing_type) => Err(ValueError::IdAlreadyHasType(*val, existing_type)),
+            Some(existing_type) => Err(ValueError::IdAlreadyHasType(val, existing_type)),
             None => Ok(ty),
         }
     }
@@ -153,8 +152,8 @@ impl ValueInterner {
 
 impl ValueInterner {
     pub(crate) fn diag(&self, _symtab: &symtab::SymbolTable) {
-        for (v, id) in self.ids.iter() {
-            println!("{}: {:?}", id, v);
+        for (v, id) in &self.ids {
+            println!("{id}: {v:?}");
         }
     }
 }

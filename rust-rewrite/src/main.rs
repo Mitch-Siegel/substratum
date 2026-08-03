@@ -128,7 +128,7 @@ fun money_add_dollars(m: Money, dollars: u64) {
 fn main() {
     let cfg = Config::parse();
 
-    println!("{:?}", cfg);
+    println!("{cfg:?}");
 
     match &cfg.trace_file {
         None => {
@@ -141,7 +141,7 @@ fn main() {
         }
         Some(outfile_name) => {
             let outfile = std::fs::File::create(std::path::Path::new(outfile_name))
-                .unwrap_or_else(|_| panic!("couldn't create trace file '{}'", outfile_name));
+                .unwrap_or_else(|_| panic!("couldn't create trace file '{outfile_name}'"));
             let json_outfile = std::sync::Mutex::new(outfile);
             let writer = tracing_subscriber::fmt::writer::BoxMakeWriter::new(json_outfile);
             tracing_subscriber::fmt()
@@ -159,7 +159,7 @@ fn main() {
     // let mut modules = BTreeSet::<frontend::ast::ModuleTree>::new();
 
     let modules =
-        frontend::parser::parse_crate(&cfg.crate_name, &cfg.bin_name, cfg.crate_path).unwrap();
+        frontend::parser::parse_crate(&cfg.crate_name, &cfg.bin_name, &cfg.crate_path).unwrap();
 
     let _symtab = midend::symbol_table_from_modules(modules, &cfg.crate_name);
     //backend::do_backend(symtab);

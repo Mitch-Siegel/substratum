@@ -1,10 +1,10 @@
-use crate::frontend::parser::parse_rules::*;
+use crate::frontend::parser::parse_rules::{parse_rules, trace, ItemParser, ParseError, Token};
 
-impl<'a, 'p> ItemParser<'a, 'p> {
+impl ItemParser<'_, '_> {
     pub(in crate::frontend) fn parse_module_item(
         &mut self,
         parent_module_path: &std::path::Path,
-        crate_name: &Option<String>,
+        crate_name: Option<&String>,
     ) -> Result<parse_rules::module::ModuleResult, ParseError> {
         let (_, _span) = self.start_parsing("module item")?;
 

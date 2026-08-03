@@ -11,9 +11,12 @@ pub(crate) mod value;
 mod tests;
 
 use std::fmt::Display;
-use type_inference::*;
+use type_inference::{OperandTypeInference, TypeInferenceContext};
 
-use crate::{frontend::sourceloc::SourceLoc, midend::*};
+use crate::{
+    frontend::sourceloc::SourceLoc,
+    midend::{ir, symtab, types},
+};
 use serde::Serialize;
 
 pub(crate) use basic_block::*;
@@ -31,8 +34,8 @@ pub(crate) enum Operation {
 impl Display for Operation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Lowered(lowered) => write!(f, "{}", lowered),
-            Self::Unlowered(unlowered) => write!(f, "{}", unlowered),
+            Self::Lowered(lowered) => write!(f, "{lowered}"),
+            Self::Unlowered(unlowered) => write!(f, "{unlowered}"),
         }
     }
 }

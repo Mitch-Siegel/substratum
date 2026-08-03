@@ -1,4 +1,4 @@
-use crate::midend::symtab::{Symbol, *};
+use crate::midend::symtab::{midend, symtab, PathSegment, Symbol};
 
 pub(crate) mod enumeration;
 pub(crate) mod structure;
@@ -27,8 +27,8 @@ impl From<EnumRepr> for DeclaredType {
 impl std::fmt::Display for DeclaredType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Struct(s) => write!(f, "{}", s),
-            Self::Enum(e) => write!(f, "{}", e),
+            Self::Struct(s) => write!(f, "{s}"),
+            Self::Enum(e) => write!(f, "{e}"),
         }
     }
 }
@@ -72,20 +72,20 @@ impl Symbol for TypeDecl {
 impl std::fmt::Display for TypeDecl {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.declared_type)?;
-        if !self.generic_params.is_empty() {
+        if self.generic_params.is_empty() {
+            Ok(())
+        } else {
             write!(f, "<")?;
             let mut first = true;
             for p in &self.generic_params {
-                if !first {
-                    write!(f, ", {}", p)?;
-                } else {
-                    write!(f, "{}", p)?;
+                if first {
+                    write!(f, "{p}")?;
                     first = false;
+                } else {
+                    write!(f, ", {p}")?;
                 }
             }
             write!(f, ">")
-        } else {
-            Ok(())
         }
     }
 }

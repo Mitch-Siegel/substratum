@@ -1,6 +1,6 @@
-use crate::frontend::parser::parse_rules::*;
+use crate::frontend::parser::parse_rules::{ast, ItemParser, ParseError, Token};
 
-impl<'a, 'p> ItemParser<'a, 'p> {
+impl ItemParser<'_, '_> {
     fn parse_struct_field_declaration(
         &mut self,
     ) -> Result<ast::items::struct_definition::StructFieldTree, ParseError> {
@@ -38,7 +38,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
                     break;
                 }
                 _ => {
-                    self.unexpected_token(&[Token::Identifier("".into())])?;
+                    self.unexpected_token(&[Token::Identifier(String::new())])?;
                 }
             }
         }

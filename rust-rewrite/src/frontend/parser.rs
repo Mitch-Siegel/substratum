@@ -7,10 +7,15 @@ use std::{
 
 use crate::{
     frontend::{
-        ast::*,
+        ast,
+        ast::{
+            Ast, Expression, GenericArgsListTree, IdentifierTree, ItemTree, ModuleTree,
+            StatementTree, TypeTree,
+        },
         lexer::{token::Token, LexError},
-        sourceloc::*,
-        *,
+        sourceloc,
+        sourceloc::{SourceLoc, SourceSpan},
+        Lexer,
     },
     trace,
 };
@@ -37,11 +42,11 @@ impl<'a> Parser<'a> {
     ) -> Self {
         let lexer_start_pos = lexer.current_loc();
         let mut module_hierarchy = Vec::new();
-        for component in module_path.iter() {
+        for component in module_path {
             module_hierarchy.push(IdentifierTree {
                 loc: lexer_start_pos.clone().into(),
                 value: component.to_str().unwrap().into(),
-            })
+            });
         }
 
         trace::debug!("Module hierarchy: {:?}", module_hierarchy);
@@ -196,6 +201,8 @@ impl<'a> Parser<'a> {
     }
 
     // FUTURE: is putting everything in a box really the right choice?
+    // allow for ergonomics: just stick this at the bottom of parsing functions that return results
+    #[allow(clippy::unnecessary_wraps)]
     fn finish_parsing<T>(&mut self, parsed: T) -> Result<T, ParseError>
     where
         T: std::fmt::Debug,
@@ -237,7 +244,7 @@ impl<'a> Parser<'a> {
     }
 }
 
-impl<'a> Parser<'a> {
+impl Parser<'_> {
     pub(in crate::frontend) fn parse(
         &mut self,
         mod_keyword_loc: sourceloc::SourceSpan,
@@ -254,7 +261,7 @@ impl<'a> Parser<'a> {
             mod_keyword_loc,
             parent_module_path,
             module_name_tree,
-            &Some(String::from(crate_name)),
+            Some(&String::from(crate_name)),
         )
     }
 }
@@ -337,8 +344,8 @@ enum FindParseModuleError {
 impl Display for FindParseModuleError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ModuleNotFound(name) => write!(f, "unable to find module {}", name),
-            Self::ParseError(e) => write!(f, "parse error: {}", e),
+            Self::ModuleNotFound(name) => write!(f, "unable to find module {name}"),
+            Self::ParseError(e) => write!(f, "parse error: {e}"),
         }
     }
 }
@@ -362,7 +369,7 @@ fn find_and_parse_module(
         .clone()
         .join(item.module_name.clone())
         .with_extension("sb");
-    println!("trying direct mod path: {:?}", direct_mod_path);
+    dbg!("trying direct mod path: {direct_mod_path:?}");
     if let Ok(infile) = File::open(direct_mod_path) {
         return Ok(lex_and_parse_file(
             crate_name,
@@ -392,10 +399,12 @@ fn find_and_parse_module(
     Err(FindParseModuleError::ModuleNotFound(item.module_name))
 }
 
+// return result to match other parse function conventions
+#[allow(clippy::unnecessary_wraps)]
 pub(crate) fn parse_crate(
     crate_name: &str,
     bin_name: &str,
-    crate_path: PathBuf,
+    crate_path: &Path,
 ) -> Result<BTreeSet<ast::ModuleTree>, ParseError> {
     let mut modules = BTreeSet::new();
     let mut worklist = BTreeSet::<WorklistItem>::new();
@@ -406,7 +415,7 @@ pub(crate) fn parse_crate(
     } = find_and_parse_module(
         WorklistItem::new(String::from(bin_name), vec![]),
         crate_name,
-        &crate_path,
+        crate_path,
         false,
     )
     .expect("error parsing crate root ");
@@ -418,8 +427,8 @@ pub(crate) fn parse_crate(
         let ModuleResult {
             module_tree,
             mut module_worklist,
-        } = find_and_parse_module(worklist_item, crate_name, &crate_path, true)
-            .unwrap_or_else(|e| panic!("Error in file {}: {}", module_name, e));
+        } = find_and_parse_module(worklist_item, crate_name, crate_path, true)
+            .unwrap_or_else(|e| panic!("Error in file {module_name}: {e}"));
 
         worklist.append(&mut module_worklist);
 

@@ -1,9 +1,12 @@
 use crate::frontend::{
     lexer::Token,
-    parser::{ast, parse_rules::*},
+    parser::{
+        ast,
+        parse_rules::{Ast, ParseError, Parser, PathParser},
+    },
 };
 
-impl<'a, 'p> PathParser<'a, 'p> {
+impl PathParser<'_, '_> {
     pub(crate) fn parse_path<P, D>(
         &mut self,
         try_parse_segment_data: P,
@@ -32,8 +35,8 @@ impl<'a, 'p> PathParser<'a, 'p> {
         }
 
         let path = ast::path::PathTree {
-            segments,
             starts_global,
+            segments,
         };
         self.finish_parsing(path)
     }
@@ -68,7 +71,7 @@ impl<'a, 'p> PathParser<'a, 'p> {
                 ast::path::IdentSegment::SelfUpper(self.expect_token(Token::SelfUpper)?)
             }
             _ => self.unexpected_token(&[
-                Token::Identifier("".into()),
+                Token::Identifier(String::new()),
                 Token::Super,
                 Token::SelfLower,
                 Token::SelfUpper,

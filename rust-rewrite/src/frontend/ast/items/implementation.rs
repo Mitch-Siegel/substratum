@@ -1,5 +1,8 @@
 use crate::{
-    frontend::ast::*,
+    frontend::ast::{
+        generics, items, midend, sourceloc, Ast, Display, IdentifierTree, NameReflectable,
+        ReflectName,
+    },
     midend::{
         symtab,
         treewalk::{self},
@@ -89,17 +92,17 @@ impl Display for ImplementationTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut params: String = format!("{}", &self.generic_params);
         if !params.is_empty() {
-            params = format!("<{}>", params);
-        };
+            params = format!("<{params}>");
+        }
 
         let mut for_params = format!("{}", &self.implemented_for_generic_params);
         if !for_params.is_empty() {
-            for_params = format!("<{}>", for_params);
-        };
+            for_params = format!("<{for_params}>");
+        }
 
-        write!(f, "Impl{} {}{}", params, self.for_, for_params).and_then(|_| {
+        write!(f, "Impl{} {}{}", params, self.for_, for_params).and_then(|()| {
             for item in &self.items {
-                write!(f, "{}", item)?
+                write!(f, "{item}")?;
             }
             Ok(())
         })

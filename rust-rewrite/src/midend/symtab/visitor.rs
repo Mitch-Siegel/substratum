@@ -1,4 +1,4 @@
-use crate::midend::symtab::*;
+use crate::midend::symtab::{RawPath, SymbolDef, SymbolTable};
 
 pub(crate) struct MutVisitor {}
 

@@ -1,5 +1,8 @@
 use crate::{
-    frontend::ast::expressions::*,
+    frontend::ast::expressions::{
+        midend, sourceloc, symtab, treewalk, Ast, BlockExpressionTree, Display, Expression,
+        NameReflectable, ReflectName,
+    },
     midend::{symtab::ValuePath, treewalk::PathedCtxTrait},
 };
 
@@ -20,7 +23,7 @@ impl Ast for IfExpressionTree {
             .unwrap();
 
         if let Some(false_block) = &self.false_block {
-            loc_span = loc_span.merge(&false_block.loc()).unwrap()
+            loc_span = loc_span.merge(&false_block.loc()).unwrap();
         }
 
         loc_span
@@ -86,15 +89,13 @@ impl
         let true_scope_def_path = ctx.reserve_subscope();
         let false_scope_def_path = ctx.reserve_subscope();
 
-        ctx.function_mut()
-            .conditional_branch_from_current(
-                condition_loc.clone().start(),
-                if_condition,
-                parent_scope_def_path,
-                true_scope_def_path,
-                false_scope_def_path,
-            )
-            .unwrap();
+        ctx.function_mut().conditional_branch_from_current(
+            condition_loc.clone().start(),
+            if_condition,
+            parent_scope_def_path,
+            true_scope_def_path,
+            false_scope_def_path,
+        );
 
         let true_loc = self.true_block.loc();
         let if_value_id;
@@ -115,8 +116,7 @@ impl
         }
 
         ctx.function_mut()
-            .finish_true_branch_switch_to_false(condition_loc.start())
-            .unwrap();
+            .finish_true_branch_switch_to_false(condition_loc.start());
 
         // handle branch linearization and assignment to the result value
         if let Some(else_block) = self.false_block {
@@ -131,7 +131,7 @@ impl
             ctx.function_mut()
                 .append_statement_to_current_block(assign_else_result_line)
                 .unwrap();
-        };
+        }
 
         ctx.function_mut().finish_branch(if_loc.end()).unwrap();
 

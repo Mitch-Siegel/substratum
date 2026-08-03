@@ -1,4 +1,4 @@
-use crate::midend::ir::*;
+use crate::midend::ir::{symtab, types, value, ValueError, ValueId, ValueInterner};
 
 #[enum_delegate::register]
 pub(crate) trait OperandTypeInference {
@@ -6,16 +6,13 @@ pub(crate) trait OperandTypeInference {
 }
 
 pub(crate) struct TypeInferenceContext<'a> {
-    pub _symtab: &'a mut symtab::SymbolTable,
-    pub _values: &'a mut ValueInterner,
+    pub symtab: &'a mut symtab::SymbolTable,
+    pub values: &'a mut ValueInterner,
 }
 
 impl<'a> TypeInferenceContext<'a> {
-    pub(crate) fn new(
-        _symtab: &'a mut symtab::SymbolTable,
-        _values: &'a mut ValueInterner,
-    ) -> Self {
-        Self { _symtab, _values }
+    pub(crate) fn new(symtab: &'a mut symtab::SymbolTable, values: &'a mut ValueInterner) -> Self {
+        Self { symtab, values }
     }
 }
 
@@ -27,7 +24,7 @@ pub(crate) enum TypePropagationError {
 impl std::fmt::Display for TypePropagationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ValueError(ve) => write!(f, "{}", ve),
+            Self::ValueError(ve) => write!(f, "{ve}"),
         }
     }
 }
@@ -38,17 +35,17 @@ impl From<ValueError> for TypePropagationError {
     }
 }
 
-impl<'a> TypeInferenceContext<'a> {
-    pub(crate) fn _type_for_value(&self, value_id: &ValueId) -> Option<types::Semantic> {
-        self._values.semantic_for_id(value_id).ok()
+impl TypeInferenceContext<'_> {
+    pub(crate) fn _type_for_value(&self, value_id: ValueId) -> Option<types::Semantic> {
+        self.values.semantic_for_id(value_id).ok()
     }
 
     pub(crate) fn _assign_type_to_value(
         &mut self,
-        value_id: &ValueId,
+        value_id: ValueId,
         ty: types::Semantic,
     ) -> Result<(), TypePropagationError> {
-        let value = self._values.value_mut_for_id(value_id)?;
+        let value = self.values.value_mut_for_id(value_id)?;
         value.set_type(ty)?;
         Ok(())
     }

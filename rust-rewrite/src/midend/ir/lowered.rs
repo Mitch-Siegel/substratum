@@ -1,7 +1,9 @@
 use serde::Serialize;
 pub(crate) mod operands;
 
-use crate::midend::ir::*;
+use crate::midend::ir::{
+    lowered, IrOperation, OperandTypeInference, TypeInferenceContext, ValueId,
+};
 pub(crate) use operands::*;
 use std::fmt::Display;
 
@@ -41,7 +43,7 @@ impl IrOperation for Operation {
                         operands.push(condition.sources.lhs);
                     }
                     lowered::operands::JumpCondition::Unconditional => {}
-                };
+                }
                 for arg in jump.block_args.values() {
                     operands.push(*arg);
                 }
@@ -100,11 +102,11 @@ impl Display for Operation {
             Self::Assignment(assignment) => {
                 write!(f, "{} = {}", assignment.destination, assignment.source)
             }
-            Self::BinaryArithmetic(arithmetic) => write!(f, "{}", arithmetic),
-            Self::BinaryComparison(comparison) => write!(f, "{}", comparison),
-            Self::Jump(jump) => write!(f, "{}", jump),
-            Self::FunctionCall(function_call) => write!(f, "{}", function_call),
-            Self::Call(call) => write!(f, "{}", call),
+            Self::BinaryArithmetic(arithmetic) => write!(f, "{arithmetic}"),
+            Self::BinaryComparison(comparison) => write!(f, "{comparison}"),
+            Self::Jump(jump) => write!(f, "{jump}"),
+            Self::FunctionCall(function_call) => write!(f, "{function_call}"),
+            Self::Call(call) => write!(f, "{call}"),
             Self::Load(load) => write!(f, "{} = *{}", load.destination, load.pointer),
             Self::Store(store) => write!(f, "*{} = {}", store.pointer, store.source),
             Self::ComputeFieldAddress(field_address) => write!(
@@ -184,5 +186,5 @@ pub(crate) fn new_load(pointer: ValueId, destination: ValueId) -> Operation {
 }
 
 pub(crate) fn new_store(source: ValueId, pointer: ValueId) -> Operation {
-    Operation::Store(StoreOperands { source, pointer })
+    Operation::Store(StoreOperands { pointer, source })
 }

@@ -26,7 +26,7 @@ impl std::fmt::Display for Semantic {
             Self::I16 => write!(f, "I16"),
             Self::I32 => write!(f, "I32"),
             Self::I64 => write!(f, "I64"),
-            Self::UserDefined { id } => write!(f, "{}", id),
+            Self::UserDefined { id } => write!(f, "{id}"),
         }
     }
 }

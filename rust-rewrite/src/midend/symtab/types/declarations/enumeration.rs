@@ -1,4 +1,4 @@
-use crate::midend::symtab::*;
+use crate::midend::symtab::{midend, BTreeMap};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -66,7 +66,7 @@ impl std::fmt::Display for EnumVariant {
         write!(f, "{}", self.name)?;
         match &self.data {
             EnumVariantRepr::Unit => Ok(()),
-            EnumVariantRepr::Tuple(elements) => write!(f, "{:?}", elements),
+            EnumVariantRepr::Tuple(elements) => write!(f, "{elements:?}"),
         }
     }
 }

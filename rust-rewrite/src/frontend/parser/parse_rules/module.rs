@@ -1,17 +1,20 @@
-use crate::frontend::parser::parse_rules::*;
+use crate::frontend::parser::parse_rules::{
+    sourceloc, BTreeSet, IdentifierTree, ItemTree, ModuleParser, ModuleTree, ParseError, Token,
+    WorklistItem,
+};
 #[derive(Debug)]
 pub(in crate::frontend) struct ModuleResult {
     pub module_tree: ModuleTree,
     pub module_worklist: BTreeSet<WorklistItem>,
 }
 
-impl<'a, 'p> ModuleParser<'a, 'p> {
+impl ModuleParser<'_, '_> {
     pub(in crate::frontend) fn parse_module_contents(
         &mut self,
         mod_keyword_loc: sourceloc::SourceSpan,
         module_path: &std::path::Path,
         name: IdentifierTree,
-        crate_name: &Option<String>,
+        crate_name: Option<&String>,
     ) -> Result<ModuleResult, ParseError> {
         let (_start_loc, _span) = self.start_parsing("module contents")?;
 

@@ -1,4 +1,7 @@
-use crate::midend::{ir::*, *};
+use crate::midend::{
+    ir::{Display, Serialize},
+    symtab, types,
+};
 
 mod value_interner;
 pub(crate) use value_interner::{ValueError, ValueInterner};

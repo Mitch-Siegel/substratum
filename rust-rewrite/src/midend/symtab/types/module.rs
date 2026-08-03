@@ -1,4 +1,4 @@
-use crate::midend::symtab::*;
+use crate::midend::symtab::{PathSegment, Symbol, SymbolDef, Type};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct Module {

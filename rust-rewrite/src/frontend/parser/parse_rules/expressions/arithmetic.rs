@@ -1,23 +1,14 @@
-use crate::frontend::parser::parse_rules::*;
+use crate::frontend::parser::parse_rules::{ast, Expression, ExpressionParser, ParseError, Token};
 
-impl<'a, 'p> ExpressionParser<'a, 'p> {
+impl ExpressionParser<'_, '_> {
     pub(crate) fn precedence_of_token(token: &Token) -> usize {
         match token {
-            Token::Plus => 1,
-            Token::Minus => 1,
-            Token::Star => 2,
-            Token::FSlash => 2,
-            Token::LThan => 3,
-            Token::GThan => 3,
-            Token::LThanE => 3,
-            Token::GThanE => 3,
-            Token::Equals => 4,
-            Token::NotEquals => 4,
+            Token::Plus | Token::Minus => 1,
+            Token::Star | Token::FSlash => 2,
+            Token::LThan | Token::GThan | Token::LThanE | Token::GThanE => 3,
+            Token::Equals | Token::NotEquals => 4,
             _ => {
-                panic!(
-                    "Invalid token {} passed to BinaryOperations::precedence_of_token",
-                    token
-                );
+                panic!("Invalid token {token} passed to BinaryOperations::precedence_of_token");
             }
         }
     }
@@ -44,7 +35,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
         min_precedence: usize,
     ) -> Result<Expression, ParseError> {
         let (_start_loc, _span) =
-            self.start_parsing(&format!("expression (min precedence: {})", min_precedence))?;
+            self.start_parsing(&format!("expression (min precedence: {min_precedence})"))?;
 
         let mut expr = lhs;
         while Self::token_is_operator_of_at_least_precedence(&self.peek_token()?, min_precedence) {

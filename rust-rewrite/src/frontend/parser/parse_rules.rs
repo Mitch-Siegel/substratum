@@ -1,4 +1,8 @@
-use crate::frontend::parser::*;
+use crate::frontend::parser::{
+    ast, parse_rules, sourceloc, trace, Ast, BTreeSet, Expression, GenericArgsListTree,
+    IdentifierTree, ItemTree, ModuleTree, ParseError, Parser, StatementTree, Token, TypeTree,
+    WorklistItem,
+};
 
 mod declarations;
 mod expressions;
@@ -21,74 +25,74 @@ pub(crate) struct TypeParser<'a, 'p>(&'p mut Parser<'a>);
 
 pub(crate) struct PathParser<'a, 'p>(&'p mut Parser<'a>);
 
-impl<'a, 'p> std::ops::Deref for ExpressionParser<'a, 'p> {
+impl<'a> std::ops::Deref for ExpressionParser<'a, '_> {
     type Target = Parser<'a>;
     fn deref(&self) -> &Self::Target {
         self.0
     }
 }
-impl<'a, 'p> std::ops::DerefMut for ExpressionParser<'a, 'p> {
+impl std::ops::DerefMut for ExpressionParser<'_, '_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
     }
 }
 
-impl<'a, 'p> std::ops::Deref for ItemParser<'a, 'p> {
+impl<'a> std::ops::Deref for ItemParser<'a, '_> {
     type Target = Parser<'a>;
     fn deref(&self) -> &Self::Target {
         self.0
     }
 }
-impl<'a, 'p> std::ops::DerefMut for ItemParser<'a, 'p> {
+impl std::ops::DerefMut for ItemParser<'_, '_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
     }
 }
 
-impl<'a, 'p> std::ops::Deref for ModuleParser<'a, 'p> {
+impl<'a> std::ops::Deref for ModuleParser<'a, '_> {
     type Target = Parser<'a>;
     fn deref(&self) -> &Self::Target {
         self.0
     }
 }
-impl<'a, 'p> std::ops::DerefMut for ModuleParser<'a, 'p> {
+impl std::ops::DerefMut for ModuleParser<'_, '_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
     }
 }
 
-impl<'a, 'p> std::ops::Deref for StatementParser<'a, 'p> {
+impl<'a> std::ops::Deref for StatementParser<'a, '_> {
     type Target = Parser<'a>;
     fn deref(&self) -> &Self::Target {
         self.0
     }
 }
 
-impl<'a, 'p> std::ops::DerefMut for StatementParser<'a, 'p> {
+impl std::ops::DerefMut for StatementParser<'_, '_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
     }
 }
 
-impl<'a, 'p> std::ops::Deref for TypeParser<'a, 'p> {
+impl<'a> std::ops::Deref for TypeParser<'a, '_> {
     type Target = Parser<'a>;
     fn deref(&self) -> &Self::Target {
         self.0
     }
 }
-impl<'a, 'p> std::ops::DerefMut for TypeParser<'a, 'p> {
+impl std::ops::DerefMut for TypeParser<'_, '_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
     }
 }
 
-impl<'a, 'p> std::ops::Deref for PathParser<'a, 'p> {
+impl<'a> std::ops::Deref for PathParser<'a, '_> {
     type Target = Parser<'a>;
     fn deref(&self) -> &Self::Target {
         self.0
     }
 }
-impl<'a, 'p> std::ops::DerefMut for PathParser<'a, 'p> {
+impl std::ops::DerefMut for PathParser<'_, '_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
     }

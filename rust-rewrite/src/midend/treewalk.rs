@@ -1,9 +1,10 @@
 use crate::{
     frontend,
     midend::{
+        ir,
         symtab::{self, Path, Symbol, Symtab, SymtabBase, TypeOwner, ValueOwner},
+        treewalk, types,
         types::ParamSubstMap,
-        *,
     },
     trace,
 };
@@ -235,7 +236,7 @@ impl From<symtab::SymbolError> for CollectError {
 impl std::fmt::Debug for CollectError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Symbol(s) => write!(f, "symbol error: {:?}", s),
+            Self::Symbol(s) => write!(f, "symbol error: {s:?}"),
         }
     }
 }
@@ -251,7 +252,7 @@ where
 {
     fn collect_inner(&self, ctx: CollectCtx<P>) -> CollectResult;
 
-    /// call collect_symbols(), but return a CollectCtx with the same path as the one passed in
+    /// call `collect_symbols()`, but return a `CollectCtx` with the same path as the one passed in
     fn collect_symbols(&self, ctx: CollectCtx<P>) -> Result<CollectCtx<P>, CollectError> {
         let old_path: P = ctx.path().clone();
         let unpathed = self.collect_inner(ctx)?;
@@ -301,7 +302,7 @@ pub(crate) fn walk(
     }
 
     for decl in symtab.decls() {
-        println!("{}", decl);
+        println!("{decl}");
     }
 
     for (path, uses) in symtab.uses() {
@@ -309,7 +310,7 @@ pub(crate) fn walk(
             "{}: {}",
             path,
             uses.iter()
-                .map(|use_| format!("{}", use_))
+                .map(|use_| format!("{use_}"))
                 .collect::<Vec<String>>()
                 .join(",\n\t")
         );
@@ -320,7 +321,7 @@ pub(crate) fn walk(
     for module in program {
         let linearize_ctx = UnpathedLinearizeCtx::new(symtab);
         if module.name.value == crate_name {
-            let (_, unpathed) = module
+            let ((), unpathed) = module
                 .linearize_from_crate_root(linearize_ctx, crate_name)
                 .unwrap();
             symtab = unpathed.take();
@@ -336,7 +337,7 @@ pub(crate) fn walk(
                 module.module_path,
                 prefix_segments
             );
-            let (_, ctx) = module
+            let ((), ctx) = module
                 .linearize_from_prefix_segments(linearize_ctx.with_path(prefix_segments.clone()))
                 .unwrap();
             symtab = ctx.take();

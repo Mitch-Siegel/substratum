@@ -1,5 +1,7 @@
 use crate::{
-    frontend::ast::*,
+    frontend::ast::{
+        sourceloc, symtab, treewalk, Ast, Display, IdentifierTree, NameReflectable, ReflectName,
+    },
     midend::{self, treewalk::CollectCtx},
 };
 
@@ -154,16 +156,16 @@ impl
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::PathIn(path) => write!(f, "{}", path),
-            Self::UnsignedDecimalConstant(_, constant) => write!(f, "{}", constant),
-            Self::Arithmetic(arithmetic_expression) => write!(f, "{}", arithmetic_expression),
-            Self::Comparison(comparison_expression) => write!(f, "{}", comparison_expression),
-            Self::Assignment(assignment_expression) => write!(f, "{}", assignment_expression),
-            Self::If(if_expression) => write!(f, "{}", if_expression),
-            Self::Match(match_expression) => write!(f, "{}", match_expression),
-            Self::While(while_expression) => write!(f, "{}", while_expression),
-            Self::Field(field_expression) => write!(f, "{}", field_expression),
-            Self::Call(function_call) => write!(f, "{}", function_call),
+            Self::PathIn(path) => write!(f, "{path}"),
+            Self::UnsignedDecimalConstant(_, constant) => write!(f, "{constant}"),
+            Self::Arithmetic(arithmetic_expression) => write!(f, "{arithmetic_expression}"),
+            Self::Comparison(comparison_expression) => write!(f, "{comparison_expression}"),
+            Self::Assignment(assignment_expression) => write!(f, "{assignment_expression}"),
+            Self::If(if_expression) => write!(f, "{if_expression}"),
+            Self::Match(match_expression) => write!(f, "{match_expression}"),
+            Self::While(while_expression) => write!(f, "{while_expression}"),
+            Self::Field(field_expression) => write!(f, "{field_expression}"),
+            Self::Call(function_call) => write!(f, "{function_call}"),
         }
     }
 }

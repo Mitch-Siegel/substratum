@@ -1,5 +1,8 @@
 use crate::{
-    frontend::ast::*,
+    frontend::ast::{
+        path, sourceloc, symtab, treewalk, Ast, Display, Expression, GenericArgsListTree,
+        LinearizeResult, NameReflectable, ReflectName,
+    },
     midend::{self, treewalk::linearize_context::UnpathedLinearizeCtxTrait},
 };
 
@@ -66,7 +69,7 @@ where
 impl std::fmt::Display for TypeTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::TypeNoBounds(tnb) => write!(f, "TypeNoBounds({})", tnb),
+            Self::TypeNoBounds(tnb) => write!(f, "TypeNoBounds({tnb})"),
         }
     }
 }
@@ -182,10 +185,10 @@ impl std::fmt::Display for TupleTypeTree {
         let mut first = true;
         for member in &self.members {
             if first {
-                write!(f, "{}", member)?;
+                write!(f, "{member}")?;
                 first = false;
             } else {
-                write!(f, ", {}", member)?;
+                write!(f, ", {member}")?;
             }
         }
 
@@ -325,11 +328,11 @@ where
 impl std::fmt::Display for TypeNoBoundsTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ParenthesizedType(inner) => write!(f, "({})", inner),
-            Self::TypePath(path) => write!(f, "{}", path),
-            Self::TupleType(tuple) => write!(f, "{}", tuple),
-            Self::ReferenceType(reference) => write!(f, "{}", reference),
-            Self::ArrayType(array) => write!(f, "{}", array),
+            Self::ParenthesizedType(inner) => write!(f, "({inner})"),
+            Self::TypePath(path) => write!(f, "{path}"),
+            Self::TupleType(tuple) => write!(f, "{tuple}"),
+            Self::ReferenceType(reference) => write!(f, "{reference}"),
+            Self::ArrayType(array) => write!(f, "{array}"),
             Self::InferredType(_) => write!(f, "_"),
         }
     }
@@ -370,8 +373,8 @@ where
 impl std::fmt::Display for TypePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Primitive(primitive) => write!(f, "{}", primitive),
-            Self::ItemPath(item) => write!(f, "{}", item),
+            Self::Primitive(primitive) => write!(f, "{primitive}"),
+            Self::ItemPath(item) => write!(f, "{item}"),
         }
     }
 }
@@ -422,7 +425,7 @@ impl Ast for TypePathSegmentData {
 impl Display for TypePathSegmentData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::GenericArgs(generics) => write!(f, "<{}>", generics),
+            Self::GenericArgs(generics) => write!(f, "<{generics}>"),
         }
     }
 }
@@ -553,7 +556,7 @@ where
 {
     type Data = <TypeTree as treewalk::Linearize<U, P, C>>::Data;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize_inner(self, _ctx: C) -> LinearizeResult<Self::Data, U> {
+    fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, U> {
         unimplemented!();
     }
 }

@@ -98,7 +98,7 @@ mod hash_map_ooo_iter {
                 let value: &V = map.get(&key).unwrap();
                 // create a pointer from the reference, and cast it to a mutable pointer
                 let pointer: *const V = std::ptr::from_ref(value);
-                let mut_pointer: *mut V = pointer as *mut V;
+                let mut_pointer: *mut V = pointer.cast_mut();
                 // since we have exactly one instance of every key in the map per check_key_order()
                 let value_mut: &mut V = unsafe {
                     // trust that we can .as_mut() the pointer into a mutable reference
@@ -231,7 +231,7 @@ mod btree_map_ooo_iter {
                 let value: &V = map.get(&key).unwrap();
                 // create a pointer from the reference, and cast it to a mutable pointer
                 let pointer: *const V = std::ptr::from_ref(value);
-                let mut_pointer: *mut V = pointer as *mut V;
+                let mut_pointer: *mut V = pointer.cast_mut();
                 // since we have exactly one instance of every key in the map per check_key_order()
                 let value_mut: &mut V = unsafe {
                     // trust that we can .as_mut() the pointer into a mutable reference

@@ -22,21 +22,9 @@ impl PartialEq for ParseError {
 impl std::fmt::Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::LexError(lex_error) => write!(f, "{}", lex_error),
+            Self::LexError(lex_error) => write!(f, "{lex_error}"),
             Self::UnexpectedToken(unexpected_token) => {
-                let mut expected_tokens = String::new();
-                for tok in &unexpected_token.expected {
-                    if !expected_tokens.is_empty() {
-                        expected_tokens += ", ";
-                    }
-
-                    expected_tokens += &format!("'{}'", tok.name());
-                }
-                write!(
-                    f,
-                    "Unexpected token '{}' at {}, expected one of [{}] (while parsing {} starting at {}) (error generated at {})",
-                    unexpected_token.got, unexpected_token.loc, expected_tokens, unexpected_token.while_parsing, unexpected_token.while_parsing_start, unexpected_token.parser_source_location
-                )
+                write!(f, "unexpected token '{}' at {}, expected one of [{}] (wile parsing {} starting at {}) (error generated at {})", unexpected_token.got, unexpected_token.loc, unexpected_token.expected.iter().map(std::string::ToString::to_string).collect::<Vec<String>>().join(", "), unexpected_token.while_parsing, unexpected_token.while_parsing_start, unexpected_token.parser_source_location)
             }
         }
     }
@@ -44,7 +32,7 @@ impl std::fmt::Display for ParseError {
 
 impl std::fmt::Debug for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{self}")
     }
 }
 

@@ -45,9 +45,8 @@ where
             if let Some(line) = &mut self.line {
                 if !line.is_empty() {
                     return line.pop();
-                } else {
-                    self.next_line();
                 }
+                self.next_line();
             } else {
                 // First call or exhausted previous line
                 self.next_line();
@@ -77,7 +76,7 @@ impl ReadLine for FileLineReader {
         let line_option = match self.lines.next() {
             Some(result) => match result {
                 Ok(line) => Some(line),
-                Err(e) => panic!("Couldn't read next line from file: {}", e),
+                Err(e) => panic!("Couldn't read next line from file: {e}"),
             },
             None => None,
         };
@@ -94,12 +93,12 @@ pub(crate) struct StrLineReader<'a> {
 impl<'a> StrLineReader<'a> {
     pub(crate) fn new(s: &'a str) -> Self {
         Self {
-            lines: s.split_inclusive('\n').to_owned(),
+            lines: s.split_inclusive('\n').clone(),
         }
     }
 }
 
-impl<'a> ReadLine for StrLineReader<'a> {
+impl ReadLine for StrLineReader<'_> {
     fn read_line(&mut self) -> Option<Vec<char>> {
         let line_option = self.lines.next();
         line_option.map(|string| string.chars().rev().collect())
@@ -122,7 +121,7 @@ impl<'a> CharSource<'a> {
     }
 }
 
-impl<'a> ReadChar for CharSource<'a> {
+impl ReadChar for CharSource<'_> {
     fn read_char(&mut self) -> Option<char> {
         match self {
             Self::File(f) => f.read_char(),
@@ -131,7 +130,7 @@ impl<'a> ReadChar for CharSource<'a> {
     }
 }
 
-impl<'a> Iterator for CharSource<'a> {
+impl Iterator for CharSource<'_> {
     type Item = char;
 
     fn next(&mut self) -> Option<Self::Item> {

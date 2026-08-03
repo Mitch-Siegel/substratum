@@ -1,6 +1,6 @@
-use crate::frontend::parser::parse_rules::*;
+use crate::frontend::parser::parse_rules::{ast, ItemParser, ParseError, Token};
 
-impl<'a, 'p> ItemParser<'a, 'p> {
+impl ItemParser<'_, '_> {
     fn parse_tuple_enum_variant(
         &mut self,
     ) -> Result<ast::items::enum_definition::EnumVariantDataTree, ParseError> {
@@ -84,7 +84,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
                     }
                 }
                 Token::RCurly => break,
-                _ => self.unexpected_token(&[Token::Identifier("".into()), Token::RCurly])?,
+                _ => self.unexpected_token(&[Token::Identifier(String::new()), Token::RCurly])?,
             }
         }
         self.expect_token(Token::RCurly)?;

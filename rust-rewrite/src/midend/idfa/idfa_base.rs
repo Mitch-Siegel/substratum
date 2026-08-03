@@ -14,19 +14,19 @@ pub(crate) enum IdfaAnalysisDirection {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct BlockFacts<T> {
-    pub in_facts: BTreeSet<T>,
-    pub out_facts: BTreeSet<T>,
-    pub gen_facts: BTreeSet<T>,
-    pub kill_facts: BTreeSet<T>,
+    pub in_: BTreeSet<T>,
+    pub out: BTreeSet<T>,
+    pub gen: BTreeSet<T>,
+    pub kill: BTreeSet<T>,
 }
 
 impl<T> Default for BlockFacts<T> {
     fn default() -> Self {
         BlockFacts {
-            in_facts: BTreeSet::<T>::new(),
-            out_facts: BTreeSet::<T>::new(),
-            gen_facts: BTreeSet::<T>::new(),
-            kill_facts: BTreeSet::<T>::new(),
+            in_: BTreeSet::<T>::new(),
+            out: BTreeSet::<T>::new(),
+            gen: BTreeSet::<T>::new(),
+            kill: BTreeSet::<T>::new(),
         }
     }
 }
@@ -51,8 +51,8 @@ where
 
     // return facts for a given label
     // requires &mut self in case of missing entry needing or_default()
-    pub(crate) fn for_label(&self, label: &usize) -> Option<&BlockFacts<T>> {
-        self.facts.get(label)
+    pub(crate) fn for_label(&self, label: usize) -> Option<&BlockFacts<T>> {
+        self.facts.get(&label)
     }
 
     pub(crate) fn for_label_mut(&mut self, label: usize) -> &mut BlockFacts<T> {
@@ -104,27 +104,27 @@ where
     }
 
     fn predecessors(&self, block: &ir::BasicBlock) -> impl Iterator<Item = &'a usize> {
-        self.control_flow.predecessors(&block.label).unwrap().iter()
+        self.control_flow.predecessors(block.label).unwrap().iter()
     }
 
     fn successors(&self, block: &ir::BasicBlock) -> impl Iterator<Item = &'a usize> {
-        self.control_flow.predecessors(&block.label).unwrap().iter()
+        self.control_flow.predecessors(block.label).unwrap().iter()
     }
 
     fn analyze_block_forwards(&mut self, block: &ir::BasicBlock) {
         let label = block.label;
         let mut new_in_facts = BTreeSet::<T>::new();
 
-        for predecessor in self.predecessors(block).cloned() {
-            new_in_facts = (self.f_meet)(
-                new_in_facts,
-                &self.facts.for_label_mut(predecessor).out_facts,
-            );
+        for predecessor in self.predecessors(block).copied() {
+            new_in_facts = (self.f_meet)(new_in_facts, &self.facts.for_label_mut(predecessor).out);
         }
 
-        self.facts.for_label_mut(label).in_facts = new_in_facts.clone();
+        self.facts
+            .for_label_mut(label)
+            .in_
+            .clone_from(&new_in_facts);
         let transferred = (self.f_transfer)(self.facts.for_label_mut(label), new_in_facts);
-        self.facts.for_label_mut(label).out_facts = transferred;
+        self.facts.for_label_mut(label).out = transferred;
     }
 
     fn analyze_forward(&mut self) {

@@ -1,4 +1,8 @@
-use crate::midend::{ir::*, *};
+use crate::midend::{
+    ir,
+    ir::{IrLine, OperandTypeInference, TypeInferenceContext, ValueId},
+    symtab, BTreeSet,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct BasicBlock {
@@ -50,11 +54,11 @@ impl BasicBlock {
     }
 
     pub(crate) fn push(&mut self, line: IrLine) {
-        self.statements.push(line)
+        self.statements.push(line);
     }
 
     pub(crate) fn append(&mut self, others: &mut Vec<IrLine>) {
-        self.statements.append(others)
+        self.statements.append(others);
     }
 
     pub(crate) fn statements(&self) -> impl Iterator<Item = &IrLine> {
@@ -69,7 +73,7 @@ impl OperandTypeInference for BasicBlock {
             .unpropagated_lines
             .iter()
             .filter(|line_idx| self.statements[**line_idx].infer_types(ctx))
-            .cloned()
+            .copied()
             .collect();
         self.unpropagated_lines.is_empty()
     }

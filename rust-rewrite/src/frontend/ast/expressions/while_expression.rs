@@ -1,5 +1,8 @@
 use crate::{
-    frontend::ast::expressions::*,
+    frontend::ast::expressions::{
+        midend, sourceloc, symtab, Ast, BlockExpressionTree, Display, Expression, NameReflectable,
+        ReflectName,
+    },
     midend::{
         symtab::ValuePath,
         treewalk::{FunctionLinearizeCtx, PathedCtxTrait},
@@ -79,13 +82,11 @@ impl
             .unwrap();
 
         let parent_def_path = ctx.path().clone();
-        ctx.function_mut()
-            .unconditional_branch_from_current(
-                loc.clone().end(),
-                parent_def_path.clone(),
-                parent_def_path,
-            )
-            .unwrap();
+        ctx.function_mut().unconditional_branch_from_current(
+            loc.clone().end(),
+            parent_def_path.clone(),
+            parent_def_path,
+        );
         let (_, mut ctx) = self.body.linearize(ctx)?;
 
         ctx.function_mut().finish_branch(loc.clone().end()).unwrap();

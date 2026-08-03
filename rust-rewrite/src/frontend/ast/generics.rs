@@ -1,5 +1,8 @@
 use crate::{
-    frontend::ast::{types::TypeNoBoundsTree, *},
+    frontend::ast::{
+        midend, sourceloc, treewalk, types::TypeNoBoundsTree, Ast, Display, IdentifierTree,
+        LinearizeResult, NameReflectable, ReflectName, TypeTree,
+    },
     midend::{
         symtab::{self, TypePath},
         treewalk::PathedCtxTrait,
@@ -102,13 +105,13 @@ impl Display for GenericParamsListTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut first = true;
         for param in &self.params {
-            if !first {
-                write!(f, ", ")?;
-            } else {
+            if first {
                 first = false;
+            } else {
+                write!(f, ", ")?;
             }
 
-            write!(f, "{}", param)?;
+            write!(f, "{param}")?;
         }
 
         Ok(())
@@ -144,9 +147,12 @@ where
         let mut params_list = midend::types::GenericParamsList::new();
 
         for (loc, param) in ctxless {
-            if !generic_params_set.insert(param.clone()) {
-                panic!("duplicate generic parameter {} @ {}", param, loc.start())
-            }
+            assert!(
+                generic_params_set.insert(param.clone()),
+                "duplicate generic parameter {} @ {}",
+                param,
+                loc.start()
+            );
 
             params_list.push(param);
         }
@@ -174,7 +180,7 @@ impl Ast for OptionalGenericParamsListTree {
 impl Display for OptionalGenericParamsListTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.maybe_params {
-            Some(p) => write!(f, "{}", p),
+            Some(p) => write!(f, "{p}"),
             None => Ok(()),
         }
     }
@@ -313,13 +319,13 @@ impl Display for GenericArgsListTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut first = true;
         for param in &self.args {
-            if !first {
-                write!(f, ", ")?;
-            } else {
+            if first {
                 first = false;
+            } else {
+                write!(f, ", ")?;
             }
 
-            write!(f, "{}", param)?;
+            write!(f, "{param}")?;
         }
 
         Ok(())

@@ -1,4 +1,6 @@
-use crate::midend::ir::unlowered::*;
+use crate::midend::ir::unlowered::{
+    treewalk, Lowerable, OperandTypeInference, Serialize, SourceLoc, TypeInferenceContext, ValueId,
+};
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub(crate) struct FieldPointerOperands {
@@ -14,7 +16,7 @@ impl Lowerable for FieldPointerOperands {
 }
 
 impl OperandTypeInference for FieldPointerOperands {
-    fn infer_types<'a>(&mut self, _ctx: &TypeInferenceContext<'a>) -> bool {
+    fn infer_types(&mut self, _ctx: &TypeInferenceContext<'_>) -> bool {
         unimplemented!();
     }
 }

@@ -1,5 +1,8 @@
 use crate::{
-    frontend::ast::expressions::*,
+    frontend::ast::expressions::{
+        midend, sourceloc, symtab, treewalk, Ast, BlockExpressionTree, Display, Expression,
+        IdentifierTree, NameReflectable, ReflectName,
+    },
     midend::{symtab::ValuePath, treewalk::PathedCtxTrait},
     trace,
 };
@@ -17,10 +20,10 @@ impl std::fmt::Display for TupleStructTree {
         let mut first = true;
         for subpattern in &self.subpatterns {
             if first {
-                write!(f, "{}", subpattern)?;
+                write!(f, "{subpattern}")?;
                 first = false;
             } else {
-                write!(f, ", {}", subpattern)?;
+                write!(f, ", {subpattern}")?;
             }
         }
 
@@ -77,9 +80,9 @@ impl Ast for PatternTree {
 impl std::fmt::Display for PatternTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Literal(e) => write!(f, "{}", e),
-            Self::Identifier(i) => write!(f, "{}", i),
-            Self::TupleStruct(t) => write!(f, "{}", t),
+            Self::Literal(e) => write!(f, "{e}"),
+            Self::Identifier(i) => write!(f, "{i}"),
+            Self::TupleStruct(t) => write!(f, "{t}"),
         }
     }
 }

@@ -1,8 +1,11 @@
 use crate::midend::{self, types};
 
-use crate::frontend::{ast, parser::parse_rules::*};
+use crate::frontend::{
+    ast,
+    parser::parse_rules::{sourceloc, ParseError, Parser, Token, TypeParser, TypeTree},
+};
 
-impl<'a, 'p> TypeParser<'a, 'p> {
+impl TypeParser<'_, '_> {
     pub(crate) fn parse_type(&mut self) -> Result<TypeTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("type")?;
 
@@ -32,7 +35,7 @@ impl<'a, 'p> TypeParser<'a, 'p> {
             Token::LBracket => ast::types::TypeNoBoundsTree::ArrayType(self.parse_array_type()?),
 
             _ => self.unexpected_token(&[
-                Token::Identifier("".into()),
+                Token::Identifier(String::new()),
                 Token::U8,
                 Token::U16,
                 Token::U32,
@@ -57,26 +60,23 @@ impl<'a, 'p> TypeParser<'a, 'p> {
         let (_start_loc, _span) = self.start_parsing("parenthesized type or tuple")?;
 
         let open_paren_loc = self.expect_token(Token::LParen)?;
-        let inner_type = match self.peek_token()? {
-            Token::RParen => {
-                let close_paren_loc = self.expect_token(Token::RParen)?;
-                ast::types::TypeNoBoundsTree::TupleType(ast::types::TupleTypeTree {
-                    open_paren_loc,
-                    members: Vec::new(),
-                    close_paren_loc,
-                })
-            }
-            _ => {
-                let following_type = self.parse_type()?;
-                match self.peek_token()? {
-                    Token::Comma => ast::types::TypeNoBoundsTree::TupleType(
-                        self.parse_tuple_type(open_paren_loc, following_type)?,
-                    ),
-                    Token::RParen => ast::types::TypeNoBoundsTree::ParenthesizedType(
-                        self.parse_parenthesized_type(open_paren_loc, following_type)?,
-                    ),
-                    _ => self.unexpected_token(&[Token::Comma, Token::RParen])?,
-                }
+        let inner_type = if let Token::RParen = self.peek_token()? {
+            let close_paren_loc = self.expect_token(Token::RParen)?;
+            ast::types::TypeNoBoundsTree::TupleType(ast::types::TupleTypeTree {
+                open_paren_loc,
+                members: Vec::new(),
+                close_paren_loc,
+            })
+        } else {
+            let following_type = self.parse_type()?;
+            match self.peek_token()? {
+                Token::Comma => ast::types::TypeNoBoundsTree::TupleType(
+                    self.parse_tuple_type(open_paren_loc, following_type)?,
+                ),
+                Token::RParen => ast::types::TypeNoBoundsTree::ParenthesizedType(
+                    self.parse_parenthesized_type(open_paren_loc, following_type)?,
+                ),
+                _ => self.unexpected_token(&[Token::Comma, Token::RParen])?,
             }
         };
 
@@ -184,7 +184,7 @@ impl<'a, 'p> TypeParser<'a, 'p> {
                 Token::I64,
                 Token::SelfUpper,
                 Token::SelfLower,
-                Token::Identifier("".into()),
+                Token::Identifier(String::new()),
                 Token::PathSep,
             ])?,
         };

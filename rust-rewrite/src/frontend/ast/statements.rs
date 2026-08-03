@@ -1,5 +1,7 @@
 use crate::{
-    frontend::ast::*,
+    frontend::ast::{
+        midend, sourceloc, Ast, Display, Expression, ItemTree, NameReflectable, ReflectName,
+    },
     midend::{
         symtab,
         treewalk::{self},
@@ -59,7 +61,7 @@ impl
         let (maybe_value, ctx) = match self {
             Self::Item(_) => unimplemented!(),
             Self::Let(let_tree) => {
-                let (_, ctx) = let_tree.linearize(ctx)?;
+                let ((), ctx) = let_tree.linearize(ctx)?;
                 (None, ctx)
             }
             Self::Expression(expression_tree) => {
@@ -75,9 +77,9 @@ impl
 impl Display for StatementTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Item(item) => write!(f, "{}", item),
-            Self::Let(let_) => write!(f, "{}", let_),
-            Self::Expression(expression) => write!(f, "{}", expression),
+            Self::Item(item) => write!(f, "{item}"),
+            Self::Let(let_) => write!(f, "{let_}"),
+            Self::Expression(expression) => write!(f, "{expression}"),
         }
     }
 }

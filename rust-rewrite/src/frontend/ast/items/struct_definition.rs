@@ -1,5 +1,8 @@
 use crate::{
-    frontend::ast::{types::TypeNoBoundsTree, *},
+    frontend::ast::{
+        generics, midend, sourceloc, types::TypeNoBoundsTree, Ast, Display, IdentifierTree,
+        NameReflectable, OptionalGenericParamsListTree, ReflectName, TypeTree,
+    },
     midend::{
         symtab,
         treewalk::{self, PathedCtxTrait, PathedLinearizeCtxTrait},

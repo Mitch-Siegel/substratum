@@ -44,8 +44,8 @@ impl From<Function> for Value {
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Function(fu) => write!(f, "{}", fu),
-            Self::LocalBinding(lb) => write!(f, "{}", lb),
+            Self::Function(fu) => write!(f, "{fu}"),
+            Self::LocalBinding(lb) => write!(f, "{lb}"),
         }
     }
 }

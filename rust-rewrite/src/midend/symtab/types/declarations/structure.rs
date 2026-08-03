@@ -1,4 +1,4 @@
-use crate::midend::symtab::*;
+use crate::midend::symtab::{midend, trace, BTreeMap};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]

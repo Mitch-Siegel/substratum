@@ -1,6 +1,6 @@
-use crate::frontend::parser::parse_rules::*;
+use crate::frontend::parser::parse_rules::{ast, Expression, ExpressionParser, ParseError, Token};
 
-impl<'a, 'p> ExpressionParser<'a, 'p> {
+impl ExpressionParser<'_, '_> {
     pub(crate) fn parse_field_expression(
         &mut self,
         lhs: Expression,

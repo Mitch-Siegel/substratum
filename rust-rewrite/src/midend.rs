@@ -46,13 +46,13 @@ pub(crate) fn symbol_table_from_modules(
     functions_to_graphviz(&symtab, "_unlowered".into());
 
     for path in symtab.decls() {
-        println!("{}", path);
+        println!("{path}");
     }
 
     for (path, instances) in symtab.types.all_monomorphizations() {
-        println!("{}", path);
+        println!("{path}");
         for i in instances {
-            println!("\t{:?}", i);
+            println!("\t{i:?}");
         }
     }
     println!("done printing instances");
@@ -66,7 +66,7 @@ pub(crate) fn symbol_table_from_modules(
     symtab = ir::lowering::lower_symtab(symtab);
     ir::lowering::assert_lowered(&symtab);
 
-    functions_to_graphviz(&symtab, "".into());
+    functions_to_graphviz(&symtab, String::new());
 
     //tracing::debug!("collapse scopes");
     //symtab.collapse_scopes();

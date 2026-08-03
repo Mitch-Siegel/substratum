@@ -1,8 +1,8 @@
-use crate::frontend::parser::parse_rules::*;
+use crate::frontend::parser::parse_rules::{ast, Token};
 
 use super::{ParseError, Parser};
 
-impl<'a> Parser<'a> {
+impl Parser<'_> {
     // TODO: pass loc of string to get true start loc of declaration
     pub(crate) fn parse_argument_declaration(
         &mut self,

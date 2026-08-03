@@ -1,4 +1,10 @@
-use crate::{frontend::ast::*, midend::symtab::ValuePath};
+use crate::{
+    frontend::ast::{
+        midend, sourceloc, treewalk, Ast, Display, Expression, LinearizeResult, NameReflectable,
+        ReflectName,
+    },
+    midend::symtab::ValuePath,
+};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct AssignmentTree {
@@ -42,43 +48,38 @@ impl
     ) -> LinearizeResult<Self::Data, midend::treewalk::UnpathedFunctionLinearizeCtx> {
         let assignment_start = self.loc().start();
 
-        let (assignment_ir, mut ctx) = match *self.assignee {
-            Expression::Field(field_expression_tree) => {
-                let field_loc = field_expression_tree.loc();
-                let (receiver, field);
-                ((receiver, field), ctx) = field_expression_tree.linearize(ctx)?;
-                let field_pointer_temp = ctx.function_mut().values_mut().next_temp();
+        let (assignment_ir, mut ctx) = if let Expression::Field(field_expression_tree) =
+            *self.assignee
+        {
+            let field_loc = field_expression_tree.loc();
+            let (receiver, field);
+            ((receiver, field), ctx) = field_expression_tree.linearize(ctx)?;
+            let field_pointer_temp = ctx.function_mut().values_mut().next_temp();
 
-                let field_pointer_line = midend::ir::IrLine::new_get_field_pointer(
-                    field_loc.start(),
-                    receiver,
-                    field,
-                    field_pointer_temp,
-                );
-                ctx.function_mut()
-                    .append_statement_to_current_block(field_pointer_line)
-                    .unwrap();
+            let field_pointer_line = midend::ir::IrLine::new_get_field_pointer(
+                field_loc.start(),
+                receiver,
+                field,
+                field_pointer_temp,
+            );
+            ctx.function_mut()
+                .append_statement_to_current_block(field_pointer_line)
+                .unwrap();
 
-                let (stored_value, ctx) = self.value.linearize(ctx)?;
+            let (stored_value, ctx) = self.value.linearize(ctx)?;
 
-                (
-                    midend::ir::IrLine::new_store(
-                        assignment_start,
-                        stored_value,
-                        field_pointer_temp,
-                    ),
-                    ctx,
-                )
-            }
-            _ => {
-                let assignee_start = self.assignee.loc().start();
-                let (assignee, ctx) = self.assignee.linearize(ctx)?;
-                let (stored_value, ctx) = self.value.linearize(ctx)?;
-                (
-                    midend::ir::IrLine::new_assignment(assignee_start, assignee, stored_value),
-                    ctx,
-                )
-            }
+            (
+                midend::ir::IrLine::new_store(assignment_start, stored_value, field_pointer_temp),
+                ctx,
+            )
+        } else {
+            let assignee_start = self.assignee.loc().start();
+            let (assignee, ctx) = self.assignee.linearize(ctx)?;
+            let (stored_value, ctx) = self.value.linearize(ctx)?;
+            (
+                midend::ir::IrLine::new_assignment(assignee_start, assignee, stored_value),
+                ctx,
+            )
         };
 
         ctx.function_mut()

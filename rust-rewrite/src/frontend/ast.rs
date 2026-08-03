@@ -1,5 +1,5 @@
 use crate::{
-    frontend::*,
+    frontend::sourceloc,
     midend::{
         self, symtab,
         treewalk::{self, LinearizeResult},

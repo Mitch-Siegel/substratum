@@ -2,7 +2,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::fmt::Display;
 
-use crate::midend::ir::*;
+use crate::midend::ir::{OperandTypeInference, TypeInferenceContext, ValueId};
 
 /*
  groupings of operands
@@ -264,14 +264,16 @@ impl OperandTypeInference for JumpOperands {
 
 impl Display for JumpOperands {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut block_args_string = String::new();
-        for (arg, operand) in &self.block_args {
-            block_args_string += &format!("{}:{} ", arg, operand);
-        }
         write!(
             f,
             "{} Block{}({})",
-            self.condition, self.destination_block, block_args_string
+            self.condition,
+            self.destination_block,
+            self.block_args
+                .iter()
+                .map(|(arg, operand)| format!("{arg}:{operand}"))
+                .collect::<Vec<String>>()
+                .join(", ")
         )
     }
 }
@@ -308,12 +310,12 @@ impl Display for CallParams {
             &self
                 .arguments
                 .iter()
-                .map(|arg| format!("{}", arg))
+                .map(|arg| format!("{arg}"))
                 .collect::<Vec<String>>()
                 .join(", ")
         )?;
         if let Some(retval) = self.return_value_to {
-            write!(f, " -> {}", retval)?;
+            write!(f, " -> {retval}")?;
         }
 
         Ok(())

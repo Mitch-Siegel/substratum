@@ -1,4 +1,6 @@
-use crate::frontend::parser::parse_rules::*;
+use crate::frontend::parser::parse_rules::{
+    trace, Expression, ExpressionParser, ParseError, Token,
+};
 
 mod arithmetic;
 mod block_expression;
@@ -12,7 +14,7 @@ mod path_in_expression;
 mod primary_expression;
 mod while_expression;
 
-impl<'a, 'p> ExpressionParser<'a, 'p> {
+impl ExpressionParser<'_, '_> {
     pub(crate) fn parse_expression(&mut self) -> Result<Expression, ParseError> {
         let (_start_loc, _span) = self.start_parsing("expression")?;
 
@@ -27,7 +29,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
             Token::LParen => self.parse_parenthesized_expression()?,
             _ => self.unexpected_token(&[
                 Token::SelfLower,
-                Token::Identifier("".into()),
+                Token::Identifier(String::new()),
                 Token::If,
                 Token::Match,
                 Token::While,

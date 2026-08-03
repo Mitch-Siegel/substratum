@@ -1,4 +1,7 @@
-use crate::midend::{symtab::*, types};
+use crate::midend::{
+    symtab::{def_path, ImplId, Symbol, SymbolDef, TypePath},
+    types,
+};
 
 #[derive(Debug)]
 pub(crate) struct Implementation {
@@ -20,7 +23,7 @@ impl Implementation {
 }
 
 impl Symbol for Implementation {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "implementation"
     }
 

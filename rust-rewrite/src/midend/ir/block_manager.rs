@@ -1,6 +1,15 @@
 use crate::{
     frontend::sourceloc::SourceLoc,
-    midend::{ir::*, symtab::ValueOwner, *},
+    midend::{
+        ir,
+        ir::{
+            BasicBlock, ControlFlow, IrLine, OperandTypeInference, TypeInferenceContext,
+            ValueInterner,
+        },
+        symtab,
+        symtab::ValueOwner,
+        types, BTreeSet,
+    },
     trace,
 };
 
@@ -60,7 +69,7 @@ impl BlockManager {
     // where start_block is the first basic block in the function
     pub(crate) fn new(
         unit_type: types::Semantic,
-        parent_def_path: symtab::ValuePath,
+        parent_def_path: &symtab::ValuePath,
     ) -> (Self, usize) {
         // set up the initlal convergence - must always end up at the end_block
         let start_block_path = parent_def_path.clone().with_scope(symtab::ScopeId(0));
@@ -127,12 +136,12 @@ impl BlockManager {
         &mut self.values
     }
 
-    pub(crate) fn get(&self, label: &usize) -> Option<&BasicBlock> {
-        self.blocks.get(label)
+    pub(crate) fn get(&self, label: usize) -> Option<&BasicBlock> {
+        self.blocks.get(&label)
     }
 
-    pub(crate) fn get_mut(&mut self, label: &usize) -> Option<&mut BasicBlock> {
-        self.blocks.get_mut(label)
+    pub(crate) fn get_mut(&mut self, label: usize) -> Option<&mut BasicBlock> {
+        self.blocks.get_mut(&label)
     }
 
     fn last_branch(&self) -> Result<&Branch, BranchError> {
@@ -165,7 +174,7 @@ impl BlockManager {
 
         let convergence_jump =
             IrLine::new_jump(loc, converge_to, ir::lowered::JumpCondition::Unconditional);
-        self.get_mut(&from).unwrap().push(convergence_jump);
+        self.get_mut(from).unwrap().push(convergence_jump);
 
         Ok(result)
     }
@@ -203,7 +212,7 @@ impl BlockManager {
         let last_branch = self.pop_last_branch()?;
         match last_branch.kind {
             BranchKind::BlockSplit(mut after_split_stmts) => {
-                let after_split_block = self.get_mut(&after_split_label).unwrap();
+                let after_split_block = self.get_mut(after_split_label).unwrap();
                 after_split_block.append(&mut after_split_stmts);
                 Ok(after_split_label)
             }
@@ -221,7 +230,7 @@ impl BlockManager {
         let (values, blocks) = (&mut self.values, &mut self.blocks);
 
         let ctx = TypeInferenceContext::new(symtab, values);
-        let mut require_reanalysis: BTreeSet<usize> = blocks.keys().cloned().collect();
+        let mut require_reanalysis: BTreeSet<usize> = blocks.keys().copied().collect();
 
         while !require_reanalysis.is_empty() {
             require_reanalysis.retain(|label| blocks.get_mut(label).unwrap().infer_types(&ctx));

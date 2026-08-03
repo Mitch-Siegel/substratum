@@ -1,6 +1,6 @@
-use crate::frontend::parser::parse_rules::*;
+use crate::frontend::parser::parse_rules::{ast, ItemParser, ParseError, Token, TypeTree};
 
-impl<'a, 'p> ItemParser<'a, 'p> {
+impl ItemParser<'_, '_> {
     pub(crate) fn parse_generic_param(
         &mut self,
     ) -> Result<ast::generics::GenericParamTree, ParseError> {
@@ -11,7 +11,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
                 let name = self.parse_identifier()?;
                 ast::generics::GenericParamTree { name }
             }
-            _ => self.unexpected_token(&[Token::Identifier("".into())])?,
+            _ => self.unexpected_token(&[Token::Identifier(String::new())])?,
         };
 
         self.finish_parsing(param)
@@ -28,14 +28,12 @@ impl<'a, 'p> ItemParser<'a, 'p> {
                 let open_angle_bracket_loc = self.expect_token(Token::LThan)?;
                 let mut params: Vec<ast::generics::GenericParamTree> = Vec::new();
                 loop {
-                    match self.peek_token()? {
-                        Token::GThan => break,
-                        _ => {
-                            params.push(self.parse_generic_param()?);
-                            if let Token::Comma = self.peek_token()? {
-                                self.expect_token(Token::Comma)?;
-                            }
-                        }
+                    if let Token::GThan = self.peek_token()? {
+                        break;
+                    }
+                    params.push(self.parse_generic_param()?);
+                    if let Token::Comma = self.peek_token()? {
+                        self.expect_token(Token::Comma)?;
                     }
                 }
                 let close_angle_bracket_loc = self.expect_token(Token::GThan)?;

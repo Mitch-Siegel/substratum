@@ -11,8 +11,8 @@ pub(crate) enum SymbolDef {
 impl std::fmt::Display for SymbolDef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Type(t) => write!(f, "type {}", t),
-            Self::Value(v) => write!(f, "value {}", v),
+            Self::Type(t) => write!(f, "type {t}"),
+            Self::Value(v) => write!(f, "value {v}"),
             Self::Impl(i) => write!(f, "impl {}", i.id.0),
         }
     }

@@ -1,6 +1,6 @@
-use crate::frontend::parser::parse_rules::*;
+use crate::frontend::parser::parse_rules::{ast, ItemParser, ParseError, Token};
 
-impl<'a, 'p> ItemParser<'a, 'p> {
+impl ItemParser<'_, '_> {
     pub(crate) fn parse_implementation(
         &mut self,
     ) -> Result<ast::items::ImplementationTree, ParseError> {

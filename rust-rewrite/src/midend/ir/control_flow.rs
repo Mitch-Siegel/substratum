@@ -1,4 +1,10 @@
-use crate::{map_ooo_iter::*, midend::ir::*};
+use crate::{
+    map_ooo_iter::{HashMapOOOIter, HashMapOOOIterMut},
+    midend::ir::{
+        ir, lowered, symtab, unlowered, BasicBlock, BlockManager, OperandTypeInference, Operation,
+        SourceLoc, TypeInferenceContext, ValueInterner,
+    },
+};
 use std::collections::{BTreeSet, HashMap, VecDeque};
 
 #[derive(Debug, Clone)]
@@ -47,12 +53,11 @@ impl ControlFlow {
                             .unwrap()
                             .insert(from_block.label);
 
-                        if !blocks.contains_key(&jump.destination_block) {
-                            panic!(
-                                "Invalid jump target to nonexistent block {}",
-                                jump.destination_block
-                            );
-                        }
+                        assert!(
+                            blocks.contains_key(&jump.destination_block),
+                            "Invalid jump target to nonexistent block {}",
+                            jump.destination_block
+                        );
                     }
                     Operation::Unlowered(unlowered::Operation::Match(m)) => {
                         for arm in &m.arms {
@@ -66,7 +71,6 @@ impl ControlFlow {
                                 .insert(from_block.label);
                         }
                     }
-                    Operation::Unlowered(_) => (),
                     _ => (),
                 }
             }
@@ -84,12 +88,12 @@ impl ControlFlow {
         (self.blocks, self.values)
     }
 
-    pub(crate) fn successors(&self, label: &usize) -> Option<&BTreeSet<usize>> {
-        self.successors.get(label)
+    pub(crate) fn successors(&self, label: usize) -> Option<&BTreeSet<usize>> {
+        self.successors.get(&label)
     }
 
-    pub(crate) fn predecessors(&self, label: &usize) -> Option<&BTreeSet<usize>> {
-        self.predecessors.get(label)
+    pub(crate) fn predecessors(&self, label: usize) -> Option<&BTreeSet<usize>> {
+        self.predecessors.get(&label)
     }
 
     pub(crate) fn blocks(&self) -> impl Iterator<Item = (&usize, &BasicBlock)> {
@@ -111,7 +115,7 @@ impl ControlFlow {
 
                 postorder_stack.push(label);
 
-                for successor in self.successors(&label).unwrap() {
+                for successor in self.successors(label).unwrap() {
                     dfs_stack.push(*successor);
                 }
             }
@@ -145,6 +149,7 @@ impl ControlFlow {
         HashMapOOOIterMut::new(&mut self.blocks, rpo_stack.into_iter())
     }
 
+    #[allow(clippy::format_push_string)]
     pub(crate) fn graphviz_string(&self) -> String {
         let mut graphviz_string = String::from("digraph {\n");
 
@@ -157,13 +162,13 @@ impl ControlFlow {
                 .next()
                 .unwrap_or(&loc_none);
 
-            graphviz_string += &format!("{}[label=\"{}\n{}\n", label, label, block_loc);
+            graphviz_string += &format!("{label}[label=\"{label}\n{block_loc}\n");
             for statement in block {
-                graphviz_string += &format!("{}\n", statement);
+                graphviz_string += &format!("{statement}\n");
             }
             graphviz_string += "\"];\n";
 
-            for successor in self.successors(label).unwrap() {
+            for successor in self.successors(*label).unwrap() {
                 graphviz_string += &format!("{}->{};", label, *successor);
             }
             graphviz_string += "\n";

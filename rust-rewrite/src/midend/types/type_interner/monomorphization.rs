@@ -1,4 +1,4 @@
-use crate::midend::*;
+use crate::midend::{symtab, trace, types};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 
@@ -10,7 +10,7 @@ pub(crate) enum GenericParam {
 impl std::fmt::Display for GenericParam {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::TypeParam(t) => write!(f, "{}", t),
+            Self::TypeParam(t) => write!(f, "{t}"),
         }
     }
 }
@@ -26,8 +26,8 @@ pub(crate) enum ParamSubst {
 impl std::fmt::Display for ParamSubst {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Concrete(semantic) => write!(f, "{}", semantic),
-            Self::Dependent(dependent) => write!(f, "{}", dependent),
+            Self::Concrete(semantic) => write!(f, "{semantic}"),
+            Self::Dependent(dependent) => write!(f, "{dependent}"),
         }
     }
 }
@@ -73,7 +73,7 @@ impl ParamSubstMap {
         for param in order {
             match self.substitutions.get(param) {
                 Some(subst) => substs.push(subst),
-                None => return Err(format!("param{} not present", param)),
+                None => return Err(format!("param{param} not present")),
             }
         }
 
@@ -82,10 +82,7 @@ impl ParamSubstMap {
 
     // given a set of params, convert this map into a map containing *only* keys for the params, or
     // Err if not all params exist as keys
-    pub(crate) fn minimal_over_params(
-        mut self,
-        params: HashSet<GenericParam>,
-    ) -> Result<Self, &'static str> {
+    pub(crate) fn minimal_over_params(mut self, params: &HashSet<GenericParam>) -> Self {
         self.substitutions = self
             .substitutions
             .into_iter()
@@ -98,7 +95,7 @@ impl ParamSubstMap {
             })
             .collect();
 
-        Ok(self)
+        self
     }
 }
 
@@ -107,11 +104,11 @@ impl std::fmt::Display for ParamSubstMap {
         write!(f, "<")?;
         let mut first = true;
         for (k, v) in &self.substitutions {
-            if !first {
-                write!(f, ", {}={}", k, v)?;
+            if first {
+                write!(f, "{k}={v}")?;
+                first = false;
             } else {
-                write!(f, "{}={}", k, v)?;
-                first = false
+                write!(f, ", {k}={v}")?;
             }
         }
         write!(f, ">")
@@ -123,11 +120,11 @@ impl std::fmt::Debug for ParamSubstMap {
         write!(f, "<")?;
         let mut first = true;
         for (k, v) in &self.substitutions {
-            if !first {
-                write!(f, ", {:?}={:?}", k, v)?;
+            if first {
+                write!(f, "{k:?}={v:?}")?;
+                first = false;
             } else {
-                write!(f, "{:?}={:?}", k, v)?;
-                first = false
+                write!(f, ", {k:?}={v:?}")?;
             }
         }
         write!(f, ">")

@@ -1,5 +1,5 @@
 use crate::{
-    frontend::ast::*,
+    frontend::ast::{midend, module, sourceloc, Ast, Display},
     midend::{
         symtab,
         treewalk::{self, PathedCtxTrait},
@@ -138,23 +138,23 @@ impl Display for ItemTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::FunctionDeclaration(function_declaration) => {
-                write!(f, "Function Declaration: {}", function_declaration)
+                write!(f, "Function Declaration: {function_declaration}")
             }
             Self::FunctionDefinition(function_definition) => {
-                write!(f, "Function Definition: {}", function_definition)
+                write!(f, "Function Definition: {function_definition}")
             }
             Self::StructDefinition(struct_definition) => {
-                write!(f, "Struct Definition: {}", struct_definition)
+                write!(f, "Struct Definition: {struct_definition}")
             }
             Self::EnumDefinition(enum_definition) => {
-                write!(f, "Enum Definition: {}", enum_definition)
+                write!(f, "Enum Definition: {enum_definition}")
             }
             Self::Implementation(implementation) => {
-                write!(f, "Implementation: {}", implementation)
+                write!(f, "Implementation: {implementation}")
             }
             Self::Module(module) => match module {
-                Ok(parsed) => write!(f, "Module: {}", parsed),
-                Err((_, name)) => write!(f, "Module: {}", name),
+                Ok(parsed) => write!(f, "Module: {parsed}"),
+                Err((_, name)) => write!(f, "Module: {name}"),
             },
         }
     }

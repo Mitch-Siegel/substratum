@@ -73,9 +73,11 @@ impl Config {
         let mut args = std::env::args().skip(1).peekable();
         let mut settings = Self::default();
         while args.peek().is_some() {
-            if !settings.parse_one(&mut args) {
-                panic!("unknown argument {:?}", args.peek().unwrap());
-            }
+            assert!(
+                settings.parse_one(&mut args),
+                "unknown argument {:?}",
+                args.peek().unwrap()
+            );
         }
         settings
     }

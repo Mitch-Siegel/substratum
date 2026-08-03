@@ -1,6 +1,9 @@
-use crate::frontend::{ast, parser::parse_rules::*};
+use crate::frontend::{
+    ast,
+    parser::parse_rules::{IdentifierTree, ItemParser, ItemTree, ParseError, Token},
+};
 
-impl<'a, 'p> ItemParser<'a, 'p> {
+impl ItemParser<'_, '_> {
     pub(crate) fn parse_function_declaration_or_definition(
         &mut self,
     ) -> Result<ast::ItemTree, ParseError> {
@@ -52,7 +55,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
                     };
                 }
                 Token::RParen => break, // done on rparen
-                _ => self.unexpected_token(&[Token::Identifier("".into())])?,
+                _ => self.unexpected_token(&[Token::Identifier(String::new())])?,
             }
         }
         // consume closing paren

@@ -1,5 +1,8 @@
 use crate::{
-    frontend::ast::{types::TypeNoBoundsTree, *},
+    frontend::ast::{
+        expressions, generics, sourceloc, types::TypeNoBoundsTree, Ast, Display, IdentifierTree,
+        LinearizeResult, NameReflectable, ReflectName, TypeTree,
+    },
     midend::{
         self,
         symtab::{self, TypePath, ValueOwner},
@@ -151,9 +154,9 @@ where
 
 impl Display for FunctionDeclarationTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut arg_string = String::from("");
+        let mut arg_string = String::new();
         for argument in &self.arguments {
-            arg_string.push_str(format!("{}\n", argument).as_str());
+            arg_string.push_str(format!("{argument}\n").as_str());
         }
 
         match &self.return_type {
@@ -221,7 +224,7 @@ where
 
         let function_path = ctx.path().clone().with_child_value(function_name.clone());
         let unit_type = ctx.semantic_type_for_syntactic(&midend::types::Syntactic::Unit)?;
-        let arg_def_paths = declared_prototype
+        let arg_def_paths: Vec<symtab::ValuePath> = declared_prototype
             .arguments
             .iter()
             .map(|arg| function_path.clone().with_child_value(arg.name.clone()))
@@ -231,7 +234,7 @@ where
             ctx,
             declared_prototype,
             unit_type,
-            arg_def_paths,
+            &arg_def_paths,
         );
 
         let function_ctx = unpathed_function_ctx.into_pathed_ctx(function_path);

@@ -1,4 +1,6 @@
-use crate::midend::ir::unlowered::*;
+use crate::midend::ir::unlowered::{
+    ir, treewalk, Lowerable, OperandTypeInference, SourceLoc, TypeInferenceContext, ValueId,
+};
 
 // get the discriminant value of an enum
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -13,7 +15,7 @@ impl Lowerable for DiscriminantOperands {
         let _receiver_type = ctx
             .function_mut()
             .values_mut()
-            .value_for_id(&self.enum_receiver)
+            .value_for_id(self.enum_receiver)
             .unwrap();
         // TODO: type propagation and checking to verify this thing is actually an enum
 
@@ -22,7 +24,7 @@ impl Lowerable for DiscriminantOperands {
 }
 
 impl OperandTypeInference for DiscriminantOperands {
-    fn infer_types<'a>(&mut self, _ctx: &TypeInferenceContext<'a>) -> bool {
+    fn infer_types(&mut self, _ctx: &TypeInferenceContext<'_>) -> bool {
         unimplemented!();
     }
 }

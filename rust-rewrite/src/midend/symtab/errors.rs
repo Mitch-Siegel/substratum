@@ -1,4 +1,4 @@
-use crate::midend::symtab::*;
+use crate::midend::symtab::{PathError, RawPath, TypePath};
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum SymbolError {
@@ -22,14 +22,14 @@ impl From<PathError> for SymbolError {
 impl std::fmt::Display for SymbolError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Undefined(path) => write!(f, "undefined symbol {}", path),
-            Self::UndefinedType(path) => write!(f, "undefined type {}", path),
-            Self::Undeclared(path) => write!(f, "undeclared symbol {}", path),
-            Self::AlreadyDeclared(path) => write!(f, "DefPath {} is already declared", path),
-            Self::AlreadyDefined(path) => write!(f, "DefPath {} is already defined", path),
-            Self::TypeAlreadyDefined(path) => write!(f, "type {} is already defined", path),
+            Self::Undefined(path) => write!(f, "undefined symbol {path}"),
+            Self::UndefinedType(path) => write!(f, "undefined type {path}"),
+            Self::Undeclared(path) => write!(f, "undeclared symbol {path}"),
+            Self::AlreadyDeclared(path) => write!(f, "DefPath {path} is already declared"),
+            Self::AlreadyDefined(path) => write!(f, "DefPath {path} is already defined"),
+            Self::TypeAlreadyDefined(path) => write!(f, "type {path} is already defined"),
             Self::PathError(pe) => {
-                write!(f, "{}", pe)
+                write!(f, "{pe}")
             }
         }
     }

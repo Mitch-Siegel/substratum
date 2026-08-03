@@ -1,4 +1,8 @@
-use crate::midend::{symtab::Symtab, types::*, *};
+use crate::midend::{
+    symtab,
+    symtab::Symtab,
+    types::{ParamSubstMap, Semantic, Syntactic},
+};
 
 pub(crate) enum SemanticFunctionError {
     UnresolvableType(Syntactic),
@@ -10,13 +14,11 @@ impl std::fmt::Display for SemanticFunctionError {
         match self {
             Self::UnresolvableType(t) => write!(
                 f,
-                "syntactic type {} ({:?}) cannot be resolved to a semantic type",
-                t, t
+                "syntactic type {t} ({t:?}) cannot be resolved to a semantic type"
             ),
             Self::NonFunction(t) => write!(
                 f,
-                "semantic function cannot be generated from non-function syntactic type of {} ({:?})",
-                t, t
+                "semantic function cannot be generated from non-function syntactic type of {t} ({t:?})"
             ),
         }
     }
@@ -66,7 +68,7 @@ impl
         match &syntactic {
             Syntactic::Function { args, ret_ty } => {
                 let mut semantic_args = Vec::<Semantic>::new();
-                for arg in args.iter() {
+                for arg in args {
                     match symtab.semantic_type_for_syntactic(def_path, generic_params.clone(), arg)
                     {
                         Ok(ty_) => semantic_args.push(ty_),

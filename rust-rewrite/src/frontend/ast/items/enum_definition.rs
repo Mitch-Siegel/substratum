@@ -1,5 +1,8 @@
 use crate::{
-    frontend::ast::{types::TypeNoBoundsTree, *},
+    frontend::ast::{
+        generics, midend, sourceloc, treewalk, types::TypeNoBoundsTree, Ast, Display,
+        IdentifierTree, NameReflectable, ReflectName, TypeTree,
+    },
     midend::{
         symtab::{self, TypePath, ValueOwner},
         treewalk::{PathedCtxTrait, PathedLinearizeCtxTrait},
@@ -142,14 +145,14 @@ fn _create_enum_variant_constructor(
     _enum_name: &str,
     variant_name: &str,
     arg_types: Vec<midend::types::Syntactic>,
-    loc: sourceloc::SourceLoc,
+    loc: &sourceloc::SourceLoc,
 ) {
     // create variables for each argument, named by index
     let args: Vec<midend::symtab::values::Variable> = arg_types
         .into_iter()
         .enumerate()
         .map(|(arg_idx, arg_type)| {
-            midend::symtab::values::Variable::new(format!("{}", arg_idx), Some(arg_type))
+            midend::symtab::values::Variable::new(format!("{arg_idx}"), Some(arg_type))
         })
         .collect();
 
@@ -171,7 +174,7 @@ fn _create_enum_variant_constructor(
     let (mut block_mgr, current_block) = midend::ir::BlockManager::new(
         ctx.semantic_type_for_syntactic(&midend::types::Syntactic::Unit)
             .unwrap(),
-        ctor_function_path.clone(),
+        &ctor_function_path,
     );
 
     // define a variable for the object we are building
@@ -185,7 +188,7 @@ fn _create_enum_variant_constructor(
         ))
         .unwrap();
 
-    let constructed_object_value = block_mgr.values_mut().id_for_path(constructed_object_path);
+    let constructed_object_value = block_mgr.values_mut().id_for_path(&constructed_object_path);
 
     /*
      * for each argument:
@@ -198,7 +201,7 @@ fn _create_enum_variant_constructor(
         let arg_binding =
             symtab::Value::LocalBinding(symtab::values::LocalBinding::FunctionParam(arg.clone()));
         let arg_def_path = ctx.define_value(arg_binding).unwrap();
-        let arg_value = block_mgr.values_mut().id_for_path(arg_def_path);
+        let arg_value = block_mgr.values_mut().id_for_path(&arg_def_path);
         let field_temp = block_mgr.values_mut().next_temp();
         let field_get_line = midend::ir::IrLine::new_get_field_pointer(
             loc.clone(),
@@ -210,7 +213,7 @@ fn _create_enum_variant_constructor(
         let field_store_line = midend::ir::IrLine::new_store(loc.clone(), arg_value, field_temp);
 
         block_mgr
-            .get_mut(&current_block)
+            .get_mut(current_block)
             .unwrap()
             .append(&mut vec![field_get_line, field_store_line]);
     }

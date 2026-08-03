@@ -1,5 +1,8 @@
 use crate::{
-    frontend::ast::*,
+    frontend::ast::{
+        midend, sourceloc, symtab, treewalk, Ast, Display, Expression, LinearizeResult,
+        NameReflectable, ReflectName,
+    },
     midend::{symtab::ValuePath, treewalk::CollectCtx},
 };
 

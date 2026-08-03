@@ -1,4 +1,4 @@
-use crate::midend::ir::block_manager::*;
+use crate::midend::ir::block_manager::{ir, BranchKind, ConvergenceError, Debug};
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum BranchError {

@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashSet};
 
 use crate::{
-    midend::{self, types as midend_types, *},
+    midend::{self, symtab, types as midend_types, BTreeSet},
     trace,
 };
 pub(crate) use errors::*;
@@ -35,13 +35,13 @@ impl std::fmt::Display for UseBinding {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             UseBinding::OriginalName => Ok(()),
-            UseBinding::AsName(as_) => write!(f, " as {}", as_),
+            UseBinding::AsName(as_) => write!(f, " as {as_}"),
             UseBinding::Multiple(multiples) => write!(
                 f,
                 "::{{{}}}",
                 multiples
                     .iter()
-                    .map(|other| format!("{}", other))
+                    .map(|other| format!("{other}"))
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
@@ -90,7 +90,10 @@ pub(crate) trait SymtabBase {
 }
 
 mod private {
-    use super::*;
+    use super::{
+        trace, Path, PathSegment, RawPath, Symbol, SymbolDef, SymbolError, SymtabBase, UseBinding,
+        UseDeclaration,
+    };
 
     impl<T: SymtabBase> SymtabBaseInternal for T {}
 
@@ -108,7 +111,7 @@ mod private {
                 SymbolDef::Value(_) => assert!(path.is_value()),
                 SymbolDef::Impl(_) => assert!(path.is_impl()),
             }
-            println!("{:?}", path);
+            println!("{path:?}");
             assert!(*path.last() == symbol.path_segment());
 
             match path.last() {
@@ -189,11 +192,8 @@ mod private {
                 let full_search_path = RawPath::new(all_prefix_segments, symbol_segment.to_owned());
 
                 // lookup directly at
-                match self.lookup_at(&full_search_path) {
-                    Ok(Some(_)) | Ok(None) => {
-                        return Ok(full_search_path);
-                    }
-                    Err(_) => {}
+                if let Ok(Some(_) | None) = self.lookup_at(&full_search_path) {
+                    return Ok(full_search_path);
                 }
 
                 let search_parent_path = full_search_path.clone().split_last().0.unwrap();
@@ -411,8 +411,8 @@ impl std::fmt::Debug for SymbolTable {
 
         for (path, def) in &self.symbols {
             match def {
-                Some(def) => writeln!(f, "defpath {} - {:?}", path, def,)?,
-                _ => writeln!(f, "defpath {} - {:?}", path, def)?,
+                Some(def) => writeln!(f, "defpath {path} - {def:?}",)?,
+                _ => writeln!(f, "defpath {path} - {def:?}")?,
             }
         }
         Ok(())
@@ -469,7 +469,7 @@ impl SymtabBase for SymbolTable {
                     .insert(path.clone())
                     && !allow_definition
                 {
-                    panic!("untracked child path {}", path)
+                    panic!("untracked child path {path}")
                 }
             }
         }

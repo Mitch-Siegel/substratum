@@ -79,10 +79,10 @@ impl std::fmt::Display for FunctionPrototype {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut arguments_string = String::new();
         for argument in &self.arguments {
-            if !arguments_string.is_empty() {
-                arguments_string = format!("{}, {}", arguments_string, argument);
+            if arguments_string.is_empty() {
+                arguments_string = format!("{argument}");
             } else {
-                arguments_string = format!("{}", argument);
+                arguments_string = format!("{arguments_string}, {argument}");
             }
         }
         match &self.return_type {

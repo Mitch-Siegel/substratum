@@ -1,6 +1,6 @@
-use crate::frontend::parser::parse_rules::*;
+use crate::frontend::parser::parse_rules::{ast, ParseError, Parser, StatementTree, Token};
 
-impl<'a> Parser<'a> {
+impl Parser<'_> {
     pub(crate) fn parse_block_expression(
         &mut self,
     ) -> Result<ast::expressions::BlockExpressionTree, ParseError> {

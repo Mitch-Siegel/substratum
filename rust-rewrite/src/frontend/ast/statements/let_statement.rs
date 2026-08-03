@@ -1,5 +1,8 @@
 use crate::{
-    frontend::ast::*,
+    frontend::ast::{
+        midend, sourceloc, Ast, Display, Expression, IdentifierTree, NameReflectable, ReflectName,
+        TypeTree,
+    },
     midend::{
         symtab,
         treewalk::{self, PathedCtxTrait, UnpathedFunctionLinearizeCtx, ValueCollectCtx},
@@ -36,7 +39,7 @@ impl Display for LetTree {
         }
 
         match &self.type_ {
-            Some(type_) => write!(f, ": {}", type_),
+            Some(type_) => write!(f, ": {type_}"),
             None => write!(f, ": ?"),
         }
     }

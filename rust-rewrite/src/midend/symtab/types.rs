@@ -1,4 +1,4 @@
-use crate::midend::symtab::{Symbol, *};
+use crate::midend::symtab::{PathSegment, Symbol, SymbolDef};
 
 pub(crate) mod builtins;
 pub(crate) mod declarations;
@@ -28,9 +28,9 @@ pub(crate) enum Type {
 impl std::fmt::Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Module(m) => write!(f, "{}", m),
-            Self::Builtin(bit) => write!(f, "{}", bit),
-            Self::Decl(td) => write!(f, "{}", td),
+            Self::Module(m) => write!(f, "{m}"),
+            Self::Builtin(bit) => write!(f, "{bit}"),
+            Self::Decl(td) => write!(f, "{td}"),
             //Self::GenericTypeParam(_) => write!(f, "generic type param"),
         }
     }
