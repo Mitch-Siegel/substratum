@@ -24,13 +24,8 @@ pub(crate) enum ItemTree {
     StructDefinition(StructDefinitionTree),
     EnumDefinition(EnumDefinitionTree),
     Implementation(ImplementationTree),
-    // TODO: why is this in the AST? can't this just get returned from the parsing logic?
-    Module(
-        (
-            Result<module::ModuleTree, sourceloc::SourceSpan>,
-            BTreeSet<WorklistItem>,
-        ),
-    ),
+    // TODO: make this an enum
+    Module(Result<module::ModuleTree, (sourceloc::SourceSpan, String)>),
 }
 
 impl Ast for ItemTree {
@@ -41,9 +36,9 @@ impl Ast for ItemTree {
             Self::StructDefinition(sd) => sd.loc(),
             Self::EnumDefinition(ed) => ed.loc(),
             Self::Implementation(i) => i.loc(),
-            Self::Module((module, _)) => match module {
+            Self::Module(module) => match module {
                 Ok(module_tree) => module_tree.loc(),
-                Err(loc) => loc.clone(),
+                Err((loc, _)) => loc.clone(),
             },
         }
     }
@@ -67,7 +62,7 @@ impl midend::treewalk::Collect<midend::symtab::TypePath> for ItemTree {
             ItemTree::StructDefinition(struct_tree) => struct_tree.collect_symbols(ctx),
             ItemTree::EnumDefinition(enum_tree) => enum_tree.collect_symbols(ctx),
             ItemTree::Implementation(implementation) => implementation.collect_symbols(ctx),
-            ItemTree::Module((module, _)) => match module {
+            ItemTree::Module(module) => match module {
                 Ok(m) => m.collect_symbols(ctx),
                 Err(_) => Ok(ctx),
             },
@@ -131,7 +126,7 @@ impl
                 //let (_, ctx) = implementation.linearize(ctx)?;
                 //ctx
             }
-            ItemTree::Module((module, _)) => match module {
+            ItemTree::Module(module) => match module {
                 Ok(m) => m.linearize(ctx)?.1,
                 Err(_) => ctx,
             },
@@ -158,9 +153,9 @@ impl Display for ItemTree {
             Self::Implementation(implementation) => {
                 write!(f, "Implementation: {}", implementation)
             }
-            Self::Module((module, child_modules)) => match module {
+            Self::Module(module) => match module {
                 Ok(parsed) => write!(f, "Module: {}", parsed),
-                Err(_) => write!(f, "Module: {}", child_modules.first().unwrap()),
+                Err((_, name)) => write!(f, "Module: {}", name),
             },
         }
     }

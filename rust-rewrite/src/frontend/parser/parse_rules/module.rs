@@ -23,11 +23,11 @@ impl<'a, 'p> ModuleParser<'a, 'p> {
             match self.peek_token()? {
                 Token::RCurly | Token::Eof => break,
                 _ => {
-                    let parsed_item =
+                    let (parsed_item, maybe_child_worklist) =
                         self.item_parser()
                             .parse_item(name.clone(), module_path, crate_name)?;
-                    if let ItemTree::Module((_, child_worklist)) = &parsed_item {
-                        module_worklist.append(&mut child_worklist.clone());
+                    if let Some(mut child_worklist) = maybe_child_worklist {
+                        module_worklist.append(&mut child_worklist);
                     }
                     items.push(parsed_item);
                 }

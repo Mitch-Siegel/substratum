@@ -25,12 +25,12 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         module_name: IdentifierTree,
         module_path: &std::path::Path,
         crate_name: &Option<String>,
-    ) -> Result<ItemTree, ParseError> {
+    ) -> Result<(ItemTree, Option<BTreeSet<WorklistItem>>), ParseError> {
         match self.peek_token()? {
-            Token::Fn_ => self.parse_function_declaration_or_definition(),
-            Token::Struct => self.parse_struct_definition_item(),
-            Token::Enum => self.parse_enum_definition_item(),
-            Token::Impl => self.parse_implementation_item(),
+            Token::Fn_ => Ok((self.parse_function_declaration_or_definition()?, None)),
+            Token::Struct => Ok((self.parse_struct_definition_item()?, None)),
+            Token::Enum => Ok((self.parse_enum_definition_item()?, None)),
+            Token::Impl => Ok((self.parse_implementation_item()?, None)),
             // TODO: break out to separate routine
             Token::Mod => {
                 let current_parsing_module_path = module_path.join(module_name.value);
@@ -40,7 +40,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
                             module_tree,
                             module_worklist: child_worklist,
                         } = self.parse_module_item(&current_parsing_module_path, crate_name)?;
-                        Ok(ItemTree::Module((Ok(module_tree), child_worklist)))
+                        Ok((ItemTree::Module(Ok(module_tree)), Some(child_worklist)))
                     }
                     Token::Semicolon => {
                         let mod_loc = self.expect_token(Token::Mod)?;
@@ -56,7 +56,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
 
                         let child_worklist: BTreeSet<WorklistItem> =
                             std::iter::once(WorklistItem::new(
-                                module_name.value,
+                                module_name.value.clone(),
                                 current_parsing_module_path
                                     .iter()
                                     .map(|os_str| String::from(os_str.to_str().unwrap()))
@@ -64,7 +64,10 @@ impl<'a, 'p> ItemParser<'a, 'p> {
                             ))
                             .collect();
                         self.expect_token(Token::Semicolon)?;
-                        Ok(ItemTree::Module((Err(mod_loc), child_worklist)))
+                        Ok((
+                            ItemTree::Module(Err((mod_loc, module_name.value))),
+                            Some(child_worklist),
+                        ))
                     }
                     _ => self.unexpected_token(&[Token::LCurly, Token::Mod])?,
                 }

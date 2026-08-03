@@ -1,7 +1,4 @@
-use crate::{
-    frontend::sourceloc,
-    midend::{symtab::Symtab, treewalk::*},
-};
+use crate::{frontend::sourceloc, midend::treewalk::*};
 
 use std::collections::HashSet;
 

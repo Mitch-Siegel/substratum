@@ -3,7 +3,7 @@ use crate::{
     midend::{
         self,
         symtab::{self, TypePath, ValueOwner},
-        treewalk::{self, PathedCtxTrait, UnpathedCtxTrait},
+        treewalk::{self, PathedCtxTrait},
     },
 };
 

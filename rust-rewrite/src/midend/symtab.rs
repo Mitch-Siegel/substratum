@@ -422,7 +422,7 @@ impl std::fmt::Debug for SymbolTable {
 
 impl SymbolTable {
     pub(crate) fn new() -> Self {
-        let mut symtab = Self::default();
+        let symtab = Self::default();
 
         symtab
     }
