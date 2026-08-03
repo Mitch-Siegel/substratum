@@ -129,8 +129,8 @@ impl PathSegment {
 }
 
 impl From<PathSegment> for String {
-    fn from(value: PathSegment) -> String {
-        String::from(value.raw())
+    fn from(value: PathSegment) -> Self {
+        Self::from(value.raw())
     }
 }
 
@@ -262,7 +262,7 @@ impl Path for RawPath {
             None
         } else {
             let new_last = self.prefix_segments.pop().unwrap();
-            Some(RawPath::new(self.prefix_segments, new_last))
+            Some(Self::new(self.prefix_segments, new_last))
         };
 
         (prefix_path, self.last)

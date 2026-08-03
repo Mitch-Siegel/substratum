@@ -35,11 +35,11 @@ impl midend::treewalk::Collect<midend::symtab::ValuePath> for StatementTree {
         ctx: midend::treewalk::ValueCollectCtx,
     ) -> midend::treewalk::CollectResult {
         match self {
-            StatementTree::Let(let_stmt) => let_stmt.collect_symbols(ctx),
+            Self::Let(let_stmt) => let_stmt.collect_symbols(ctx),
             // FUTURE: support items in statements
-            StatementTree::Item(_) => unimplemented!("items in statements not yet supported"),
+            Self::Item(_) => unimplemented!("items in statements not yet supported"),
             // StatementTree::Item(item) => item.collect_symbols(ctx),
-            StatementTree::Expression(expr) => expr.collect_symbols(ctx),
+            Self::Expression(expr) => expr.collect_symbols(ctx),
         }?
         .into_result()
     }

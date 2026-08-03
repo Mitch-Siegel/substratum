@@ -70,13 +70,13 @@ impl OperandTypeInference for IrLine {
 // IrLine constructors
 impl IrLine {
     fn new_lowered(loc: SourceLoc, operation: lowered::Operation) -> Self {
-        IrLine {
+        Self {
             loc,
             operation: Operation::Lowered(operation),
         }
     }
     fn new_unlowered(loc: SourceLoc, operation: unlowered::Operation) -> Self {
-        IrLine {
+        Self {
             loc,
             operation: Operation::Unlowered(operation),
         }

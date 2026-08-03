@@ -65,7 +65,7 @@ pub(crate) struct FileLineReader {
 impl FileLineReader {
     pub(crate) fn new(f: File) -> Self {
         let reader = BufReader::new(f);
-        FileLineReader {
+        Self {
             lines: reader.lines(),
         }
     }

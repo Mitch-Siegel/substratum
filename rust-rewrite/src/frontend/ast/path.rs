@@ -69,10 +69,10 @@ impl Ast for IdentSegment {
 impl std::fmt::Display for IdentSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            IdentSegment::Ident(ident) => write!(f, "{ident}"),
-            IdentSegment::Super(_) => write!(f, "super"),
-            IdentSegment::SelfLower(_) => write!(f, "self"),
-            IdentSegment::SelfUpper(_) => write!(f, "Self"),
+            Self::Ident(ident) => write!(f, "{ident}"),
+            Self::Super(_) => write!(f, "super"),
+            Self::SelfLower(_) => write!(f, "self"),
+            Self::SelfUpper(_) => write!(f, "Self"),
         }
     }
 }
@@ -244,11 +244,11 @@ mod path_walk {
             }
         }
 
-        pub(crate) fn do_self_upper(&mut self) -> Result<(), PathWalkError> {
+        pub(crate) fn do_self_upper(&self) -> Result<(), PathWalkError> {
             unimplemented!();
         }
 
-        pub(crate) fn _do_self_lower(&mut self) -> Result<(), PathWalkError> {
+        pub(crate) fn _do_self_lower(&self) -> Result<(), PathWalkError> {
             unimplemented!();
         }
 
@@ -467,7 +467,7 @@ where
         symtab: &impl midend::symtab::Symtab,
     ) -> Result<Self, String> {
         match self {
-            PathWalkState::Start(mut ctx) => match action {
+            Self::Start(mut ctx) => match action {
                 PathSegmentAction::_Crate(_) => {
                     ctx.do_crate().unwrap();
                     Ok(Self::RequireIdent(ctx))
@@ -485,24 +485,24 @@ where
                 )),
                 PathSegmentAction::SelfLower(_) => Self::error(&action, loc),
             },
-            PathWalkState::StartGlobal(ctx) => match action {
+            Self::StartGlobal(ctx) => match action {
                 PathSegmentAction::Ident(ident, maybe_data) => Ok(Self::do_ident(
                     ctx, path_span, ident, maybe_data, size_hint, symtab,
                 )),
                 _ => Self::error(&action, loc),
             },
-            PathWalkState::LeadingLowerSupers(_ctx) => {
+            Self::LeadingLowerSupers(_ctx) => {
                 unimplemented!()
                 //Self::leading_lower_supers(segment, size_hint, ctx)
             }
-            PathWalkState::RequireIdent(_ctx) => unimplemented!(),
-            PathWalkState::Finished(_) => Err(String::from("already finished!")),
+            Self::RequireIdent(_ctx) => unimplemented!(),
+            Self::Finished(_) => Err(String::from("already finished!")),
         }
     }
 
     pub(crate) fn finish(self) -> Result<FinishedPathWalk<T>, String> {
         match self {
-            PathWalkState::Finished(state) => Ok(*state),
+            Self::Finished(state) => Ok(*state),
             other => Err(format!("unfinished path walk in sate {other:?}")),
         }
     }

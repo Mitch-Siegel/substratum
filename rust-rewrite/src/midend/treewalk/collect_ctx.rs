@@ -1,6 +1,5 @@
 use crate::midend::treewalk::{
-    symtab, BTreeSet, CollectCtx, CollectResult, PathedCtx,
-    UnpathedCtxTrait,
+    symtab, BTreeSet, CollectCtx, CollectResult, PathedCtx, UnpathedCtxTrait,
 };
 
 use std::collections::HashSet;

@@ -24,7 +24,7 @@ impl Display for Variable {
 
 impl Variable {
     pub(crate) fn new(name: String, type_: Option<midend::types::Syntactic>) -> Self {
-        Variable { name, type_ }
+        Self { name, type_ }
     }
 
     pub(crate) fn type_(&self) -> Option<&midend::types::Syntactic> {

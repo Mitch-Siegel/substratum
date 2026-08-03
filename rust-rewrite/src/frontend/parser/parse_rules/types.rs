@@ -60,7 +60,7 @@ impl TypeParser<'_, '_> {
         let (_start_loc, _span) = self.start_parsing("parenthesized type or tuple")?;
 
         let open_paren_loc = self.expect_token(Token::LParen)?;
-        let inner_type = if let Token::RParen = self.peek_token()? {
+        let inner_type = if self.peek_token()? == Token::RParen {
             let close_paren_loc = self.expect_token(Token::RParen)?;
             ast::types::TypeNoBoundsTree::TupleType(ast::types::TupleTypeTree {
                 open_paren_loc,
@@ -93,12 +93,12 @@ impl TypeParser<'_, '_> {
 
         let mut members = vec![first_type];
         loop {
-            if let Token::RParen = self.peek_token()? {
+            if self.peek_token()? == Token::RParen {
                 break;
             }
             members.push(self.parse_type()?);
 
-            if let Token::Comma = self.peek_token()? {
+            if self.peek_token()? == Token::Comma {
                 self.expect_token(Token::Comma)?;
             }
         }

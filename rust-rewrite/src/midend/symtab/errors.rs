@@ -15,7 +15,7 @@ pub(crate) enum SymbolError {
 
 impl From<PathError> for SymbolError {
     fn from(value: PathError) -> Self {
-        SymbolError::PathError(value)
+        Self::PathError(value)
     }
 }
 

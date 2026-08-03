@@ -204,7 +204,7 @@ where
     U: UnpathedCtxTrait,
 {
     fn from(value: PathedCtx<U, symtab::TypePath>) -> Self {
-        PathedCtx {
+        Self {
             unpathed: value.unpathed,
             path: value.path.into(),
         }
@@ -216,7 +216,7 @@ where
     U: UnpathedCtxTrait,
 {
     fn from(value: PathedCtx<U, symtab::ValuePath>) -> Self {
-        PathedCtx {
+        Self {
             unpathed: value.unpathed,
             path: value.path.into(),
         }

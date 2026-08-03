@@ -1,8 +1,7 @@
 use crate::{
     frontend::sourceloc,
     midend::treewalk::{
-        ir, symtab, treewalk, types, BTreeSet, PathedCtx, PathedCtxTrait,
-        UnpathedCtxTrait,
+        ir, symtab, treewalk, types, BTreeSet, PathedCtx, PathedCtxTrait, UnpathedCtxTrait,
     },
 };
 
@@ -141,9 +140,7 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
         self.unpathed.reserve_subscope(path)
     }
 
-    pub(crate) fn with_child_scope(
-        mut self,
-    ) -> PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
+    pub(crate) fn with_child_scope(mut self) -> Self {
         let path = self.reserve_subscope();
         Self {
             unpathed: self.unpathed,
@@ -358,6 +355,7 @@ where
         Ok((result_data, self.unpathed))
     }
 
+    #[allow(clippy::needless_pass_by_ref_mut)]
     pub(crate) fn function_mut(&mut self) -> &mut treewalk::linearize_context::WipFunction {
         unimplemented!();
     }

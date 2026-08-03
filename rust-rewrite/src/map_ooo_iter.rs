@@ -85,6 +85,7 @@ mod hash_map_ooo_iter {
     where
         K: Eq + Hash,
     {
+        #[allow(clippy::needless_pass_by_ref_mut)]
         pub(crate) fn new(
             map: &'a mut HashMap<K, V>,
             key_order: impl Iterator<Item = K> + Clone,
@@ -218,6 +219,7 @@ mod btree_map_ooo_iter {
     where
         K: Eq + Ord,
     {
+        #[allow(clippy::needless_pass_by_ref_mut)]
         pub(crate) fn new(
             map: &'a mut BTreeMap<K, V>,
             key_order: impl Iterator<Item = K> + Clone,

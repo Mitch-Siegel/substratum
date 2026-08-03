@@ -37,7 +37,7 @@ impl ItemParser<'_, '_> {
         if allow_self_param {
             if let Some(self_param) = self.try_parse_self_argument()? {
                 arguments.push(self_param);
-                if let Token::Comma = self.peek_token()? {
+                if self.peek_token()? == Token::Comma {
                     self.expect_token(Token::Comma)?;
                 }
             }

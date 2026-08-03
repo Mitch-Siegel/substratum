@@ -57,12 +57,12 @@ impl ExpressionParser<'_, '_> {
 
         let mut arms = Vec::<ast::expressions::match_expression::MatchArmTree>::new();
         loop {
-            if let Token::RCurly = self.peek_token()? {
+            if self.peek_token()? == Token::RCurly {
                 break;
             }
             let pattern = self.parse_matched_pattern()?;
             self.expect_token(Token::FatArrow)?;
-            let expression = if let Token::LCurly = self.peek_token()? {
+            let expression = if self.peek_token()? == Token::LCurly {
                 self.parse_block_expression()?
             } else {
                 let single_expression = self.parse_expression()?;

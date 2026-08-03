@@ -115,7 +115,7 @@ impl
         treewalk::FunctionLinearizeCtx,
     > for PatternTree
 {
-    type Data = PatternTree;
+    type Data = Self;
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize_inner(
         self,

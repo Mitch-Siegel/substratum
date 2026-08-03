@@ -11,7 +11,7 @@ pub(crate) struct Function {
 
 impl Function {
     pub(crate) fn new(prototype: FunctionPrototype, control_flow: Option<ir::ControlFlow>) -> Self {
-        Function {
+        Self {
             prototype,
             control_flow,
         }
@@ -107,7 +107,7 @@ impl FunctionPrototype {
         arguments: Vec<values::Variable>,
         return_type: midend::types::Syntactic,
     ) -> Self {
-        FunctionPrototype {
+        Self {
             name,
             generic_params,
             arguments,

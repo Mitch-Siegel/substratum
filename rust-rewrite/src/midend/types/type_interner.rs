@@ -70,7 +70,7 @@ impl Interner {
         let no_subst = DefPathWithParamSubsts::new(def_path.clone(), ParamSubstMap::empty());
         let overwritten_id = self.id_mappings.insert(next_id, no_subst.clone());
         match overwritten_id {
-            Some(_) => return Err(symtab::SymbolError::TypeAlreadyDefined(def_path.clone())),
+            Some(_) => return Err(symtab::SymbolError::TypeAlreadyDefined(def_path)),
             None => next_id,
         };
 
@@ -121,7 +121,7 @@ impl Interner {
                 .is_none());
             assert!(self
                 .reverse_id_mappings
-                .insert(path_with_params.clone(), next_id)
+                .insert(path_with_params, next_id)
                 .is_none());
             Ok(next_id)
         } else {

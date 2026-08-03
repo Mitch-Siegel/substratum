@@ -22,7 +22,7 @@ pub(crate) struct BlockFacts<T> {
 
 impl<T> Default for BlockFacts<T> {
     fn default() -> Self {
-        BlockFacts {
+        Self {
             in_: BTreeSet::<T>::new(),
             out: BTreeSet::<T>::new(),
             gen: BTreeSet::<T>::new(),
@@ -99,7 +99,7 @@ where
         self.last_facts = self.facts.clone();
     }
 
-    fn reached_fixpoint(&mut self) -> bool {
+    fn reached_fixpoint(&self) -> bool {
         self.facts == self.last_facts
     }
 
@@ -141,7 +141,7 @@ where
         }
     }
 
-    fn analyze_backward(&mut self) {
+    fn analyze_backward(&self) {
         unimplemented!();
         /*
         let mut iteration: usize = 0;

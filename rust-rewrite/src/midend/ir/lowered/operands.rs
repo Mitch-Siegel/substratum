@@ -87,7 +87,7 @@ pub(crate) struct BinarySourceOperands {
 
 impl BinarySourceOperands {
     pub(crate) fn new(a: ValueId, b: ValueId) -> Self {
-        BinarySourceOperands { lhs: a, rhs: b }
+        Self { lhs: a, rhs: b }
     }
 }
 

@@ -16,7 +16,7 @@ pub(crate) struct BasicBlock {
 
 impl BasicBlock {
     pub(crate) fn new(label: usize, def_path: symtab::ScopePath) -> Self {
-        BasicBlock {
+        Self {
             label,
             def_path,
             statements: Vec::new(),

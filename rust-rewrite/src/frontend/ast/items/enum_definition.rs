@@ -106,7 +106,7 @@ where
         ctx: C,
     ) -> midend::treewalk::LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
         let (variant, ctx) = match self {
-            EnumVariantDataTree::TupleData(elements) => elements.linearize(ctx)?,
+            Self::TupleData(elements) => elements.linearize(ctx)?,
         };
 
         ctx.into_result(variant)
@@ -133,7 +133,7 @@ where
         ctx: C,
     ) -> midend::treewalk::LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
         let (variant, ctx) = match self {
-            EnumVariantDataTree::TupleData(elements) => elements.linearize(ctx)?,
+            Self::TupleData(elements) => elements.linearize(ctx)?,
         };
 
         ctx.into_result(variant)

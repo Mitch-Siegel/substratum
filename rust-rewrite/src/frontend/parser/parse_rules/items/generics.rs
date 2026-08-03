@@ -28,11 +28,11 @@ impl ItemParser<'_, '_> {
                 let open_angle_bracket_loc = self.expect_token(Token::LThan)?;
                 let mut params: Vec<ast::generics::GenericParamTree> = Vec::new();
                 loop {
-                    if let Token::GThan = self.peek_token()? {
+                    if self.peek_token()? == Token::GThan {
                         break;
                     }
                     params.push(self.parse_generic_param()?);
-                    if let Token::Comma = self.peek_token()? {
+                    if self.peek_token()? == Token::Comma {
                         self.expect_token(Token::Comma)?;
                     }
                 }
@@ -64,11 +64,11 @@ impl ItemParser<'_, '_> {
         let open_angle_bracket_loc = self.expect_token(Token::LThan)?;
         let mut args: Vec<TypeTree> = Vec::new();
         loop {
-            if let Token::GThan = self.peek_token()? {
+            if self.peek_token()? == Token::GThan {
                 break;
             }
             args.push(self.type_parser().parse_type()?);
-            if let Token::Comma = self.peek_token()? {
+            if self.peek_token()? == Token::Comma {
                 self.expect_token(Token::Comma)?;
             }
         }

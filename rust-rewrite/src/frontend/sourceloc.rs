@@ -32,14 +32,14 @@ pub(crate) struct SourceLoc {
 
 impl SourceLoc {
     pub(crate) fn none() -> Self {
-        SourceLoc {
+        Self {
             file: String::new(),
             point: SourcePoint::default(),
         }
     }
 
     pub(crate) fn new(file: String, point: SourcePoint) -> Self {
-        SourceLoc { file, point }
+        Self { file, point }
     }
 
     pub(crate) fn valid(&self) -> bool {

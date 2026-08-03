@@ -30,8 +30,8 @@ impl From<bool> for Mutability {
 impl Display for Mutability {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Mutability::Mutable => write!(f, "mut"),
-            Mutability::Immutable => std::fmt::Result::Ok(()),
+            Self::Mutable => write!(f, "mut"),
+            Self::Immutable => std::fmt::Result::Ok(()),
         }
     }
 }

@@ -49,19 +49,19 @@ impl midend::treewalk::Collect<midend::symtab::TypePath> for ItemTree {
         mut ctx: midend::treewalk::TypeCollectCtx,
     ) -> midend::treewalk::CollectResult {
         ctx = match self {
-            ItemTree::FunctionDeclaration(function_declaration) => {
+            Self::FunctionDeclaration(function_declaration) => {
                 unimplemented!(
                     "Function declaration without definitions not yet supported: {}",
                     function_declaration.name
                 )
             }
-            ItemTree::FunctionDefinition(function_definition) => {
+            Self::FunctionDefinition(function_definition) => {
                 function_definition.collect_symbols(ctx)
             }
-            ItemTree::StructDefinition(struct_tree) => struct_tree.collect_symbols(ctx),
-            ItemTree::EnumDefinition(enum_tree) => enum_tree.collect_symbols(ctx),
-            ItemTree::Implementation(implementation) => implementation.collect_symbols(ctx),
-            ItemTree::Module(module) => match module {
+            Self::StructDefinition(struct_tree) => struct_tree.collect_symbols(ctx),
+            Self::EnumDefinition(enum_tree) => enum_tree.collect_symbols(ctx),
+            Self::Implementation(implementation) => implementation.collect_symbols(ctx),
+            Self::Module(module) => match module {
                 Ok(m) => m.collect_symbols(ctx),
                 Err(_) => Ok(ctx),
             },
@@ -84,19 +84,19 @@ impl
         mut ctx: treewalk::PathedCtx<treewalk::UnpathedLinearizeCtx, symtab::TypePath>,
     ) -> treewalk::LinearizeResult<Self::Data, treewalk::UnpathedLinearizeCtx> {
         let ctx = match self {
-            ItemTree::FunctionDeclaration(function_declaration) => {
+            Self::FunctionDeclaration(function_declaration) => {
                 unimplemented!(
                     "Function declaration without definitions not yet supported: {}",
                     function_declaration.name
                 );
             }
-            ItemTree::FunctionDefinition(function_definition) => {
+            Self::FunctionDefinition(function_definition) => {
                 let function;
                 (function, ctx) = function_definition.linearize(ctx)?;
                 ctx.define_value(midend::symtab::Value::Function(Box::new(function)))?;
                 ctx
             }
-            ItemTree::StructDefinition(struct_tree) => {
+            Self::StructDefinition(struct_tree) => {
                 let struct_repr;
                 let generic_params;
                 ((struct_repr, generic_params), ctx) = struct_tree.linearize(ctx)?;
@@ -108,7 +108,7 @@ impl
                 ))?;
                 ctx
             }
-            ItemTree::EnumDefinition(enum_tree) => {
+            Self::EnumDefinition(enum_tree) => {
                 let enum_repr;
                 let generic_params;
                 ((enum_repr, generic_params), ctx) = enum_tree.linearize(ctx)?;
@@ -120,12 +120,12 @@ impl
                 ))?;
                 ctx
             }
-            ItemTree::Implementation(_implementation) => {
+            Self::Implementation(_implementation) => {
                 unimplemented!();
                 //let (_, ctx) = implementation.linearize(ctx)?;
                 //ctx
             }
-            ItemTree::Module(module) => match module {
+            Self::Module(module) => match module {
                 Ok(m) => m.linearize(ctx)?.1,
                 Err(_) => ctx,
             },

@@ -366,7 +366,6 @@ fn find_and_parse_module(
     let full_parent_path = crate_path.join(parent_module_path.clone());
 
     let direct_mod_path = full_parent_path
-        .clone()
         .join(item.module_name.clone())
         .with_extension("sb");
     dbg!("trying direct mod path: {direct_mod_path:?}");
@@ -384,7 +383,7 @@ fn find_and_parse_module(
             .iter()
             .collect();
 
-        let subdir_mod_path = full_parent_path.clone().join(subdir_path);
+        let subdir_mod_path = full_parent_path.join(subdir_path);
 
         if let Ok(infile) = File::open(subdir_mod_path) {
             return Ok(lex_and_parse_file(

@@ -34,9 +34,9 @@ enum UseBinding {
 impl std::fmt::Display for UseBinding {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            UseBinding::OriginalName => Ok(()),
-            UseBinding::AsName(as_) => write!(f, " as {as_}"),
-            UseBinding::Multiple(multiples) => write!(
+            Self::OriginalName => Ok(()),
+            Self::AsName(as_) => write!(f, " as {as_}"),
+            Self::Multiple(multiples) => write!(
                 f,
                 "::{{{}}}",
                 multiples
@@ -45,7 +45,7 @@ impl std::fmt::Display for UseBinding {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
-            UseBinding::Glob => write!(f, "::*"),
+            Self::Glob => write!(f, "::*"),
         }
     }
 }

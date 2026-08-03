@@ -85,7 +85,7 @@ impl
         ctx: treewalk::FunctionLinearizeCtx,
     ) -> LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
         match self {
-            ComparisonExpressionTree::LThan(operands) => {
+            Self::LThan(operands) => {
                 let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, ctx) = operands.e2.linearize(ctx)?;
                 ctx.into_result(
@@ -96,7 +96,7 @@ impl
                     ),
                 )
             }
-            ComparisonExpressionTree::GThan(operands) => {
+            Self::GThan(operands) => {
                 let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(
@@ -107,7 +107,7 @@ impl
                     ),
                 )
             }
-            ComparisonExpressionTree::LThanE(operands) => {
+            Self::LThanE(operands) => {
                 let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(
@@ -118,7 +118,7 @@ impl
                     ),
                 )
             }
-            ComparisonExpressionTree::GThanE(operands) => {
+            Self::GThanE(operands) => {
                 let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(
@@ -129,7 +129,7 @@ impl
                     ),
                 )
             }
-            ComparisonExpressionTree::Equals(operands) => {
+            Self::Equals(operands) => {
                 let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(
@@ -140,7 +140,7 @@ impl
                     ),
                 )
             }
-            ComparisonExpressionTree::NotEquals(operands) => {
+            Self::NotEquals(operands) => {
                 let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(
@@ -222,7 +222,7 @@ impl
         ctx: treewalk::FunctionLinearizeCtx,
     ) -> LinearizeResult<Self::Data, midend::treewalk::UnpathedFunctionLinearizeCtx> {
         match self {
-            ArithmeticExpressionTree::Add(operands) => {
+            Self::Add(operands) => {
                 let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(
@@ -233,7 +233,7 @@ impl
                     ),
                 )
             }
-            ArithmeticExpressionTree::Subtract(operands) => {
+            Self::Subtract(operands) => {
                 let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(
@@ -244,7 +244,7 @@ impl
                     ),
                 )
             }
-            ArithmeticExpressionTree::Multiply(operands) => {
+            Self::Multiply(operands) => {
                 let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(
@@ -255,7 +255,7 @@ impl
                     ),
                 )
             }
-            ArithmeticExpressionTree::Divide(operands) => {
+            Self::Divide(operands) => {
                 let (lhs, ctx) = operands.e1.linearize(ctx)?;
                 let (rhs, unpathed) = operands.e2.linearize(ctx)?;
                 unpathed.into_result(

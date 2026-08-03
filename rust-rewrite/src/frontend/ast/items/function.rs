@@ -222,7 +222,7 @@ where
         (declared_prototype, ctx) = self.prototype.linearize(ctx)?;
         let function_name = declared_prototype.name.clone();
 
-        let function_path = ctx.path().clone().with_child_value(function_name.clone());
+        let function_path = ctx.path().clone().with_child_value(function_name);
         let unit_type = ctx.semantic_type_for_syntactic(&midend::types::Syntactic::Unit)?;
         let arg_def_paths: Vec<symtab::ValuePath> = declared_prototype
             .arguments
