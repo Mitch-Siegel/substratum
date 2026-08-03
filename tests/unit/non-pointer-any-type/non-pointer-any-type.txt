@@ -1,3 +1,0 @@
-Use of the type 'any' without indirection is forbidden!
-'any' is meant to represent unstructured data as a pointer type only
-(declare as 'any *', 'any **', etc...)

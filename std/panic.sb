@@ -1,6 +1,0 @@
-#include "panic.sbh"
-
-fun panic(String message)
-{
-    // TODO: panic
-}

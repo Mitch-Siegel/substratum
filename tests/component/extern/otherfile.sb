@@ -1,7 +1,0 @@
-
-u8 abc;
-
-fun setValue(u8 newValue)
-{
-    abc = newValue;
-}

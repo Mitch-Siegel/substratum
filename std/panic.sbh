@@ -1,3 +1,0 @@
-#include "string.sbh"
-
-fun panic(String message);

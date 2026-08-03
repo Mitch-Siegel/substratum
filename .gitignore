@@ -1,8 +1,6 @@
 .vscode
-build
-parser.c
-include/parser.h
-sbcc
 
-ast.dot
-symtab*.dot
+*.dot
+
+/debug
+/target

@@ -1,8 +1,0 @@
-
-fun printNum(u64 value, u8 newline);
-
-fun printHex(u64 value, u8 newline);
-
-fun printStr(u8 *str) -> u32;
-
-fun exit();

@@ -1,2 +1,0 @@
-Counter Number of people who entered: 4
-Counter Current occupancy: 2
