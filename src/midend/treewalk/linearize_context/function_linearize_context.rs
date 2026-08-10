@@ -133,7 +133,6 @@ impl symtab::SymtabBase for UnpathedFunctionLinearizeCtx {
         &self,
         path: &symtab::RawPath,
     ) -> Result<Option<&symtab::SymbolDef>, symtab::SymbolError> {
-        assert!(self.function_path.is_prefix_of(path));
         self.base.lookup_at(path)
     }
 
@@ -141,7 +140,6 @@ impl symtab::SymtabBase for UnpathedFunctionLinearizeCtx {
         &mut self,
         path: &symtab::RawPath,
     ) -> Result<Option<&mut symtab::SymbolDef>, symtab::SymbolError> {
-        assert!(self.function_path.is_prefix_of(path));
         self.base.lookup_at_mut(path)
     }
 
@@ -158,7 +156,6 @@ impl symtab::SymtabBase for UnpathedFunctionLinearizeCtx {
         &self,
         path: &symtab::RawPath,
     ) -> Option<&BTreeSet<symtab::UseDeclaration>> {
-        assert!(self.function_path.is_prefix_of(path));
         self.base.get_use_declarations_at(path)
     }
 

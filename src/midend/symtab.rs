@@ -16,7 +16,7 @@ pub(crate) mod implementation;
 pub(crate) mod types;
 pub(crate) mod values;
 
-pub(crate) use def_path::{Path, TypeOwner, ValueOwner, *};
+pub(crate) use def_path::{MaybeEmptyPath, Path, TypeOwner, ValueOwner, *};
 pub(crate) use implementation::Implementation;
 pub(crate) use symbols::*;
 pub(crate) use types::Type;
@@ -177,14 +177,18 @@ mod private {
 
         fn lookup_decl(
             &self,
-            search_path: RawPath,
+            search_path: Option<RawPath>,
             lookup_path: RawPath,
         ) -> Result<RawPath, SymbolError> {
-            let mut search_segments = search_path.clone().into_iter().collect::<Vec<_>>();
+            let mut search_segments = match search_path {
+                Some(search_path) => search_path.into_iter().collect::<Vec<_>>(),
+                None => Vec::new(),
+            };
+
             let lookup_segments = lookup_path.clone().into_iter().collect::<Vec<_>>();
             let (symbol_segment, lookup_segments) = lookup_segments.split_last().unwrap();
             while !search_segments.is_empty() {
-                let all_prefix_segments = search_path
+                let all_prefix_segments = search_segments
                     .clone()
                     .into_iter()
                     .chain(lookup_segments.to_owned())
@@ -213,7 +217,7 @@ mod private {
 
         fn lookup_def(
             &self,
-            search_path: RawPath,
+            search_path: Option<RawPath>,
             lookup_path: RawPath,
         ) -> Result<(&SymbolDef, RawPath), SymbolError> {
             let found_path = self.lookup_decl(search_path, lookup_path)?;
@@ -222,7 +226,7 @@ mod private {
 
         fn lookup_def_mut(
             &mut self,
-            search_path: RawPath,
+            search_path: Option<RawPath>,
             lookup_path: RawPath,
         ) -> Result<(&mut SymbolDef, RawPath), SymbolError> {
             let found_path = self.lookup_decl(search_path, lookup_path)?;
@@ -276,7 +280,7 @@ pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
         type_: TypeSegment,
     ) -> Result<TypePath, SymbolError> {
         let raw_path = self.lookup_decl(
-            search_path.clone().into(),
+            Some(search_path.clone().into()),
             RawPath::new(vec![], type_.into()),
         )?;
 
@@ -291,7 +295,7 @@ pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
         type_: TypeSegment,
     ) -> Result<(&Type, TypePath), SymbolError> {
         match self.lookup_def(
-            search_path.clone().into(),
+            Some(search_path.clone().into()),
             RawPath::new(vec![], type_.into()),
         )? {
             (SymbolDef::Type(t), found_path) => Ok((t, found_path.into())),
@@ -309,7 +313,7 @@ pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
         type_: TypeSegment,
     ) -> Result<(&mut Type, TypePath), SymbolError> {
         match self.lookup_def_mut(
-            search_path.clone().into(),
+            Some(search_path.clone().into()),
             RawPath::new(vec![], type_.into()),
         )? {
             (SymbolDef::Type(t), found_path) => Ok((t, found_path.into())),
@@ -327,7 +331,7 @@ pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
         value: ValueSegment,
     ) -> Result<RawPath, SymbolError> {
         self.lookup_decl(
-            search_path.clone().into(),
+            Some(search_path.clone().into()),
             RawPath::new(vec![], value.into()),
         )
     }
@@ -340,7 +344,7 @@ pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
         value: ValueSegment,
     ) -> Result<(&Value, ValuePath), SymbolError> {
         match self.lookup_def(
-            search_path.clone().into(),
+            Some(search_path.clone().into()),
             RawPath::new(vec![], value.into()),
         )? {
             (SymbolDef::Value(v), found_path) => Ok((v, found_path.into())),
@@ -356,7 +360,7 @@ pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
         value: ValueSegment,
     ) -> Result<(&mut Value, ValuePath), SymbolError> {
         match self.lookup_def_mut(
-            search_path.clone().into(),
+            Some(search_path.clone().into()),
             RawPath::new(vec![], value.into()),
         )? {
             (SymbolDef::Value(v), found_path) => Ok((v, found_path.into())),

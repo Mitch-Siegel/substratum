@@ -238,6 +238,9 @@ mod path_walk {
                 return Err(PathWalkError::SuperInvalid);
             }
 
+            // pull all scopes out implicitly
+            while let Some(midend::symtab::PathSegment::Scope(_)) = self.context_segments.pop() {}
+
             match self.context_segments.pop() {
                 Some(segment) => Ok(segment),
                 None => Err(PathWalkError::NoSuper),
@@ -268,55 +271,60 @@ mod path_walk {
             segment_name: String,
             maybe_data: Option<T>,
         ) -> FinishedPathWalk<T> {
-            let mut prefix_segments = self.context_segments;
+            let context_path =
+                midend::symtab::MaybeEmptyPath::from_segments(self.context_segments.into_iter());
             let mut pathed_data = HashMap::new();
+
+            let mut built_data_path = context_path.clone();
+            let mut built_walked_path = midend::symtab::MaybeEmptyPath::new();
             for (segment, maybe_data) in self
                 .walked_segments
                 .into_iter()
                 .zip(self.walked_segment_data.into_iter())
             {
+                built_walked_path = built_walked_path.with_segment(segment.clone()).unwrap();
+                built_data_path = built_data_path.with_segment(segment.clone()).unwrap();
                 if let Some(data) = maybe_data {
-                    let data_path =
-                        midend::symtab::RawPath::new(prefix_segments.clone(), segment.clone());
-                    pathed_data.insert(data_path, data);
+                    pathed_data.insert(built_data_path.clone().try_into().unwrap(), data);
                 }
-
-                prefix_segments.push(segment);
             }
 
             let type_path = midend::symtab::RawPath::new(
-                prefix_segments.clone(),
+                built_walked_path.clone().into(),
                 midend::symtab::PathSegment::Type(segment_name.clone()),
             );
 
             let value_path = midend::symtab::RawPath::new(
-                prefix_segments.clone(),
+                built_walked_path.clone().into(),
                 midend::symtab::PathSegment::Value(segment_name.clone()),
             );
 
             let macro_path = midend::symtab::RawPath::new(
-                prefix_segments.clone(),
+                built_walked_path.into(),
                 midend::symtab::PathSegment::Macro(segment_name.clone()),
             );
 
-            let type_path = match symtab.lookup_at(&type_path) {
-                Ok(_) => Some(type_path),
-                Err(_) => None,
-            };
+            let type_path: Option<midend::symtab::TypePath> =
+                match symtab.lookup_def(context_path.clone().into(), type_path.clone()) {
+                    Ok(_) => Some(type_path.into()),
+                    Err(_) => None,
+                };
 
-            let value_path = match symtab.lookup_at(&value_path) {
-                Ok(_) => Some(value_path),
-                Err(_) => None,
-            };
+            let value_path: Option<midend::symtab::ValuePath> =
+                match symtab.lookup_def(context_path.clone().into(), value_path.clone()) {
+                    Ok(_) => Some(value_path.into()),
+                    Err(_) => None,
+                };
 
-            let macro_path = match symtab.lookup_at(&macro_path) {
-                Ok(_) => Some(macro_path),
+            let macro_path: Option<midend::symtab::MacroPath> = match symtab.lookup_at(&macro_path)
+            {
+                Ok(_) => Some(macro_path.into()),
                 Err(_) => None,
             };
 
             FinishedPathWalk {
                 loc: loc.clone(),
-                prefix_segments,
+                prefix_segments: context_path.into(),
                 pathed_data,
                 last_ident: segment_name,
                 last_segment_data: maybe_data,
@@ -340,9 +348,14 @@ where
     pathed_data: HashMap<midend::symtab::RawPath, T>,
     last_ident: String,
     last_segment_data: Option<T>,
-    type_path: Option<midend::symtab::RawPath>,
-    value_path: Option<midend::symtab::RawPath>,
-    macro_path: Option<midend::symtab::RawPath>,
+    type_path: Option<midend::symtab::TypePath>,
+    value_path: Option<midend::symtab::ValuePath>,
+    macro_path: Option<midend::symtab::MacroPath>,
+}
+
+pub(crate) struct PathWithSegmentData<P: midend::symtab::Path, D> {
+    pub path: P,
+    pub data: HashMap<midend::symtab::RawPath, D>,
 }
 
 impl<T> FinishedPathWalk<T>
@@ -351,63 +364,61 @@ where
 {
     fn handle_last_segment_data(
         mut pathed_data: HashMap<midend::symtab::RawPath, T>,
-        path: &midend::symtab::RawPath,
+        path: &impl midend::symtab::Path,
         maybe_data: Option<T>,
     ) -> HashMap<midend::symtab::RawPath, T> {
         if let Some(data) = maybe_data {
-            pathed_data.insert(path.clone(), data);
+            pathed_data.insert(path.clone().into(), data);
         }
         pathed_data
     }
 
     pub(crate) fn into_type(
         self,
-    ) -> Result<(midend::symtab::RawPath, HashMap<midend::symtab::RawPath, T>), String> {
-        let path = self.type_path.ok_or(format!(
+    ) -> Result<PathWithSegmentData<midend::symtab::TypePath, T>, String> {
+        let path: midend::symtab::TypePath = self.type_path.ok_or(format!(
             "path {} (@{}) is not valid as type",
             midend::symtab::RawPath::new(
                 self.prefix_segments,
-                midend::symtab::PathSegment::Value(self.last_ident),
+                midend::symtab::PathSegment::Type(self.last_ident)
             ),
             self.loc,
         ))?;
-        let pathed_data =
-            Self::handle_last_segment_data(self.pathed_data, &path, self.last_segment_data);
+        let data = Self::handle_last_segment_data(self.pathed_data, &path, self.last_segment_data);
 
-        Ok((path, pathed_data))
+        Ok(PathWithSegmentData { path, data })
     }
 
-    pub(crate) fn _into_value(
+    pub(crate) fn into_value(
         self,
-    ) -> Result<(midend::symtab::RawPath, HashMap<midend::symtab::RawPath, T>), String> {
-        let path = self.value_path.ok_or(format!(
+    ) -> Result<PathWithSegmentData<midend::symtab::ValuePath, T>, String> {
+        let path: midend::symtab::ValuePath = self.value_path.ok_or(format!(
             "path {} (@{}) is not valid as value",
             midend::symtab::RawPath::new(
                 self.prefix_segments,
-                midend::symtab::PathSegment::Value(self.last_ident),
+                midend::symtab::PathSegment::Value(self.last_ident)
             ),
             self.loc,
         ))?;
-        let pathed_data =
-            Self::handle_last_segment_data(self.pathed_data, &path, self.last_segment_data);
+        let data = Self::handle_last_segment_data(self.pathed_data, &path, self.last_segment_data);
 
-        Ok((path, pathed_data))
+        Ok(PathWithSegmentData { path, data })
     }
 
     pub(crate) fn _into_macro(
         self,
-    ) -> Result<(midend::symtab::RawPath, HashMap<midend::symtab::RawPath, T>), String> {
-        let path = self.macro_path.ok_or(format!(
-            "path {} is not valid as macro",
+    ) -> Result<PathWithSegmentData<midend::symtab::MacroPath, T>, String> {
+        let path: midend::symtab::MacroPath = self.macro_path.ok_or(format!(
+            "path {} (@{}) is not valid as macro",
             midend::symtab::RawPath::new(
                 self.prefix_segments,
                 midend::symtab::PathSegment::Macro(self.last_ident)
-            )
+            ),
+            self.loc,
         ))?;
-        let pathed_data =
-            Self::handle_last_segment_data(self.pathed_data, &path, self.last_segment_data);
+        let data = Self::handle_last_segment_data(self.pathed_data, &path, self.last_segment_data);
 
-        Ok((path, pathed_data))
+        Ok(PathWithSegmentData { path, data })
     }
 }
 
@@ -450,7 +461,7 @@ where
         symtab: &impl midend::symtab::Symtab,
     ) -> Self {
         if size_hint > 0 {
-            ctx.add_segment(midend::symtab::PathSegment::Type(ident), maybe_data);
+            ctx.add_segment(midend::symtab::TypeSegment(ident).into(), maybe_data);
             Self::RequireIdent(ctx)
         } else {
             let finished = ctx.finish(loc, symtab, ident, maybe_data);
@@ -517,7 +528,11 @@ where
 {
     type Data = FinishedPathWalk<T>;
     fn linearize_inner(self, mut ctx: C) -> LinearizeResult<Self::Data, U> {
-        let ctx_segments = ctx.path().clone().into_iter().collect::<Vec<_>>();
+        let ctx_segments = ctx
+            .path()
+            .clone()
+            .into_iter()
+            .collect::<Vec<midend::symtab::PathSegment>>();
         let mut walk_state = if self.starts_global.is_some() {
             PathWalkState::<T>::start_global()
         } else {
@@ -528,6 +543,7 @@ where
         let mut segments = self.segments.into_iter();
 
         while let Some(segment) = segments.next() {
+            dbg!(&walk_state);
             let segment_loc = segment.loc();
             path_span = path_span.merge(&segment_loc).unwrap();
             let action: PathSegmentAction<T>;
@@ -541,6 +557,7 @@ where
                     ctx.unpathed(),
                 )
                 .unwrap();
+            dbg!(&walk_state);
         }
 
         let finished = walk_state.finish().unwrap();

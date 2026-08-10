@@ -8,7 +8,7 @@ use crate::{
     midend::{
         self,
         symtab::ValuePath,
-        treewalk::{self},
+        treewalk::{self, UnpathedFunctionLinearizeCtx},
     },
 };
 
@@ -32,29 +32,29 @@ impl midend::treewalk::Collect<ValuePath> for PathInExpressionTree {
     }
 }
 
-impl<U, P, C> treewalk::Linearize<U, P, C> for PathInExpressionTree
-where
-    U: treewalk::UnpathedLinearizeCtxTrait,
-    P: midend::symtab::Path,
-    C: treewalk::PathedLinearizeCtxTrait<Unpathed = U, Path = P>,
+impl
+    treewalk::Linearize<
+        UnpathedFunctionLinearizeCtx,
+        midend::symtab::ScopePath,
+        treewalk::PathedCtx<UnpathedFunctionLinearizeCtx, midend::symtab::ScopePath>,
+    > for PathInExpressionTree
 {
     type Data = midend::ir::ValueId;
-    fn linearize_inner(self, mut _ctx: C) -> midend::treewalk::LinearizeResult<Self::Data, U> {
-        unimplemented!();
-        /*
-        let _span = trace::span_auto_debug!(
-            "treewalk::linearize for PathInexpressionTree @",
-            "{:?}",
-            self.loc()
-        );
+    fn linearize_inner(
+        self,
+        ctx: treewalk::PathedCtx<UnpathedFunctionLinearizeCtx, midend::symtab::ScopePath>,
+    ) -> midend::treewalk::LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+        let (finished_walk, mut ctx) = self.underlying_path.linearize(ctx)?;
+        // TODO: record monomorphization
+        // let path = linearized_path
+        //     .map_data(|path, maybe_data| record_monomorphization(ctx, path, maybe_data))
+        //     .unwrap();
 
-        let linearized_path = self.underlying_path.linearize(ctx);
-        let path = linearized_path
-            .map_data(|path, maybe_data| record_monomorphization(ctx, path, maybe_data))
-            .unwrap();
+        let ast::path::PathWithSegmentData { path, data: _data } =
+            finished_walk.into_value().unwrap();
 
-        ctx.function_mut().values_mut().id_for_path(path)
-        */
+        let value = ctx.function_mut().values_mut().id_for_path(&path);
+        ctx.into_result(value)
     }
 }
 

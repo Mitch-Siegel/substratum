@@ -450,14 +450,14 @@ where
     type Data = midend::types::Syntactic;
     fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, U> {
         let (path, ctx) = self.underlying_path.linearize(ctx)?;
-        let (type_path, path_data) = path.into_type().unwrap();
+        let path::PathWithSegmentData { path, data } = path.into_type().unwrap();
 
-        if !path_data.is_empty() {
+        if !data.is_empty() {
             unimplemented!("handle monomorphizations");
         }
 
         let type_ =
-            midend::types::Syntactic::Named(type_path.into_iter().last().unwrap().to_string());
+            midend::types::Syntactic::Named(path.into_iter().next_back().unwrap().to_string());
 
         ctx.into_result(type_)
     }
