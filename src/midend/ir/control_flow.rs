@@ -1,7 +1,7 @@
 use crate::{
     map_ooo_iter::{HashMapOOOIter, HashMapOOOIterMut},
     midend::ir::{
-        ir, lowered, symtab, unlowered, BasicBlock, BlockManager, OperandTypeInference, Operation,
+        ir, lowered, symtab, unlowered, BasicBlock, OperandTypeInference, Operation,
         SourceLoc, TypeInferenceContext, ValueInterner,
     },
 };
@@ -233,13 +233,6 @@ impl<'a> IntoIterator for &'a mut ControlFlow {
     type IntoIter = std::collections::hash_map::ValuesMut<'a, usize, BasicBlock>;
     fn into_iter(self) -> Self::IntoIter {
         self.blocks.values_mut()
-    }
-}
-
-impl From<BlockManager> for ControlFlow {
-    fn from(manager: BlockManager) -> Self {
-        let (blocks, values) = manager.try_take().unwrap();
-        Self::new(blocks, values)
     }
 }
 

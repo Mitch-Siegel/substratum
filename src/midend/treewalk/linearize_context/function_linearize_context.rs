@@ -82,15 +82,16 @@ impl UnpathedFunctionLinearizeCtx {
     #[allow(clippy::unnecessary_wraps)]
     pub(crate) fn finalize<P>(
         self,
-        path: P,
+        path: &P,
         _return_value_id: ir::ValueId,
     ) -> treewalk::LinearizeResult<symtab::values::Function, UnpathedLinearizeCtx>
     where
         P: symtab::Path,
     {
+        // fact-check that we are finalizing from subscope 0 and nowhere else
         assert_eq!(
             Into::<symtab::RawPath>::into(self.function_path),
-            Into::<symtab::RawPath>::into(path)
+            Into::<symtab::RawPath>::into(path.clone().split_last().0.unwrap())
         );
 
         let function = self.function.finish().unwrap();
@@ -451,20 +452,14 @@ impl WipFunction {
         }
     }
 
-    pub(crate) fn resolve_final_convergence(&mut self) {
-        self.block_manager
-            .resolve_final_convergence(self.current_block)
-            .unwrap();
-    }
-
     pub(crate) fn finish(self) -> Result<symtab::values::Function, ir::block_manager::BranchError> {
         self.block_manager.ensure_finished()?;
 
-        let (blocks, values) = self.block_manager.try_take().unwrap();
+        let cf = self.block_manager.take(self.current_block);
 
         Ok(symtab::values::Function::new(
             self.prototype,
-            Some(ir::ControlFlow::new(blocks, values)),
+            Some(cf),
         ))
     }
 }

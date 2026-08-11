@@ -5,3 +5,7 @@
 /debug
 /target
 Cargo.lock
+
+graphviz/*
+*.gv
+*.dot

@@ -92,22 +92,25 @@ impl BlockManager {
         )
     }
 
-    pub(crate) fn try_take(
-        self,
-    ) -> Result<(HashMap<usize, BasicBlock>, ValueInterner), &'static str> {
-        if !self.open_branch_path.is_empty() {
-            let msg = "Failing due to open branch path length > 0";
-            trace::error!("{}", msg);
-            return Err(msg);
+    pub(crate) fn take(mut self, before_final_block: usize) -> ControlFlow {
+        match self.converge_with_jump(before_final_block, SourceLoc::none()) {
+            Ok(ConvergenceResult::Done(block)) => {
+                self.blocks.insert(block.label, block);
+            }
+            Ok(ConvergenceResult::NotDone(e)) => {
+                panic!("open branches exist (convergence not done for {e})")
+            }
+            Err(e) => panic!("convergence error: {e:?}"),
         }
 
-        if !self.convergences.is_empty() {
-            let msg = "Failing due to unresolved convergences";
-            trace::error!("{}", msg);
-            return Err(msg);
-        }
+        assert!(
+            self.open_branch_path.is_empty(),
+            "open branch path length > 0"
+        );
 
-        Ok((self.blocks, self.values))
+        assert!(self.convergences.is_empty(), "unresolved convergences");
+
+        ControlFlow::new(self.blocks, self.values)
     }
 
     pub(crate) fn with_existing_blocks(
@@ -177,19 +180,6 @@ impl BlockManager {
         self.get_mut(from).unwrap().push(convergence_jump);
 
         Ok(result)
-    }
-
-    pub(crate) fn resolve_final_convergence(
-        &mut self,
-        before_final_block: usize,
-    ) -> Result<(), BranchError> {
-        match self.converge_with_jump(before_final_block, SourceLoc::none())? {
-            ConvergenceResult::Done(block) => {
-                self.blocks.insert(block.label, block);
-                Ok(())
-            }
-            ConvergenceResult::NotDone(e) => Err(BranchError::NotDone(e)),
-        }
     }
 
     pub(crate) fn ensure_finished(&self) -> Result<(), BranchError> {

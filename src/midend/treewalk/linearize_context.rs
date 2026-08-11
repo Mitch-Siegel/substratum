@@ -323,7 +323,7 @@ impl FunctionLinearizeCtx {
         self,
         return_value_id: ir::ValueId,
     ) -> treewalk::LinearizeResult<symtab::values::Function, UnpathedLinearizeCtx> {
-        self.unpathed.finalize(self.path, return_value_id)
+        self.unpathed.finalize(&self.path, return_value_id)
     }
 }
 

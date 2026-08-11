@@ -19,7 +19,7 @@ fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
                 if let Some(cf) = &f.control_flow {
                     {
                         use std::io::Write;
-                        let path_string = format!("graphviz/{}{}.txt", f.name(), suffix);
+                        let path_string = format!("graphviz/{}{}.gv", f.name(), suffix);
                         let filepath = std::path::Path::new(&path_string);
                         std::fs::create_dir_all(filepath.parent().unwrap()).unwrap();
                         let mut file = std::fs::File::create(filepath).unwrap();
