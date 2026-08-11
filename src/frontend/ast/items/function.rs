@@ -127,6 +127,9 @@ where
         for arg in self.arguments {
             let linearized_arg;
             (linearized_arg, function_ctx) = arg.linearize(function_ctx)?;
+            function_ctx.define_value(midend::symtab::Value::LocalBinding(
+                midend::symtab::values::LocalBinding::FunctionParam(linearized_arg.clone()),
+            ))?;
             arguments.push(linearized_arg);
         }
 
