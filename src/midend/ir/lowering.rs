@@ -4,7 +4,7 @@ mod function;
 use function::lower_function;
 
 #[derive(Debug, Default)]
-struct FunctionsToLower(Vec<symtab::RawPath>);
+struct FunctionsToLower(Vec<symtab::ValuePath>);
 
 fn check_symbol_for_lowering(
     def_path: &symtab::RawPath,
@@ -12,7 +12,7 @@ fn check_symbol_for_lowering(
     to_lower: &mut FunctionsToLower,
 ) {
     if let symtab::SymbolDef::Value(symtab::Value::Function(_)) = symbol {
-        to_lower.0.push(def_path.clone());
+        to_lower.0.push(def_path.clone().into());
     }
 }
 

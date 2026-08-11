@@ -370,6 +370,13 @@ pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
         }
     }
 
+    fn lookup_value_at_mut(&mut self, path: &ValuePath) -> Result<&mut Value, SymbolError> {
+        match self.lookup_def_at_mut(&path.clone().into())? {
+            SymbolDef::Value(v) => Ok(v),
+            _ => Err(SymbolError::Undeclared(path.clone().into())),
+        }
+    }
+
     fn get_impls_for(&self, path: &TypePath) -> Result<&HashSet<ImplPath>, SymbolError>;
 
     fn create_impl(

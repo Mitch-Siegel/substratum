@@ -457,9 +457,6 @@ impl WipFunction {
 
         let cf = self.block_manager.take(self.current_block);
 
-        Ok(symtab::values::Function::new(
-            self.prototype,
-            Some(cf),
-        ))
+        Ok(symtab::values::Function::new(self.prototype, Some(cf)))
     }
 }

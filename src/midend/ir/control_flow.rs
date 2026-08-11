@@ -1,8 +1,8 @@
 use crate::{
     map_ooo_iter::{HashMapOOOIter, HashMapOOOIterMut},
     midend::ir::{
-        ir, lowered, symtab, unlowered, BasicBlock, OperandTypeInference, Operation,
-        SourceLoc, TypeInferenceContext, ValueInterner,
+        ir, lowered, symtab, unlowered, BasicBlock, OperandTypeInference, Operation, SourceLoc,
+        TypeInferenceContext, ValueInterner,
     },
 };
 use std::collections::{BTreeSet, HashMap, VecDeque};
@@ -188,17 +188,14 @@ impl ControlFlow {
 }
 
 impl ControlFlow {
-    pub(crate) fn infer_types(
-        &mut self,
-        mut symtab: Box<symtab::SymbolTable>,
-    ) -> (bool, Box<symtab::SymbolTable>) {
+    pub(crate) fn infer_types(&mut self, symtab: &mut symtab::SymbolTable) -> bool {
         let mut block_order: BTreeSet<usize> = self
             .generate_reverse_postorder_stack()
             .into_iter()
             .collect();
 
         let (values, blocks) = (&mut self.values, &mut self.blocks);
-        let ctx = TypeInferenceContext::new(&mut symtab, values);
+        let ctx = TypeInferenceContext::new(symtab, values);
         loop {
             let old_size = block_order.len();
 
@@ -208,7 +205,7 @@ impl ControlFlow {
             }
         }
 
-        (block_order.is_empty(), symtab)
+        block_order.is_empty()
     }
 }
 

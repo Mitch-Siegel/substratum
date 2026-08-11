@@ -218,10 +218,8 @@ fn _create_enum_variant_constructor(
             .append(&mut vec![field_get_line, field_store_line]);
     }
 
-    let ctor_function = midend::symtab::values::Function::new(
-        prototype,
-        Some(block_mgr.take(current_block)),
-    );
+    let ctor_function =
+        midend::symtab::values::Function::new(prototype, Some(block_mgr.take(current_block)));
 
     ctx.define_value(symtab::Value::Function(Box::new(ctor_function)))
         .unwrap();
