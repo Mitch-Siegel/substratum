@@ -305,13 +305,13 @@ mod path_walk {
             );
 
             let type_path: Option<midend::symtab::TypePath> =
-                match symtab.lookup_def(context_path.clone().into(), type_path.clone()) {
+                match symtab.lookup_decl(context_path.clone().into(), type_path.clone()) {
                     Ok(_) => Some(type_path.into()),
                     Err(_) => None,
                 };
 
             let value_path: Option<midend::symtab::ValuePath> =
-                match symtab.lookup_def(context_path.clone().into(), value_path.clone()) {
+                match symtab.lookup_decl(context_path.clone().into(), value_path.clone()) {
                     Ok(_) => Some(value_path.into()),
                     Err(_) => None,
                 };
