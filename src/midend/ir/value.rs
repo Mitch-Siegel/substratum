@@ -33,6 +33,18 @@ pub(crate) enum ValueKind {
     Constant(usize),
 }
 
+impl std::fmt::Display for ValueKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Argument(idx) => write!(f, "arg {idx}"),
+            Self::Variable(p) => write!(f, "{p}"),
+            Self::Temporary(t) => write!(f, "temp {t}"),
+            Self::StaticFunction(sf) => write!(f, "{sf}()"),
+            Self::Constant(val) => write!(f, "{val}"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Value {
     kind: ValueKind,
@@ -55,6 +67,15 @@ impl Value {
         match self.ty {
             Some(t) => Ok(t),
             None => Err(ValueError::ValueHasNoType),
+        }
+    }
+}
+
+impl std::fmt::Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.ty {
+            Some(ty) => write!(f, "{}: {}", self.kind, ty),
+            None => write!(f, "{}: ?", self.kind),
         }
     }
 }

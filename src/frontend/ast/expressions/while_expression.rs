@@ -53,14 +53,11 @@ impl
 
         let parent_scope_def_path = ctx.path().clone();
         let loop_scope_def_path = ctx.reserve_subscope();
-        let loop_done_label = ctx
-            .function_mut()
-            .create_loop(
-                loc.clone().start(),
-                parent_scope_def_path,
-                loop_scope_def_path,
-            )
-            .unwrap();
+        let loop_done_label = ctx.create_loop(
+            loc.clone().start(),
+            parent_scope_def_path,
+            loop_scope_def_path,
+        );
 
         let condition_loc = self.condition.loc();
         let condition;
@@ -71,29 +68,25 @@ impl
             midend::ir::lowered::operands::JumpCondition::Conditional(
                 midend::ir::lowered::operands::BinaryComparisonOperands::new(
                     condition,
-                    *ctx.function_mut().values_mut().id_for_constant(0),
+                    *ctx.values_mut().id_for_constant(0),
                     midend::ir::lowered::operands::BinaryComparisonKind::EQ,
                 ),
             ),
         );
 
-        ctx.function_mut()
-            .append_jump_to_current_block(loop_condition_jump)
-            .unwrap();
+        ctx.append_jump_to_current_block(loop_condition_jump);
 
         let parent_def_path = ctx.path().clone();
-        ctx.function_mut().unconditional_branch_from_current(
+        ctx.unconditional_branch_from_current(
             loc.clone().end(),
             parent_def_path.clone(),
             parent_def_path,
         );
         let (_, mut ctx) = self.body.linearize(ctx)?;
 
-        ctx.function_mut().finish_branch(loc.clone().end()).unwrap();
+        ctx.finish_branch(loc.clone().end());
 
-        ctx.function_mut()
-            .finish_loop(loc.end(), Vec::new())
-            .unwrap();
+        ctx.finish_loop(loc.end(), Vec::new());
 
         ctx.into_result(midend::ir::ValueInterner::unit_value_id())
     }

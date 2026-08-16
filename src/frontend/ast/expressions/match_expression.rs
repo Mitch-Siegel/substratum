@@ -249,19 +249,17 @@ impl
         let parent_scope_def_path = ctx.path().clone();
         let switch_scope_def_path = ctx.reserve_subscope();
 
-        ctx.function_mut()
-            .create_switch(
-                match_loc.clone().start(),
-                parent_scope_def_path,
-                switch_scope_def_path,
-            )
-            .unwrap();
+        ctx.create_switch(
+            match_loc.clone().start(),
+            parent_scope_def_path,
+            switch_scope_def_path,
+        );
 
         let scrutinee_value;
         (scrutinee_value, ctx) = self.scrutinee_expression.linearize(ctx)?;
 
         // TODO: consolidate each arm's result into result_value
-        let result_value = ctx.function_mut().values_mut().next_temp();
+        let result_value = ctx.values_mut().next_temp();
 
         let mut arm_values = Vec::new();
 
@@ -270,15 +268,11 @@ impl
             let arm_loc = arm.loc();
 
             let case_scope_def_path = ctx.reserve_subscope();
-            let arm_label = ctx
-                .function_mut()
-                .create_switch_case(case_scope_def_path)
-                .unwrap();
+            let arm_label = ctx.create_switch_case(case_scope_def_path);
+
             let (pattern, result_value);
             ((pattern, result_value), ctx) = arm.linearize(ctx)?;
-            ctx.function_mut()
-                .finish_switch_case(arm_loc.end())
-                .unwrap();
+            ctx.finish_switch_case(arm_loc.end());
 
             arm_values.push(midend::ir::unlowered::operands::MatchArm {
                 pattern,
@@ -288,19 +282,17 @@ impl
             trace::warning!("finish arm");
         }
 
-        ctx.function_mut()
-            .append_statement_to_current_block(midend::ir::IrLine::new_match(
-                match_loc.clone().start(),
-                scrutinee_value,
-                arm_values,
-            ))
-            .unwrap();
+        ctx.append_statement_to_current_block(midend::ir::IrLine::new_match(
+            match_loc.clone().start(),
+            scrutinee_value,
+            arm_values,
+        ));
 
         trace::warning!("finish match");
 
         // FIXME: (?) Convergence currently exists from the switch block itself to the after-switch
         // block, resulting in an unreachable jump instruction after the unlowered match IR.
-        ctx.function_mut().finish_switch(match_loc.end()).unwrap();
+        ctx.finish_switch(match_loc.end());
         ctx.into_result(result_value)
     }
 }

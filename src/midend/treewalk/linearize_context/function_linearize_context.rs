@@ -50,7 +50,7 @@ impl UnpathedFunctionLinearizeCtx {
         Self {
             base,
             function_path: function_path.clone(),
-            function: WipFunction::new(prototype, &function_path, unit_type, arg_def_paths),
+            function: WipFunction::new(prototype, function_path, unit_type, arg_def_paths),
         }
     }
 
@@ -97,6 +97,10 @@ impl UnpathedFunctionLinearizeCtx {
         let function = self.function.finish().unwrap();
 
         Ok((function, self.base))
+    }
+
+    pub(crate) fn function(&self) -> &WipFunction {
+        &self.function
     }
 
     pub(crate) fn function_mut(&mut self) -> &mut WipFunction {
@@ -197,6 +201,7 @@ pub(crate) struct WipFunction {
     prototype: symtab::values::FunctionPrototype,
     block_manager: ir::BlockManager,
     current_block: usize,
+    def_path: symtab::ValuePath,
     // subscope_hierarchy: Vec<usize>,
 }
 
@@ -204,11 +209,11 @@ impl WipFunction {
     #[tracing::instrument(level = "debug")]
     pub(crate) fn new(
         prototype: symtab::values::FunctionPrototype,
-        def_path: &symtab::ValuePath,
+        def_path: symtab::ValuePath,
         unit_type: types::Semantic,
         arg_def_paths: &Vec<symtab::ValuePath>,
     ) -> Self {
-        let (mut block_manager, start_block_label) = ir::BlockManager::new(unit_type, def_path);
+        let (mut block_manager, start_block_label) = ir::BlockManager::new(unit_type, &def_path);
 
         for arg in arg_def_paths {
             let id = block_manager.values_mut().id_for_path(arg);
@@ -224,6 +229,7 @@ impl WipFunction {
             prototype,
             block_manager,
             current_block: start_block_label,
+            def_path,
         }
     }
 
@@ -267,12 +273,18 @@ impl WipFunction {
         self.block_manager.get_mut(self.current_block).unwrap()
     }
 
-    pub(crate) fn finish_true_branch_switch_to_false(&mut self, loc: SourceLoc) {
+    pub(crate) fn finish_true_branch_switch_to_false(
+        &mut self,
+        loc: SourceLoc,
+        def_path: &symtab::ScopePath,
+    ) {
+        assert!(self.def_path.is_prefix_of(def_path));
+
         trace::debug!("finish true branch, switch to false");
 
         let false_block = self
             .block_manager
-            .finish_true_branch_switch_to_false(self.current_block, loc)
+            .finish_true_branch_switch_to_false(self.current_block, loc, def_path)
             .unwrap();
         self.replace_current_block(false_block);
     }

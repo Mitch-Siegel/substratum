@@ -54,7 +54,7 @@ impl
             let field_loc = field_expression_tree.loc();
             let (receiver, field);
             ((receiver, field), ctx) = field_expression_tree.linearize(ctx)?;
-            let field_pointer_temp = ctx.function_mut().values_mut().next_temp();
+            let field_pointer_temp = ctx.values_mut().next_temp();
 
             let field_pointer_line = midend::ir::IrLine::new_get_field_pointer(
                 field_loc.start(),
@@ -62,9 +62,7 @@ impl
                 field,
                 field_pointer_temp,
             );
-            ctx.function_mut()
-                .append_statement_to_current_block(field_pointer_line)
-                .unwrap();
+            ctx.append_statement_to_current_block(field_pointer_line);
 
             let (stored_value, ctx) = self.value.linearize(ctx)?;
 
@@ -82,9 +80,7 @@ impl
             )
         };
 
-        ctx.function_mut()
-            .append_statement_to_current_block(assignment_ir)
-            .unwrap();
+        ctx.append_statement_to_current_block(assignment_ir);
 
         ctx.into_result(midend::ir::ValueInterner::unit_value_id())
     }

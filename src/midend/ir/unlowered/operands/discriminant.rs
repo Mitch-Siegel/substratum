@@ -12,11 +12,7 @@ pub(crate) struct DiscriminantOperands {
 impl Lowerable for DiscriminantOperands {
     fn lower(self, ctx: &mut treewalk::FunctionLinearizeCtx, loc: SourceLoc) {
         // sanity check
-        let _receiver_type = ctx
-            .function_mut()
-            .values_mut()
-            .value_for_id(self.enum_receiver)
-            .unwrap();
+        let _receiver_type = ctx.values_mut().value_for_id(self.enum_receiver).unwrap();
         // TODO: type propagation and checking to verify this thing is actually an enum
 
         let _discriminant_line = ir::IrLine::new_load(loc, self.enum_receiver, self.destination);

@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 pub(crate) mod function_linearize_context;
 
-pub(crate) use function_linearize_context::{UnpathedFunctionLinearizeCtx, WipFunction};
+pub(crate) use function_linearize_context::UnpathedFunctionLinearizeCtx;
 
 pub(crate) struct UnpathedLinearizeCtx {
     symtab: symtab::SymbolTable,
@@ -228,6 +228,10 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
         None
         */
     }
+
+    pub(crate) fn finish_branch(&mut self, loc: sourceloc::SourceLoc) {
+        self.unpathed.function_mut().finish_branch(loc).unwrap();
+    }
 }
 
 impl symtab::SymtabBase for UnpathedLinearizeCtx {
@@ -342,10 +346,7 @@ where
         Ok((result_data, self.unpathed))
     }
 }
-impl<P> PathedCtx<UnpathedFunctionLinearizeCtx, P>
-where
-    P: symtab::Path,
-{
+impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
     // allow for ergonomics: just stick this at the bottom of functions that return results
     #[allow(clippy::unnecessary_wraps)]
     pub(crate) fn into_result<T>(
@@ -355,9 +356,118 @@ where
         Ok((result_data, self.unpathed))
     }
 
-    #[allow(clippy::needless_pass_by_ref_mut)]
-    pub(crate) fn function_mut(&mut self) -> &mut treewalk::linearize_context::WipFunction {
-        self.unpathed.function_mut()
+    pub(crate) fn append_statement_to_current_block(&mut self, statement: ir::IrLine) {
+        self.unpathed
+            .function_mut()
+            .append_statement_to_current_block(statement)
+            .unwrap();
+    }
+
+    pub(crate) fn append_jump_to_current_block(&mut self, jump: ir::IrLine) {
+        self.unpathed
+            .function_mut()
+            .append_jump_to_current_block(jump)
+            .unwrap();
+    }
+
+    pub(crate) fn conditional_branch_from_current(
+        &mut self,
+        loc: sourceloc::SourceLoc,
+        condition: ir::lowered::JumpCondition,
+        parent_scope_def_path: symtab::ScopePath,
+        true_scope_def_path: symtab::ScopePath,
+        false_scope_def_path: symtab::ScopePath,
+    ) {
+        self.unpathed
+            .function_mut()
+            .conditional_branch_from_current(
+                loc,
+                condition,
+                parent_scope_def_path,
+                true_scope_def_path,
+                false_scope_def_path,
+            );
+    }
+
+    pub(crate) fn unconditional_branch_from_current(
+        &mut self,
+        loc: sourceloc::SourceLoc,
+        parent_def_path: symtab::ScopePath,
+        true_scope_def_path: symtab::ScopePath,
+    ) {
+        // TODO: implicitly handle path here
+        self.unpathed
+            .function_mut()
+            .unconditional_branch_from_current(loc, parent_def_path, true_scope_def_path);
+    }
+
+    pub(crate) fn finish_true_branch_switch_to_false(&mut self, loc: sourceloc::SourceLoc) {
+        let path = self.path.clone();
+        // TODO: implicitly handle path here
+        self.unpathed
+            .function_mut()
+            .finish_true_branch_switch_to_false(loc, &path);
+    }
+
+    pub(crate) fn values(&self) -> &ir::ValueInterner {
+        self.unpathed.function().values()
+    }
+
+    pub(crate) fn values_mut(&mut self) -> &mut ir::ValueInterner {
+        self.unpathed.function_mut().values_mut()
+    }
+
+    pub(crate) fn create_switch(
+        &mut self,
+        loc: sourceloc::SourceLoc,
+        parent_scope_def_path: symtab::ScopePath,
+        switch_scope_def_path: symtab::ScopePath,
+    ) {
+        self.unpathed
+            .function_mut()
+            .create_switch(loc, parent_scope_def_path, switch_scope_def_path)
+            .unwrap();
+    }
+
+    pub(crate) fn finish_switch(&mut self, loc: sourceloc::SourceLoc) {
+        self.unpathed.function_mut().finish_switch(loc).unwrap();
+    }
+
+    pub(crate) fn create_switch_case(&mut self, case_scope_def_path: symtab::ScopePath) -> usize {
+        self.unpathed
+            .function_mut()
+            .create_switch_case(case_scope_def_path)
+            .unwrap()
+    }
+
+    pub(crate) fn finish_switch_case(&mut self, loc: sourceloc::SourceLoc) {
+        self.unpathed
+            .function_mut()
+            .finish_switch_case(loc)
+            .unwrap();
+    }
+
+    pub(crate) fn create_loop(
+        &mut self,
+        loc: sourceloc::SourceLoc,
+        parent_scope_def_path: symtab::ScopePath,
+        loop_scope_def_path: symtab::ScopePath,
+    ) -> usize {
+        self.unpathed
+            .function_mut()
+            .create_loop(loc, parent_scope_def_path, loop_scope_def_path)
+            .unwrap()
+    }
+
+    pub(crate) fn finish_loop(
+        &mut self,
+        loc: sourceloc::SourceLoc,
+        loop_bottom_actions: Vec<ir::IrLine>,
+    ) {
+        self.unpathed
+            .function_mut()
+            .finish_loop(loc, loop_bottom_actions)
+            .unwrap();
     }
 }
 

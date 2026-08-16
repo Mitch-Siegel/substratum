@@ -148,6 +148,10 @@ impl ValueInterner {
             None => Ok(ty),
         }
     }
+
+    pub(crate) fn ids(&self) -> impl Iterator<Item = (&Value, &ValueId)> {
+        self.ids.iter()
+    }
 }
 
 impl ValueInterner {

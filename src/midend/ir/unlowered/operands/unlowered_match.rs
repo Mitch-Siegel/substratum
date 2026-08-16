@@ -20,7 +20,7 @@ pub(crate) struct MatchArm {
 
 fn _lower_pattern(
     pattern: frontend::ast::expressions::match_expression::PatternTree,
-    mut arm_ctx: _MatchArmContext,
+    arm_ctx: _MatchArmContext,
 ) -> treewalk::LinearizeResult<LoweredPattern, treewalk::UnpathedFunctionLinearizeCtx> {
     use frontend::ast::expressions::match_expression::PatternTree;
     let lowered_pattern;
@@ -48,19 +48,14 @@ fn _lower_pattern(
         PatternTree::TupleStruct(tuple_struct) => {
             let _scrutinee_type = arm_ctx
                 .ctx
-                .function_mut()
                 .values()
                 .semantic_for_id(arm_ctx.scrutinee)
                 .expect("Scrutinee type not known!");
-            let _scrutinee_variable_def_path = match arm_ctx
-                .ctx
-                .function_mut()
-                .values()
-                .def_path_for_id(arm_ctx.scrutinee)
-            {
-                Ok(opt) => opt.cloned(),
-                Err(_e) => None,
-            };
+            let _scrutinee_variable_def_path =
+                match arm_ctx.ctx.values().def_path_for_id(arm_ctx.scrutinee) {
+                    Ok(opt) => opt.cloned(),
+                    Err(_e) => None,
+                };
 
             let _variant = tuple_struct.name.linearize(arm_ctx.ctx);
 

@@ -91,7 +91,7 @@ impl
         let function_operand;
         (function_operand, ctx) = self.function_operand.linearize(ctx)?;
 
-        let return_value_to = ctx.function_mut().values_mut().next_temp();
+        let return_value_to = ctx.values_mut().next_temp();
 
         // //TODO: error handling and checking
         // assert!(called_method.arguments.len() == params.len());
@@ -101,9 +101,7 @@ impl
         let method_call_line =
             midend::ir::IrLine::new_call(call_start, function_operand, params, return_value_to);
 
-        ctx.function_mut()
-            .append_statement_to_current_block(method_call_line)
-            .unwrap();
+        ctx.append_statement_to_current_block(method_call_line);
 
         ctx.into_result(return_value_to)
     }

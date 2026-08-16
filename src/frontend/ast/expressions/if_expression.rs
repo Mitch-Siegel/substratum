@@ -80,7 +80,7 @@ impl
         let if_condition = midend::ir::lowered::operands::JumpCondition::Conditional(
             midend::ir::lowered::operands::BinaryComparisonOperands::new(
                 condition_value,
-                *ctx.function_mut().values_mut().id_for_constant(0),
+                *ctx.values_mut().id_for_constant(0),
                 midend::ir::lowered::operands::BinaryComparisonKind::NE,
             ),
         );
@@ -89,7 +89,7 @@ impl
         let true_scope_def_path = ctx.reserve_subscope();
         let false_scope_def_path = ctx.reserve_subscope();
 
-        ctx.function_mut().conditional_branch_from_current(
+        ctx.conditional_branch_from_current(
             condition_loc.clone().start(),
             if_condition,
             parent_scope_def_path,
@@ -107,16 +107,13 @@ impl
         // if a false block exists AND the 'if' value exists
         if self.false_block.is_some() {
             // we need to copy the 'if' result to the common result_value at the end of the 'if' block
-            let result_value = ctx.function_mut().values_mut().next_temp();
+            let result_value = ctx.values_mut().next_temp();
             let assign_if_result_line =
                 midend::ir::IrLine::new_assignment(true_loc.start(), result_value, if_value_id);
-            ctx.function_mut()
-                .append_statement_to_current_block(assign_if_result_line)
-                .unwrap();
+            ctx.append_statement_to_current_block(assign_if_result_line);
         }
 
-        ctx.function_mut()
-            .finish_true_branch_switch_to_false(condition_loc.start());
+        ctx.finish_true_branch_switch_to_false(condition_loc.start());
 
         // handle branch linearization and assignment to the result value
         if let Some(else_block) = self.false_block {
@@ -128,12 +125,10 @@ impl
             // copy the 'else' result to the common result_value at the end of the 'else' block
             let assign_else_result_line =
                 midend::ir::IrLine::new_assignment(else_loc.end(), result_value_id, else_value_id);
-            ctx.function_mut()
-                .append_statement_to_current_block(assign_else_result_line)
-                .unwrap();
+            ctx.append_statement_to_current_block(assign_else_result_line);
         }
 
-        ctx.function_mut().finish_branch(if_loc.end()).unwrap();
+        ctx.finish_branch(if_loc.end());
 
         ctx.into_result(result_value_id)
     }

@@ -60,7 +60,7 @@ impl
     ) -> treewalk::LinearizeResult<Self::Data, treewalk::UnpathedFunctionLinearizeCtx> {
         let parent_def_path = ctx.path().clone();
         let true_scope_def_path = ctx.reserve_subscope();
-        ctx.function_mut().unconditional_branch_from_current(
+        ctx.unconditional_branch_from_current(
             self.open_brace_loc.start(),
             parent_def_path,
             true_scope_def_path,
@@ -80,9 +80,7 @@ impl
             None => midend::ir::ValueInterner::unit_value_id(),
         };
 
-        ctx.function_mut()
-            .finish_branch(self.close_brace_loc.end())
-            .unwrap();
+        ctx.finish_branch(self.close_brace_loc.end());
 
         ctx.into_result(last_statement_value)
     }

@@ -153,6 +153,14 @@ impl ControlFlow {
     pub(crate) fn graphviz_string(&self) -> String {
         let mut graphviz_string = String::from("digraph {\n");
 
+        let values_str = self
+            .values
+            .ids()
+            .map(|(value, id)| format!("{id}:{value}"))
+            .collect::<Vec<String>>()
+            .join("\n");
+        graphviz_string += &format!("values[label=\"{values_str}\"]");
+
         for (label, block) in self.blocks() {
             let loc_none = SourceLoc::none();
             let block_loc = block

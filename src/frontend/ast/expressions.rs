@@ -91,39 +91,31 @@ impl
     {
         let (value, ctx) = match self {
             Self::PathIn(path) => path.linearize(ctx)?,
-            Self::UnsignedDecimalConstant(_, constant) => (
-                ctx.function_mut()
-                    .values_mut()
-                    .id_for_constant(constant)
-                    .to_owned(),
-                ctx,
-            ),
+            Self::UnsignedDecimalConstant(_, constant) => {
+                (ctx.values_mut().id_for_constant(constant).to_owned(), ctx)
+            }
             Self::Arithmetic(arith) => {
                 let loc = arith.loc();
                 let (operands, mut ctx) = arith.linearize(ctx)?;
-                let destination = ctx.function_mut().values_mut().next_temp();
+                let destination = ctx.values_mut().next_temp();
                 let expression_statement = midend::ir::IrLine::new_binary_arithmetic_expression(
                     loc.start(),
                     destination,
                     operands,
                 );
-                ctx.function_mut()
-                    .append_statement_to_current_block(expression_statement)
-                    .unwrap();
+                ctx.append_statement_to_current_block(expression_statement);
                 (destination, ctx)
             }
             Self::Comparison(cmp) => {
                 let loc = cmp.loc();
                 let (operands, mut ctx) = cmp.linearize(ctx)?;
-                let destination = ctx.function_mut().values_mut().next_temp();
+                let destination = ctx.values_mut().next_temp();
                 let comparison_statement = midend::ir::IrLine::new_binary_comparison_expression(
                     loc.start(),
                     destination,
                     operands,
                 );
-                ctx.function_mut()
-                    .append_statement_to_current_block(comparison_statement)
-                    .unwrap();
+                ctx.append_statement_to_current_block(comparison_statement);
                 (destination, ctx)
             }
             Self::Assignment(assignment_expression) => assignment_expression.linearize(ctx)?,
@@ -134,16 +126,14 @@ impl
             Self::Field(field_expression) => {
                 let field_loc = field_expression.loc();
                 let ((receiver, field), mut ctx) = field_expression.linearize(ctx)?;
-                let field_pointer_temp = ctx.function_mut().values_mut().next_temp();
+                let field_pointer_temp = ctx.values_mut().next_temp();
                 let field_read_line = midend::ir::IrLine::new_get_field_pointer(
                     field_loc.start(),
                     receiver,
                     field,
                     field_pointer_temp,
                 );
-                ctx.function_mut()
-                    .append_statement_to_current_block(field_read_line)
-                    .unwrap();
+                ctx.append_statement_to_current_block(field_read_line);
                 (field_pointer_temp, ctx)
             }
             Self::Call(call) => call.linearize(ctx)?,

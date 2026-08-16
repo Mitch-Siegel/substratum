@@ -1,5 +1,9 @@
-use crate::midend::ir::block_manager::{
-    ir, symtab, trace, BlockManager, Branch, BranchError, BranchKind, ConvergenceResult, SourceLoc,
+use crate::midend::ir::{
+    block_manager::{
+        ir, symtab, trace, BlockManager, Branch, BranchError, BranchKind, ConvergenceResult,
+        SourceLoc,
+    },
+    BasicBlock,
 };
 
 /// Conditional and unconditional branches
@@ -93,21 +97,21 @@ impl BlockManager {
 
     // returns the label of the false branch or BranchError
     pub(crate) fn finish_true_branch_switch_to_false(
-        &self,
-        _true_end_label: usize,
-        _loc: SourceLoc,
+        &mut self,
+        true_end_label: usize,
+        loc: SourceLoc,
+        def_path: &symtab::ScopePath,
     ) -> Result<usize, BranchError> {
-        unimplemented!();
-        /*
         let finished_branch = self.pop_last_branch()?;
         let branched_from = finished_branch.from_label;
         let false_block = match finished_branch.kind {
             BranchKind::ConditionalTrue(false_block) => Ok(false_block),
             kind => Err(BranchError::WrongKind(
                 kind,
-                vec![BranchKind::ConditionalTrue(ir::BasicBlock::new(
-                    0, def_path,
-                ))],
+                vec![BranchKind::ConditionalTrue(Box::new(BasicBlock::new(
+                    0,
+                    def_path.clone(),
+                )))],
             )),
         }?;
 
@@ -120,9 +124,8 @@ impl BlockManager {
             .push(Branch::new(branched_from, BranchKind::ConditionalFalse));
 
         let false_label = false_block.label;
-        self.blocks.insert(false_label, false_block);
+        self.blocks.insert(false_label, *false_block);
         Ok(false_label)
-        */
     }
 
     pub(crate) fn finish_branch(
@@ -370,7 +373,7 @@ impl BlockManager {
         }?;
 
         self.max_block += 1;
-        let case_block = ir::BasicBlock::new(self.max_block, case_def_path);
+        let case_block = BasicBlock::new(self.max_block, case_def_path);
         let after_switch_label = self
             .convergences
             .convergence_label_of_block(switch_label)

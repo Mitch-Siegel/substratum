@@ -53,7 +53,7 @@ impl
         let ast::path::PathWithSegmentData { path, data: _data } =
             finished_walk.into_value().unwrap();
 
-        let value = ctx.function_mut().values_mut().id_for_path(&path);
+        let value = ctx.values_mut().id_for_path(&path);
         ctx.into_result(value)
     }
 }
