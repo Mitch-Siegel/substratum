@@ -90,12 +90,12 @@ where
 
 impl Display for ImplementationTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut params: String = format!("{}", &self.generic_params);
+        let mut params: String = format!("{}", self.generic_params);
         if !params.is_empty() {
             params = format!("<{params}>");
         }
 
-        let mut for_params = format!("{}", &self.implemented_for_generic_params);
+        let mut for_params = format!("{}", self.implemented_for_generic_params);
         if !for_params.is_empty() {
             for_params = format!("<{for_params}>");
         }

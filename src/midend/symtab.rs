@@ -112,7 +112,7 @@ mod private {
                 SymbolDef::Impl(_) => assert!(path.is_impl()),
             }
             println!("{path:?}");
-            assert!(*path.last() == symbol.path_segment());
+            assert_eq!(*path.last(), symbol.path_segment());
 
             match path.last() {
                 PathSegment::Impl(_) => {
@@ -422,7 +422,7 @@ impl std::fmt::Debug for SymbolTable {
 
         for (path, def) in &self.symbols {
             match def {
-                Some(def) => writeln!(f, "defpath {path} - {def:?}",)?,
+                Some(def) => writeln!(f, "defpath {path} - {def:?}")?,
                 _ => writeln!(f, "defpath {path} - {def:?}")?,
             }
         }

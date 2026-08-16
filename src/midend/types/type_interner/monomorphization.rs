@@ -52,8 +52,8 @@ impl ParamSubstMap {
 
     pub(crate) fn is_concrete(&self) -> bool {
         self.substitutions
-            .iter()
-            .filter_map(|(_, subst)| match subst {
+            .values()
+            .filter_map(|subst| match subst {
                 ParamSubst::Concrete(_) => Some(()),
                 ParamSubst::Dependent(_) => None,
             })

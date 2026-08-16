@@ -307,8 +307,7 @@ impl Display for CallParams {
         write!(
             f,
             "({})",
-            &self
-                .arguments
+            self.arguments
                 .iter()
                 .map(|arg| format!("{arg}"))
                 .collect::<Vec<String>>()

@@ -280,7 +280,7 @@ mod path_walk {
             for (segment, maybe_data) in self
                 .walked_segments
                 .into_iter()
-                .zip(self.walked_segment_data.into_iter())
+                .zip(self.walked_segment_data)
             {
                 built_walked_path = built_walked_path.with_segment(segment.clone()).unwrap();
                 built_data_path = built_data_path.with_segment(segment.clone()).unwrap();
