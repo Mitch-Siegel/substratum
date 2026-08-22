@@ -1,9 +1,13 @@
-[package]
-name = "substratum-compiler"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+resolver = "3"
+members = ["backend","frontend","midend", "ooo_iter", "sbc", "trace"]
 
-[features]
+#[package]
+#name = "substratum-compiler"
+#version = "0.1.0"
+#edition = "2021"
+
+[workspace.features]
 default = ["arch_RV64G"]
 arch_RV64G = []
 
@@ -11,20 +15,18 @@ loud_lexing = []
 loud_parsing = []
 
 
-[dependencies]
-name_derive = { path = "./name_derive" }
+[workspace.dependencies]
+trace = { path = "./trace" }
 serde = { version = "1.0", features=["derive"] }
 serde_json = "1.0"
-tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.19", features = ["json",]}
-tracing-print = "0.0.3"
 
-[lints.rust]
+
+[workspace.lints.rust]
 unreachable_pub = "deny"
 # TODO: remove
 dead_code = "allow"
 
-[lints.clippy]
+[workspace.lints.clippy]
 pedantic = "warn"
 use_self = "warn"
 redundant_clone = "warn"

@@ -1,0 +1,24 @@
+use frontend::sourceloc;
+
+use crate::ir::unlowered::{
+    Lowerable, OperandTypeInference, Serialize, TypeInferenceContext, ValueId, treewalk,
+};
+
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
+pub(crate) struct FieldPointerOperands {
+    pub receiver: ValueId,
+    pub field_name: String,
+    pub destination: ValueId,
+}
+
+impl Lowerable for FieldPointerOperands {
+    fn lower(self, _ctx: &mut treewalk::FunctionLinearizeCtx, _loc: sourceloc::SourceLoc) {
+        unimplemented!();
+    }
+}
+
+impl OperandTypeInference for FieldPointerOperands {
+    fn infer_types(&mut self, _ctx: &TypeInferenceContext<'_>) -> bool {
+        unimplemented!();
+    }
+}

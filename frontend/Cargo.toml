@@ -1,0 +1,15 @@
+[package]
+name = "frontend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde.workspace = true
+trace = { path = "../trace" }
+
+[features]
+loud_lexing = []
+loud_parsing = []
+
+[lints]
+workspace = true

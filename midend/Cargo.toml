@@ -1,0 +1,14 @@
+[package]
+name = "midend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+frontend = { path = "../frontend" }
+trace = { path = "../trace" }
+ooo_iter = {path = "../ooo_iter" }
+serde = { workspace = true }
+tracing = "0.1.44"
+
+[lints]
+workspace = true

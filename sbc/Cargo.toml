@@ -1,0 +1,13 @@
+[package]
+name = "sbc"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+frontend = { path = "../frontend" }
+midend = { path = "../midend" }
+backend = { path = "../backend" }
+trace = { path = "../trace" }
+
+[lints]
+workspace = true
