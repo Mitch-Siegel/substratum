@@ -1,6 +1,7 @@
-use crate::treewalk::{BTreeSet, CollectCtx, CollectResult, PathedCtx, UnpathedCtxTrait, symtab};
-
-use std::collections::HashSet;
+use crate::{
+    treewalk::{CollectCtx, CollectResult, PathedCtx, UnpathedCtxTrait, symtab},
+    types,
+};
 
 pub(crate) struct UnpathedCollectCtx {
     symtab: symtab::SymbolTable,
@@ -23,6 +24,20 @@ impl UnpathedCtxTrait for UnpathedCollectCtx {
             path,
         }
     }
+
+    fn symtab(&self) -> &impl symtab::Symtab {
+        &self.symtab
+    }
+
+    fn symtab_mut(&mut self) -> &mut impl symtab::Symtab {
+        &mut self.symtab
+    }
+
+    fn symtab_and_types(&mut self) -> (&mut impl symtab::Symtab, &mut types::Interner) {
+        unreachable!();
+        #[allow(unreachable_code)] // to appease type checker for 'impl' return
+        (&mut symtab::SymbolTable::new(), &mut types::Interner::new())
+    }
 }
 
 impl<P: symtab::Path> PathedCtx<UnpathedCollectCtx, P> {
@@ -31,74 +46,4 @@ impl<P: symtab::Path> PathedCtx<UnpathedCollectCtx, P> {
     pub(crate) fn into_result(self) -> CollectResult {
         Ok(self.unpathed)
     }
-}
-
-impl symtab::SymtabBase for UnpathedCollectCtx {
-    fn insert(
-        &mut self,
-        path: symtab::RawPath,
-        maybe_symbol: Option<symtab::SymbolDef>,
-    ) -> Result<symtab::RawPath, symtab::SymbolError> {
-        self.symtab.insert(path, maybe_symbol)
-    }
-
-    fn lookup_at(
-        &self,
-        path: &symtab::RawPath,
-    ) -> Result<Option<&symtab::SymbolDef>, symtab::SymbolError> {
-        self.symtab.lookup_at(path)
-    }
-
-    fn lookup_at_mut(
-        &mut self,
-        path: &symtab::RawPath,
-    ) -> Result<Option<&mut symtab::SymbolDef>, symtab::SymbolError> {
-        self.symtab.lookup_at_mut(path)
-    }
-
-    fn insert_use_declaration(
-        &mut self,
-        path: symtab::RawPath,
-        use_declaration: symtab::UseDeclaration,
-    ) {
-        self.symtab.insert_use_declaration(path, use_declaration);
-    }
-
-    fn get_use_declarations_at(
-        &self,
-        path: &symtab::RawPath,
-    ) -> Option<&BTreeSet<symtab::UseDeclaration>> {
-        self.symtab.get_use_declarations_at(path)
-    }
-
-    fn children_of_path(&self, path: &impl symtab::Path) -> BTreeSet<symtab::RawPath> {
-        self.symtab.children_of_path(path)
-    }
-}
-
-impl symtab::Symtab for UnpathedCollectCtx {
-    fn get_impls_for(
-        &self,
-        path: &symtab::TypePath,
-    ) -> Result<&HashSet<symtab::ImplPath>, symtab::SymbolError> {
-        self.symtab.get_impls_for(path)
-    }
-
-    fn create_impl(
-        &mut self,
-        impl_parent_path: symtab::RawPath,
-        impl_for_path: symtab::TypePath,
-    ) -> Result<symtab::ImplPath, symtab::SymbolError> {
-        self.symtab.create_impl(impl_parent_path, impl_for_path)
-    }
-
-    // fn semantic_type_for_syntactic(
-    //     &self,
-    //     search_def_path: &impl symtab::Path,
-    //     generic_params: types::ParamSubstMap,
-    //     ty_: &types::Syntactic,
-    // ) -> Result<types::Semantic, symtab::SymbolError> {
-    //     self.symtab
-    //         .semantic_type_for_syntactic(search_def_path, generic_params, ty_)
-    // }
 }

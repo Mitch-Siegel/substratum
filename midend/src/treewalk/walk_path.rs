@@ -418,7 +418,7 @@ where
                     action,
                     segments.size_hint().0,
                     &segment_loc,
-                    ctx.unpathed(),
+                    ctx.unpathed().symtab(),
                 )
                 .unwrap();
         }

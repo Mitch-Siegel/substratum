@@ -3,7 +3,7 @@ use frontend::ast;
 use crate::{
     ir,
     symtab::{self, Path, Symbol, Symtab, SymtabBase, TypeOwner, ValueOwner},
-    treewalk, types,
+    types,
 };
 
 // TODO: CI/lint to assert walk_[tree type].rs under same midend/src/treewalk/[path] as in frontend/src/ast/[path] for parity
@@ -29,8 +29,14 @@ pub(crate) use linearize_context::{
     UnpathedLinearizeCtxTrait, ValueLinearizeCtx,
 };
 
-pub(crate) trait UnpathedCtxTrait: symtab::Symtab + Sized {
+pub(crate) trait UnpathedCtxTrait: Sized {
     fn with_path<P: symtab::Path>(self, path: P) -> PathedCtx<Self, P>;
+
+    fn symtab(&self) -> &impl symtab::Symtab;
+
+    fn symtab_mut(&mut self) -> &mut impl symtab::Symtab;
+
+    fn symtab_and_types(&mut self) -> (&mut impl symtab::Symtab, &mut types::Interner);
 }
 
 pub(crate) struct PathedCtx<U: UnpathedCtxTrait, P: symtab::Path> {
@@ -47,17 +53,34 @@ pub(crate) trait PathedCtxTrait: std::fmt::Debug {
     fn unpathed_mut(&mut self) -> &mut Self::Unpathed;
     fn path(&self) -> &Self::Path;
 
+    fn symtab(&self) -> &impl symtab::Symtab {
+        self.unpathed().symtab()
+    }
+
+    fn symtab_mut(&mut self) -> &mut impl symtab::Symtab {
+        self.unpathed_mut().symtab_mut()
+    }
+
+    fn symtab_and_types(&mut self) -> (&mut impl symtab::Symtab, &mut types::Interner) {
+        self.unpathed_mut().symtab_and_types()
+    }
+
     // ===== type handling =====
     fn with_child_type(self, name: String) -> PathedCtx<Self::Unpathed, symtab::TypePath>
     where
         Self::Path: symtab::TypeOwner;
 
-    fn declare_type(&mut self, name: String) -> Result<symtab::TypePath, symtab::SymbolError>
+    fn declare_type(
+        &mut self,
+        name: String,
+        generic_params: types::GenericParamsList,
+    ) -> Result<symtab::TypePath, symtab::SymbolError>
     where
         Self::Path: symtab::TypeOwner,
     {
         let child_type_path = self.path().clone().with_child_type(name);
-        self.unpathed_mut().declare_type(child_type_path)
+        let (symtab, types) = self.symtab_and_types();
+        symtab.declare_type(child_type_path, generic_params, types)
     }
 
     fn define_type(&mut self, type_: symtab::Type) -> Result<symtab::TypePath, symtab::SymbolError>
@@ -68,7 +91,10 @@ pub(crate) trait PathedCtxTrait: std::fmt::Debug {
             .path()
             .clone()
             .with_child_type(String::from(type_.name()));
-        self.unpathed_mut().define_type(type_path, type_)
+
+        let (symtab, types) = self.symtab_and_types();
+
+        symtab.define_type(type_path, type_, types)
     }
 
     // ===== value handling =====
@@ -81,7 +107,7 @@ pub(crate) trait PathedCtxTrait: std::fmt::Debug {
         Self::Path: symtab::ValueOwner,
     {
         let child_value_path = self.path().clone().with_child_value(name);
-        self.unpathed_mut().declare_value(child_value_path)
+        self.symtab_mut().declare_value(child_value_path)
     }
 
     fn define_value(
@@ -95,7 +121,7 @@ pub(crate) trait PathedCtxTrait: std::fmt::Debug {
             .path()
             .clone()
             .with_child_value(String::from(value.name()));
-        self.unpathed_mut().define_value(value_path, value)
+        self.symtab_mut().define_value(value_path, value)
     }
 
     // fn semantic_type_for_syntactic(
@@ -117,7 +143,7 @@ pub(crate) trait PathedCtxTrait: std::fmt::Debug {
 
     fn insert_use_declaration(&mut self, use_declaration: symtab::UseDeclaration) {
         let path: symtab::RawPath = self.path().clone().into();
-        self.unpathed_mut()
+        self.symtab_mut()
             .insert_use_declaration(path, use_declaration);
     }
 }

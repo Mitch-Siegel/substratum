@@ -238,8 +238,17 @@ mod private {
 #[allow(unused)]
 pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
     // ===== Declaration =====
-    fn declare_type(&mut self, path: TypePath) -> Result<TypePath, SymbolError> {
-        self.declare(path.0).map(TypePath::from)
+    fn declare_type(
+        &mut self,
+        path: TypePath,
+        generic_params: crate::types::GenericParamsList,
+        types: &mut crate::types::Interner,
+    ) -> Result<TypePath, SymbolError> {
+        let tp = self.declare(path.0).map(TypePath::from)?;
+
+        types.insert_type(tp.clone(), generic_params).unwrap();
+
+        Ok(tp)
     }
 
     fn declare_value(&mut self, path: ValuePath) -> Result<ValuePath, SymbolError> {
@@ -252,9 +261,22 @@ pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
         &mut self,
         parent_path: impl TypeOwner,
         symbol: Type,
+        types: &mut crate::types::Interner,
     ) -> Result<TypePath, SymbolError> {
-        self.define(parent_path.into(), SymbolDef::Type(symbol))
-            .map(TypePath::from)
+        let maybe_intern = match &symbol {
+            Type::Decl(d) => Some(d.generic_params.clone()),
+            _ => None,
+        };
+
+        let tp = self
+            .define(parent_path.into(), SymbolDef::Type(symbol))
+            .map(TypePath::from)?;
+
+        if let Some(intern_params) = maybe_intern {
+            types.insert_type(tp.clone(), intern_params).unwrap();
+        }
+
+        Ok(tp)
     }
 
     // define 'symbol' at 'path', returning path or error

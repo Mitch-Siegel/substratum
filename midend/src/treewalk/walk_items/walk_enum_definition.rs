@@ -231,7 +231,13 @@ where
 
 impl Collect<symtab::TypePath> for ast::items::EnumDefinitionTree {
     fn collect_inner(&self, mut ctx: TypeCollectCtx) -> CollectResult {
-        let _enum_path = ctx.declare_type(self.name.value.clone())?;
+        let params = if self.generic_params.maybe_params.is_some() {
+            unimplemented!("get generic params for enum");
+        } else {
+            types::GenericParamsList::new()
+        };
+
+        let _enum_path = ctx.declare_type(self.name.value.clone(), params)?;
         ctx = ctx.with_child_type(self.name.value.clone());
 
         ctx = self.generic_params.collect_symbols(ctx)?;

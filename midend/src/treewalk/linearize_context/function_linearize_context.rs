@@ -1,5 +1,3 @@
-use std::collections::{BTreeSet, HashSet};
-
 use frontend::sourceloc;
 
 use crate::{
@@ -44,6 +42,7 @@ impl UnpathedFunctionLinearizeCtx {
         parent_path: impl symtab::ScopeOwner,
     ) -> symtab::ScopePath {
         let next_subscope_index = self
+            .symtab()
             .children_of_path(&parent_path)
             .into_iter()
             .filter(|path| matches!(path.last(), symtab::PathSegment::Scope(_)))
@@ -51,7 +50,8 @@ impl UnpathedFunctionLinearizeCtx {
 
         let reserved_scope_id = symtab::ScopeId(next_subscope_index);
 
-        self.declare_scope(parent_path.with_child_scope(reserved_scope_id))
+        self.symtab_mut()
+            .declare_scope(parent_path.with_child_scope(reserved_scope_id))
             .unwrap()
     }
 
@@ -105,82 +105,21 @@ impl UnpathedCtxTrait for UnpathedFunctionLinearizeCtx {
             path,
         }
     }
+
+    fn symtab(&self) -> &impl symtab::Symtab {
+        self.base.symtab()
+    }
+
+    fn symtab_mut(&mut self) -> &mut impl symtab::Symtab {
+        self.base.symtab_mut()
+    }
+
+    fn symtab_and_types(&mut self) -> (&mut impl symtab::Symtab, &mut types::Interner) {
+        self.base.symtab_and_types()
+    }
 }
 
 impl UnpathedLinearizeCtxTrait for UnpathedFunctionLinearizeCtx {}
-
-impl symtab::SymtabBase for UnpathedFunctionLinearizeCtx {
-    fn insert(
-        &mut self,
-        path: symtab::RawPath,
-        maybe_symbol: Option<symtab::SymbolDef>,
-    ) -> Result<symtab::RawPath, symtab::SymbolError> {
-        assert!(self.function_path.is_prefix_of(&path));
-        self.base.insert(path, maybe_symbol)
-    }
-
-    fn lookup_at(
-        &self,
-        path: &symtab::RawPath,
-    ) -> Result<Option<&symtab::SymbolDef>, symtab::SymbolError> {
-        self.base.lookup_at(path)
-    }
-
-    fn lookup_at_mut(
-        &mut self,
-        path: &symtab::RawPath,
-    ) -> Result<Option<&mut symtab::SymbolDef>, symtab::SymbolError> {
-        self.base.lookup_at_mut(path)
-    }
-
-    fn insert_use_declaration(
-        &mut self,
-        path: symtab::RawPath,
-        use_declaration: symtab::UseDeclaration,
-    ) {
-        assert!(self.function_path.is_prefix_of(&path));
-        self.base.insert_use_declaration(path, use_declaration);
-    }
-
-    fn get_use_declarations_at(
-        &self,
-        path: &symtab::RawPath,
-    ) -> Option<&BTreeSet<symtab::UseDeclaration>> {
-        self.base.get_use_declarations_at(path)
-    }
-
-    fn children_of_path(&self, path: &impl symtab::Path) -> BTreeSet<symtab::RawPath> {
-        assert!(self.function_path.is_prefix_of(path));
-        self.base.children_of_path(path)
-    }
-}
-
-impl symtab::Symtab for UnpathedFunctionLinearizeCtx {
-    // fn semantic_type_for_syntactic(
-    //     &self,
-    //     search_def_path: &impl symtab::Path,
-    //     generic_params: types::ParamSubstMap,
-    //     ty_: &types::Syntactic,
-    // ) -> Result<types::Semantic, symtab::SymbolError> {
-    //     self.base
-    //         .semantic_type_for_syntactic(search_def_path, generic_params, ty_)
-    // }
-
-    fn create_impl(
-        &mut self,
-        impl_parent_path: symtab::RawPath,
-        impl_for_path: symtab::TypePath,
-    ) -> Result<symtab::ImplPath, symtab::SymbolError> {
-        self.base.create_impl(impl_parent_path, impl_for_path)
-    }
-
-    fn get_impls_for(
-        &self,
-        path: &symtab::TypePath,
-    ) -> Result<&HashSet<symtab::ImplPath>, symtab::SymbolError> {
-        self.base.get_impls_for(path)
-    }
-}
 
 pub(crate) struct WipFunction {
     prototype: symtab::values::FunctionPrototype,

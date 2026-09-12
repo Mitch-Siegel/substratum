@@ -30,7 +30,7 @@ fn linearize_params_list_ctxless(
 // symbol collection (type and value)
 impl Collect<symtab::TypePath> for ast::GenericParamTree {
     fn collect_inner(&self, mut ctx: TypeCollectCtx) -> CollectResult {
-        ctx.declare_type(self.name.value.clone())?;
+        ctx.declare_type(self.name.value.clone(), types::GenericParamsList::new())?;
         ctx.into_result()
     }
 }
