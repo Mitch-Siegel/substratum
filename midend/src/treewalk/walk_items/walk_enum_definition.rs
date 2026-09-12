@@ -125,11 +125,7 @@ fn _create_enum_variant_constructor(
     ctx.declare_value(String::from(variant_name))
         .expect("Duplicate enum variant constructor");
 
-    let (mut block_mgr, current_block) = ir::BlockManager::new(
-        ctx.semantic_type_for_syntactic(&types::Syntactic::Unit)
-            .unwrap(),
-        &ctor_function_path,
-    );
+    let (mut block_mgr, current_block) = ir::BlockManager::new(&ctor_function_path);
 
     // define a variable for the object we are building
     let constructed_object =

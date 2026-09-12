@@ -1,9 +1,10 @@
+use serde::Serialize;
+
 use frontend::sourceloc;
 
 use crate::{
-    ir::unlowered::{Lowerable, OperandTypeInference, Serialize, TypeInferenceContext, ValueId},
-    treewalk,
-    treewalk::Linearize,
+    ir::unlowered::{Lowerable, ValueId},
+    treewalk::{self, Linearize},
     types,
 };
 
@@ -46,21 +47,21 @@ fn _lower_pattern(
             let (name, ctx) = name.linearize(arm_ctx.ctx)?;
             (LoweredPattern::Identifier(name), ctx)
         }
-        PatternTree::TupleStruct(tuple_struct) => {
-            let _scrutinee_type = arm_ctx
-                .ctx
-                .values()
-                .semantic_for_id(arm_ctx.scrutinee)
-                .expect("Scrutinee type not known!");
-            let _scrutinee_variable_def_path =
-                match arm_ctx.ctx.values().def_path_for_id(arm_ctx.scrutinee) {
-                    Ok(opt) => opt.cloned(),
-                    Err(_e) => None,
-                };
+        PatternTree::TupleStruct(_tuple_struct) => {
+            unimplemented!()
+            // let _scrutinee_type = arm_ctx
+            //     .ctx
+            //     .values()
+            //     .semantic_for_id(arm_ctx.scrutinee)
+            //     .expect("Scrutinee type not known!");
+            // let _scrutinee_variable_def_path =
+            //     match arm_ctx.ctx.values().def_path_for_id(arm_ctx.scrutinee) {
+            //         Ok(opt) => opt.cloned(),
+            //         Err(_e) => None,
+            //     };
 
-            let _variant = tuple_struct.name.linearize(arm_ctx.ctx);
+            // let _variant = tuple_struct.name.linearize(arm_ctx.ctx);
 
-            unimplemented!();
             /*
             let subpatterns = tuple_struct
                 .subpatterns
@@ -194,8 +195,8 @@ impl Lowerable for MatchOperands {
     }
 }
 
-impl OperandTypeInference for MatchOperands {
-    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
+impl types::Inference for MatchOperands {
+    fn infer_types(&mut self, _ctx: &types::inference::Ctx) -> bool {
         unimplemented!();
     }
 }

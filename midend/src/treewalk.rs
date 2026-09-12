@@ -4,7 +4,6 @@ use crate::{
     ir,
     symtab::{self, Path, Symbol, Symtab, SymtabBase, TypeOwner, ValueOwner},
     treewalk, types,
-    types::ParamSubstMap,
 };
 
 // TODO: CI/lint to assert walk_[tree type].rs under same midend/src/treewalk/[path] as in frontend/src/ast/[path] for parity
@@ -99,13 +98,13 @@ pub(crate) trait PathedCtxTrait: std::fmt::Debug {
         self.unpathed_mut().define_value(value_path, value)
     }
 
-    fn semantic_type_for_syntactic(
-        &self,
-        ty_: &types::Syntactic,
-    ) -> Result<types::Semantic, symtab::SymbolError> {
-        self.unpathed()
-            .semantic_type_for_syntactic(self.path(), ParamSubstMap::empty(), ty_)
-    }
+    // fn semantic_type_for_syntactic(
+    //     &self,
+    //     ty_: &types::Syntactic,
+    // ) -> Result<types::Semantic, symtab::SymbolError> {
+    //     self.unpathed()
+    //         .semantic_type_for_syntactic(self.path(), ParamSubstMap::empty(), ty_)
+    // }
 
     fn create_impl(
         &mut self,
@@ -178,13 +177,13 @@ where
     U: UnpathedCtxTrait,
     P: symtab::Path,
 {
-    pub(crate) fn semantic_type_for_syntactic(
-        &self,
-        ty_: &types::Syntactic,
-    ) -> Result<types::Semantic, symtab::SymbolError> {
-        self.unpathed
-            .semantic_type_for_syntactic(&self.path, types::ParamSubstMap::empty(), ty_)
-    }
+    // pub(crate) fn semantic_type_for_syntactic(
+    //     &self,
+    //     ty_: &types::Syntactic,
+    // ) -> Result<types::Semantic, symtab::SymbolError> {
+    //     self.unpathed
+    //         .semantic_type_for_syntactic(&self.path, types::ParamSubstMap::empty(), ty_)
+    // }
 }
 
 // impl<T, P> std::ops::Deref for PathedCtx<T, P>
@@ -289,7 +288,7 @@ pub(crate) fn module_path(module: &frontend::ast::ModuleTree) -> symtab::TypePat
 pub(crate) fn walk(
     program: BTreeSet<frontend::ast::ModuleTree>,
     crate_name: &str,
-) -> symtab::SymbolTable {
+) -> (symtab::SymbolTable, types::Interner) {
     let mut symtab = symtab::SymbolTable::new();
 
     trace::debug!("collect symbols");
@@ -333,8 +332,10 @@ pub(crate) fn walk(
 
     trace::debug!("linearize");
 
+    let mut types = types::Interner::new();
+
     for module in program {
-        let linearize_ctx = UnpathedLinearizeCtx::new(symtab);
+        let linearize_ctx = UnpathedLinearizeCtx::new(symtab, types);
         if module.name.value == crate_name {
             let ((), unpathed) = walk_items::walk_module::linearize_from_crate_root(
                 module,
@@ -342,7 +343,7 @@ pub(crate) fn walk(
                 crate_name,
             )
             .unwrap();
-            symtab = unpathed.take();
+            (symtab, types) = unpathed.take();
         } else {
             let (maybe_prefix_segments, _) = module_path(&module).split_last();
             let prefix_segments: symtab::TypePath = maybe_prefix_segments
@@ -360,11 +361,11 @@ pub(crate) fn walk(
                 linearize_ctx.with_path(prefix_segments.clone()),
             )
             .unwrap();
-            symtab = ctx.take();
+            (symtab, types) = ctx.take();
         }
     }
 
-    symtab
+    (symtab, types)
 }
 
 impl<U, P, C> Linearize<U, P, C> for ast::IdentifierTree

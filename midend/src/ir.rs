@@ -3,21 +3,18 @@ use std::fmt;
 
 use frontend::sourceloc;
 
-use crate::{ir, symtab};
+use crate::types;
 
 pub(crate) mod basic_block;
 pub(crate) mod block_manager;
 pub(crate) mod control_flow;
 pub(crate) mod lowered;
 pub(crate) mod lowering;
-pub(crate) mod type_inference;
 pub(crate) mod unlowered;
 pub(crate) mod value;
 
 #[cfg(test)]
 mod tests;
-
-use type_inference::{OperandTypeInference, TypeInferenceContext};
 
 pub(crate) use basic_block::*;
 pub(crate) use block_manager::BlockManager;
@@ -30,8 +27,8 @@ pub(crate) enum Operation {
     Unlowered(unlowered::Operation),
 }
 
-impl OperandTypeInference for Operation {
-    fn infer_types(&mut self, ctx: &TypeInferenceContext) -> bool {
+impl types::Inference for Operation {
+    fn infer_types(&mut self, ctx: &types::inference::Ctx) -> bool {
         match self {
             Self::Lowered(l) => l.infer_types(ctx),
             Self::Unlowered(u) => u.infer_types(ctx),
@@ -69,8 +66,8 @@ impl IrLine {
     }
 }
 
-impl OperandTypeInference for IrLine {
-    fn infer_types(&mut self, ctx: &TypeInferenceContext) -> bool {
+impl types::Inference for IrLine {
+    fn infer_types(&mut self, ctx: &types::inference::Ctx) -> bool {
         self.operation.infer_types(ctx)
     }
 }
@@ -213,7 +210,7 @@ impl IrLine {
     }
 }
 
-pub(crate) trait IrOperation: OperandTypeInference {
+pub(crate) trait IrOperation: types::Inference {
     fn read_value_ids(&self) -> Vec<ValueId>;
     fn write_value_ids(&self) -> Vec<ValueId>;
 }

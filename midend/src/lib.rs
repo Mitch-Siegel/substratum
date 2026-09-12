@@ -6,6 +6,7 @@ pub(crate) mod ssa_gen;
 pub(crate) mod symtab;
 pub(crate) mod treewalk;
 pub(crate) mod types;
+
 // pub(crate) mod idfa;
 
 fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
@@ -38,7 +39,7 @@ pub fn symbol_table_from_modules(
     let _ = trace::span_auto!(trace::Level::DEBUG, "Generate symbol table from AST");
 
     tracing::debug!("Walk AST");
-    let mut symtab = treewalk::walk(modules, crate_name);
+    let (mut symtab, types) = treewalk::walk(modules, crate_name);
 
     functions_to_graphviz(&symtab, "_unlowered".into());
 
@@ -47,12 +48,12 @@ pub fn symbol_table_from_modules(
         println!("\t{path}");
     }
 
-    for (path, instances) in symtab.types.all_monomorphizations() {
-        println!("{path}");
-        for i in instances {
-            println!("\t{i:?}");
-        }
-    }
+    // for (path, instances) in symtab.types.all_monomorphizations() {
+    //     println!("{path}");
+    //     for i in instances {
+    //         println!("\t{i:?}");
+    //     }
+    // }
 
     /*
     let all_arguments = symtab::Visitor::visit(&symtab, get_all_function_arguments);
@@ -60,19 +61,20 @@ pub fn symbol_table_from_modules(
     monomorphization::monomorphize_generics(&mut symtab);
     assign_types_to_function_arguments(&mut symtab, all_arguments);
     */
-    symtab = ir::lowering::lower_symtab(symtab);
+
+    symtab = ir::lowering::lower_symtab(symtab, &types);
     ir::lowering::assert_lowered(&symtab);
 
     functions_to_graphviz(&symtab, String::new());
 
-    //tracing::debug!("collapse scopes");
-    //symtab.collapse_scopes();
+    let types = types::infer_types(&symtab, types);
+
+    dbg!(types);
 
     //tracing::debug!("convert IR to SSA");
     //ssa_gen::convert_functions_to_ssa(&mut symtab);
 
     // optimization::optimize_functions(&mut symtab.functions);
-    //
 
     //tracing::debug!("convert IR back from SSA");
     //ssa_gen::remove_ssa_from_functions(&mut symtab);

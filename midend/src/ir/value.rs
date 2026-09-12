@@ -45,38 +45,31 @@ impl fmt::Display for ValueKind {
 }
 
 #[derive(Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
-pub(crate) struct Value {
+pub(crate) struct Value<T> {
     kind: ValueKind,
-    ty: Option<types::Semantic>,
+    ty: T,
 }
 
-impl Value {
-    pub(crate) fn new(kind: ValueKind, type_: Option<types::Semantic>) -> Self {
-        Self { kind, ty: type_ }
+impl<T> Value<T> {
+    pub(crate) fn new(kind: ValueKind, ty: T) -> Self {
+        Self { kind, ty }
+    }
+
+    pub(crate) fn ty(&self) -> &T {
+        &self.ty
     }
 
     #[allow(unused)]
-    pub(crate) fn set_type(&mut self, ty: types::Semantic) -> Result<(), ValueError> {
-        match self.ty.replace(ty) {
-            Some(existing_type) => Err(ValueError::ValueAlreadyHasType(existing_type)),
-            None => Ok(()),
-        }
-    }
-
-    #[allow(unused)]
-    pub(crate) fn ty(&self) -> Result<types::Semantic, ValueError> {
-        match self.ty {
-            Some(t) => Ok(t),
-            None => Err(ValueError::ValueHasNoType),
-        }
+    pub(crate) fn ty_mut(&mut self) -> &mut T {
+        &mut self.ty
     }
 }
 
-impl fmt::Display for Value {
+impl<T> fmt::Display for Value<T>
+where
+    T: fmt::Display,
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.ty {
-            Some(ty) => write!(f, "{}: {}", self.kind, ty),
-            None => write!(f, "{}: ?", self.kind),
-        }
+        write!(f, "{}: {}", self.kind, self.ty)
     }
 }

@@ -1,11 +1,12 @@
 use frontend::ast::{self, Ast};
 
 use crate::{
-    symtab,
+    ir, symtab,
     treewalk::{
         Collect, CollectResult, FunctionLinearizeCtx, Linearize, LinearizeResult,
-        UnpathedFunctionLinearizeCtx, ValueCollectCtx, ir,
+        UnpathedFunctionLinearizeCtx, ValueCollectCtx,
     },
+    types,
 };
 
 impl Collect<symtab::ValuePath> for ast::expressions::AssignmentTree {
@@ -57,6 +58,6 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
 
         ctx.append_statement_to_current_block(assignment_ir);
 
-        ctx.into_result(ir::ValueInterner::unit_value_id())
+        ctx.into_result(ir::ValueInterner::<types::Syntactic>::unit_value_id())
     }
 }

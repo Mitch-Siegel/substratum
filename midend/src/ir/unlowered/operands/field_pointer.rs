@@ -1,7 +1,10 @@
+use serde::Serialize;
+
 use frontend::sourceloc;
 
-use crate::ir::unlowered::{
-    Lowerable, OperandTypeInference, Serialize, TypeInferenceContext, ValueId, treewalk,
+use crate::{
+    ir::unlowered::{Lowerable, ValueId, treewalk},
+    types,
 };
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
@@ -17,8 +20,8 @@ impl Lowerable for FieldPointerOperands {
     }
 }
 
-impl OperandTypeInference for FieldPointerOperands {
-    fn infer_types(&mut self, _ctx: &TypeInferenceContext<'_>) -> bool {
+impl types::Inference for FieldPointerOperands {
+    fn infer_types(&mut self, _ctx: &types::inference::Ctx) -> bool {
         unimplemented!();
     }
 }

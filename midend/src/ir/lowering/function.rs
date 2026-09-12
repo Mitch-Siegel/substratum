@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::{
     ir::ControlFlow,
     symtab::{self, Path, Symtab},
+    types,
 };
 
 pub(crate) fn find_unlowered_irs(cf: &ControlFlow) -> HashMap<usize, HashSet<usize>> {
@@ -23,6 +24,7 @@ pub(crate) fn find_unlowered_irs(cf: &ControlFlow) -> HashMap<usize, HashSet<usi
 pub(crate) fn lower_function(
     def_path: &symtab::ValuePath,
     mut symtab: symtab::SymbolTable,
+    types: &types::Interner,
 ) -> symtab::SymbolTable {
     let _span = trace::span_auto_debug!("Lower function ", "{}", def_path.last());
 
@@ -53,7 +55,7 @@ pub(crate) fn lower_function(
             }
         };
 
-        cf.infer_types(&mut symtab);
+        cf.infer_types(types);
 
         trace::trace!("the following statements need lowering: {:?}", unlowered);
 

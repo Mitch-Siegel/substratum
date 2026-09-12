@@ -1,4 +1,4 @@
-use crate::symtab;
+use crate::{symtab, types};
 
 mod function;
 use function::lower_function;
@@ -16,11 +16,14 @@ fn check_symbol_for_lowering(
     }
 }
 
-pub(crate) fn lower_symtab(mut symtab: symtab::SymbolTable) -> symtab::SymbolTable {
+pub(crate) fn lower_symtab(
+    mut symtab: symtab::SymbolTable,
+    types: &types::Interner,
+) -> symtab::SymbolTable {
     let functions_to_lower = symtab::Visitor::visit(&symtab, check_symbol_for_lowering);
 
     for to_lower in functions_to_lower.0 {
-        symtab = lower_function(&to_lower, symtab);
+        symtab = lower_function(&to_lower, symtab, types);
     }
 
     symtab

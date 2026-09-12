@@ -12,6 +12,7 @@ pub(crate) use function_linearize_context::UnpathedFunctionLinearizeCtx;
 
 pub(crate) struct UnpathedLinearizeCtx {
     symtab: symtab::SymbolTable,
+    types: types::Interner,
 }
 
 impl UnpathedCtxTrait for UnpathedLinearizeCtx {
@@ -24,12 +25,12 @@ impl UnpathedCtxTrait for UnpathedLinearizeCtx {
 }
 
 impl UnpathedLinearizeCtx {
-    pub(crate) fn new(symtab: symtab::SymbolTable) -> Self {
-        Self { symtab }
+    pub(crate) fn new(symtab: symtab::SymbolTable, types: types::Interner) -> Self {
+        Self { symtab, types }
     }
 
-    pub(crate) fn take(self) -> symtab::SymbolTable {
-        self.symtab
+    pub(crate) fn take(self) -> (symtab::SymbolTable, types::Interner) {
+        (self.symtab, self.types)
     }
 }
 
@@ -275,15 +276,15 @@ impl symtab::Symtab for UnpathedLinearizeCtx {
         self.symtab.create_impl(impl_parent_path, impl_for_path)
     }
 
-    fn semantic_type_for_syntactic(
-        &self,
-        search_def_path: &impl symtab::Path,
-        generic_params: crate::types::ParamSubstMap,
-        ty_: &crate::types::Syntactic,
-    ) -> Result<crate::types::Semantic, symtab::SymbolError> {
-        self.symtab
-            .semantic_type_for_syntactic(search_def_path, generic_params, ty_)
-    }
+    // fn semantic_type_for_syntactic(
+    //     &self,
+    //     search_def_path: &impl symtab::Path,
+    //     generic_params: crate::types::ParamSubstMap,
+    //     ty_: &crate::types::Syntactic,
+    // ) -> Result<crate::types::Semantic, symtab::SymbolError> {
+    //     self.symtab
+    //         .semantic_type_for_syntactic(search_def_path, generic_params, ty_)
+    // }
 }
 
 #[derive(Debug)]
@@ -395,11 +396,11 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
     }
 
     #[allow(unused)]
-    pub(crate) fn values(&self) -> &ir::ValueInterner {
+    pub(crate) fn values(&self) -> &ir::ValueInterner<Option<types::Syntactic>> {
         self.unpathed.function().values()
     }
 
-    pub(crate) fn values_mut(&mut self) -> &mut ir::ValueInterner {
+    pub(crate) fn values_mut(&mut self) -> &mut ir::ValueInterner<Option<types::Syntactic>> {
         self.unpathed.function_mut().values_mut()
     }
 

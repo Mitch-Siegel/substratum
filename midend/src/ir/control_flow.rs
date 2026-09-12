@@ -3,9 +3,9 @@ use std::collections::{BTreeSet, HashMap, VecDeque};
 use frontend::sourceloc;
 use ooo_iter::{HashMapOOOIter, HashMapOOOIterMut};
 
-use crate::ir::{
-    BasicBlock, OperandTypeInference, Operation, TypeInferenceContext, ValueInterner, ir, lowered,
-    symtab, unlowered,
+use crate::{
+    ir::{self, BasicBlock, Operation, ValueInterner, lowered, unlowered},
+    types::{self, Inference},
 };
 
 #[derive(Debug, Clone)]
@@ -14,7 +14,7 @@ pub(crate) struct ControlFlow {
     successors: HashMap<usize, BTreeSet<usize>>,
     #[allow(unused)]
     predecessors: HashMap<usize, BTreeSet<usize>>,
-    values: ValueInterner,
+    values: ValueInterner<Option<types::Syntactic>>,
 }
 
 #[allow(unused)]
@@ -32,7 +32,10 @@ impl<T> Iterator for ControlFlowIntoIter<T> {
 
 // TODO: are the postorder and reverse postorder named opposite right now? Need to actually check this...
 impl ControlFlow {
-    pub(crate) fn new(blocks: HashMap<usize, BasicBlock>, values: ValueInterner) -> Self {
+    pub(crate) fn new(
+        blocks: HashMap<usize, BasicBlock>,
+        values: ValueInterner<Option<types::Syntactic>>,
+    ) -> Self {
         let mut successors = HashMap::<usize, BTreeSet<usize>>::new();
         let mut predecessors = HashMap::<usize, BTreeSet<usize>>::new();
 
@@ -86,7 +89,12 @@ impl ControlFlow {
         }
     }
 
-    pub(crate) fn take(self) -> (HashMap<usize, BasicBlock>, ValueInterner) {
+    pub(crate) fn take(
+        self,
+    ) -> (
+        HashMap<usize, BasicBlock>,
+        ValueInterner<Option<types::Syntactic>>,
+    ) {
         (self.blocks, self.values)
     }
 
@@ -160,11 +168,21 @@ impl ControlFlow {
     pub(crate) fn graphviz_string(&self) -> String {
         let mut graphviz_string = String::from("digraph {\n");
 
+        // WOW!
         let values_str = self
             .values
             .ids()
-            .map(|(value, id)| format!("{id}:{value}"))
-            .collect::<Vec<String>>()
+            .by_ref()
+            .map(|(value, id)| {
+                format!(
+                    "{id}:{}",
+                    value
+                        .ty()
+                        .as_ref()
+                        .map_or(String::from("?"), |ty| format!("{ty}"))
+                )
+            })
+            .collect::<Vec<_>>()
             .join("\n");
         graphviz_string += &format!("values[label=\"{values_str}\"]");
 
@@ -194,25 +212,25 @@ impl ControlFlow {
     }
 
     #[allow(unused)]
-    pub(crate) fn values(&self) -> &ValueInterner {
+    pub(crate) fn values(&self) -> &ValueInterner<Option<types::Syntactic>> {
         &self.values
     }
 
     #[allow(unused)]
-    pub(crate) fn values_mut(&mut self) -> &mut ValueInterner {
+    pub(crate) fn values_mut(&mut self) -> &mut ValueInterner<Option<types::Syntactic>> {
         &mut self.values
     }
 }
 
 impl ControlFlow {
-    pub(crate) fn infer_types(&mut self, symtab: &mut symtab::SymbolTable) -> bool {
+    pub(crate) fn infer_types(&mut self, types: &types::Interner) -> bool {
         let mut block_order: BTreeSet<usize> = self
             .generate_reverse_postorder_stack()
             .into_iter()
             .collect();
 
         let (values, blocks) = (&mut self.values, &mut self.blocks);
-        let ctx = TypeInferenceContext::new(symtab, values);
+        let ctx = types::inference::Ctx::new(types, values);
         loop {
             let old_size = block_order.len();
 

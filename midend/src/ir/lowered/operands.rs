@@ -2,7 +2,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::fmt::Display;
 
-use crate::ir::{OperandTypeInference, TypeInferenceContext, ValueId};
+use crate::{ir::ValueId, types};
 
 /*
  groupings of operands
@@ -46,8 +46,8 @@ impl BinaryArithmeticExpressionOperands {
     }
 }
 
-impl OperandTypeInference for BinaryArithmeticExpressionOperands {
-    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
+impl types::Inference for BinaryArithmeticExpressionOperands {
+    fn infer_types(&mut self, _ctx: &types::inference::Ctx<'_>) -> bool {
         unimplemented!();
     }
 }
@@ -98,8 +98,8 @@ pub(crate) struct SourceDestOperands {
 }
 
 pub(crate) type AssignmentOperands = SourceDestOperands;
-impl OperandTypeInference for AssignmentOperands {
-    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
+impl types::Inference for AssignmentOperands {
+    fn infer_types(&mut self, _ctx: &types::inference::Ctx) -> bool {
         unimplemented!();
     }
 }
@@ -146,8 +146,8 @@ impl BinaryComparisonExpressionOperands {
     }
 }
 
-impl OperandTypeInference for BinaryComparisonExpressionOperands {
-    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
+impl types::Inference for BinaryComparisonExpressionOperands {
+    fn infer_types(&mut self, _ctx: &types::inference::Ctx) -> bool {
         unimplemented!()
     }
 }
@@ -256,8 +256,8 @@ impl JumpOperands {
     }
 }
 
-impl OperandTypeInference for JumpOperands {
-    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
+impl types::Inference for JumpOperands {
+    fn infer_types(&mut self, _ctx: &types::inference::Ctx) -> bool {
         unimplemented!();
     }
 }
@@ -296,8 +296,8 @@ impl CallParams {
     }
 }
 
-impl OperandTypeInference for CallParams {
-    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
+impl types::Inference for CallParams {
+    fn infer_types(&mut self, _ctx: &types::inference::Ctx) -> bool {
         unimplemented!()
     }
 }
@@ -341,8 +341,8 @@ impl CallOperands {
     }
 }
 
-impl OperandTypeInference for CallOperands {
-    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
+impl types::Inference for CallOperands {
+    fn infer_types(&mut self, _ctx: &types::inference::Ctx) -> bool {
         unimplemented!();
     }
 }
@@ -359,8 +359,8 @@ pub(crate) struct LoadOperands {
     pub destination: ValueId,
 }
 
-impl OperandTypeInference for LoadOperands {
-    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
+impl types::Inference for LoadOperands {
+    fn infer_types(&mut self, _ctx: &types::inference::Ctx) -> bool {
         unimplemented!();
     }
 }
@@ -371,8 +371,8 @@ pub(crate) struct StoreOperands {
     pub source: ValueId,
 }
 
-impl OperandTypeInference for StoreOperands {
-    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
+impl types::Inference for StoreOperands {
+    fn infer_types(&mut self, _ctx: &types::inference::Ctx) -> bool {
         unimplemented!();
     }
 }
@@ -384,8 +384,8 @@ pub(crate) struct FieldAddressOperands {
     pub destination: ValueId,
 }
 
-impl OperandTypeInference for FieldAddressOperands {
-    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
+impl types::Inference for FieldAddressOperands {
+    fn infer_types(&mut self, _ctx: &types::inference::Ctx) -> bool {
         unimplemented!();
     }
 }
@@ -397,8 +397,8 @@ pub(crate) struct SwitchOperands {
     pub cases: Vec<(ValueId, usize)>,
 }
 
-impl OperandTypeInference for SwitchOperands {
-    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
+impl types::Inference for SwitchOperands {
+    fn infer_types(&mut self, _ctx: &types::inference::Ctx) -> bool {
         unimplemented!();
     }
 }

@@ -136,9 +136,7 @@ where
                 types::Syntactic::GenericParam(param_name) => {
                     types::ParamSubst::Dependent(types::GenericParam::TypeParam(param_name))
                 }
-                _ => types::ParamSubst::Concrete(
-                    ctx.semantic_type_for_syntactic(&param_type).unwrap(),
-                ),
+                _ => unimplemented!(),
             };
             generic_args.push(param);
         }
@@ -171,9 +169,7 @@ where
                 types::Syntactic::GenericParam(param_name) => {
                     types::ParamSubst::Dependent(types::GenericParam::TypeParam(param_name))
                 }
-                _ => types::ParamSubst::Concrete(
-                    ctx.semantic_type_for_syntactic(&param_type).unwrap(),
-                ),
+                _ => unimplemented!(), // ctx.semantic_type_for_syntactic(&param_type).unwrap(),
             };
             generic_args.push(param);
         }

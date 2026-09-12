@@ -1,9 +1,8 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    ir,
-    ir::{IrLine, OperandTypeInference, TypeInferenceContext, ValueId},
-    symtab,
+    ir::{self, IrLine, ValueId},
+    symtab, types,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -56,9 +55,9 @@ impl BasicBlock {
     }
 }
 
-impl OperandTypeInference for BasicBlock {
+impl types::Inference for BasicBlock {
     /// do type inference on the block, returning whether any line in the block still has un-inferred types
-    fn infer_types(&mut self, ctx: &TypeInferenceContext) -> bool {
+    fn infer_types(&mut self, ctx: &types::inference::Ctx) -> bool {
         self.unpropagated_lines = self
             .unpropagated_lines
             .iter()

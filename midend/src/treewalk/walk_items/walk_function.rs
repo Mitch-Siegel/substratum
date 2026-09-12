@@ -123,7 +123,6 @@ where
         let function_name = declared_prototype.name.clone();
 
         let function_path = ctx.path().clone().with_child_value(function_name);
-        let unit_type = ctx.semantic_type_for_syntactic(&types::Syntactic::Unit)?;
         let arg_def_paths: Vec<symtab::ValuePath> = declared_prototype
             .arguments
             .iter()
@@ -131,7 +130,7 @@ where
             .collect();
 
         let unpathed_function_ctx =
-            UnpathedFunctionLinearizeCtx::new(ctx, declared_prototype, unit_type, &arg_def_paths);
+            UnpathedFunctionLinearizeCtx::new(ctx, declared_prototype, &arg_def_paths);
 
         let function_ctx = unpathed_function_ctx.into_pathed_ctx(function_path);
         let (return_value_id, function_ctx) = self.body.linearize(function_ctx)?;

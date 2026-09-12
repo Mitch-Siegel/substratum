@@ -3,9 +3,9 @@ use frontend::sourceloc;
 use crate::{
     ir::{
         self,
-        unlowered::{Lowerable, OperandTypeInference, TypeInferenceContext, ValueId},
+        unlowered::{Lowerable, ValueId},
     },
-    treewalk,
+    treewalk, types,
 };
 
 // get the discriminant value of an enum
@@ -25,8 +25,8 @@ impl Lowerable for DiscriminantOperands {
     }
 }
 
-impl OperandTypeInference for DiscriminantOperands {
-    fn infer_types(&mut self, _ctx: &TypeInferenceContext<'_>) -> bool {
+impl types::Inference for DiscriminantOperands {
+    fn infer_types(&mut self, _ctx: &types::inference::Ctx) -> bool {
         unimplemented!();
     }
 }

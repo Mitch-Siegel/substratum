@@ -27,7 +27,6 @@ impl UnpathedFunctionLinearizeCtx {
         // function_path: symtab::ValuePath,
         prototype: symtab::values::function::FunctionPrototype,
         // def_path: symtab::ValuePath,
-        unit_type: types::Semantic,
         arg_def_paths: &Vec<symtab::ValuePath>,
     ) -> Self {
         let function_path = ctx.path().clone().with_child_value(prototype.name.clone());
@@ -36,7 +35,7 @@ impl UnpathedFunctionLinearizeCtx {
         Self {
             base,
             function_path: function_path.clone(),
-            function: WipFunction::new(prototype, function_path, unit_type, arg_def_paths),
+            function: WipFunction::new(prototype, function_path, arg_def_paths),
         }
     }
 
@@ -157,15 +156,15 @@ impl symtab::SymtabBase for UnpathedFunctionLinearizeCtx {
 }
 
 impl symtab::Symtab for UnpathedFunctionLinearizeCtx {
-    fn semantic_type_for_syntactic(
-        &self,
-        search_def_path: &impl symtab::Path,
-        generic_params: types::ParamSubstMap,
-        ty_: &types::Syntactic,
-    ) -> Result<types::Semantic, symtab::SymbolError> {
-        self.base
-            .semantic_type_for_syntactic(search_def_path, generic_params, ty_)
-    }
+    // fn semantic_type_for_syntactic(
+    //     &self,
+    //     search_def_path: &impl symtab::Path,
+    //     generic_params: types::ParamSubstMap,
+    //     ty_: &types::Syntactic,
+    // ) -> Result<types::Semantic, symtab::SymbolError> {
+    //     self.base
+    //         .semantic_type_for_syntactic(search_def_path, generic_params, ty_)
+    // }
 
     fn create_impl(
         &mut self,
@@ -196,10 +195,9 @@ impl WipFunction {
     pub(crate) fn new(
         prototype: symtab::values::FunctionPrototype,
         def_path: symtab::ValuePath,
-        unit_type: types::Semantic,
         arg_def_paths: &Vec<symtab::ValuePath>,
     ) -> Self {
-        let (block_manager, start_block_label) = ir::BlockManager::new(unit_type, &def_path);
+        let (block_manager, start_block_label) = ir::BlockManager::new(&def_path);
 
         Self {
             prototype,
@@ -209,11 +207,11 @@ impl WipFunction {
         }
     }
 
-    pub(crate) fn values(&self) -> &ir::ValueInterner {
+    pub(crate) fn values(&self) -> &ir::ValueInterner<Option<types::Syntactic>> {
         self.block_manager.values()
     }
 
-    pub(crate) fn values_mut(&mut self) -> &mut ir::ValueInterner {
+    pub(crate) fn values_mut(&mut self) -> &mut ir::ValueInterner<Option<types::Syntactic>> {
         self.block_manager.values_mut()
     }
 

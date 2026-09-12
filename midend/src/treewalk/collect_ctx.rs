@@ -1,7 +1,4 @@
-use crate::{
-    treewalk::{BTreeSet, CollectCtx, CollectResult, PathedCtx, UnpathedCtxTrait, symtab},
-    types,
-};
+use crate::treewalk::{BTreeSet, CollectCtx, CollectResult, PathedCtx, UnpathedCtxTrait, symtab};
 
 use std::collections::HashSet;
 
@@ -95,13 +92,13 @@ impl symtab::Symtab for UnpathedCollectCtx {
         self.symtab.create_impl(impl_parent_path, impl_for_path)
     }
 
-    fn semantic_type_for_syntactic(
-        &self,
-        search_def_path: &impl symtab::Path,
-        generic_params: types::ParamSubstMap,
-        ty_: &types::Syntactic,
-    ) -> Result<types::Semantic, symtab::SymbolError> {
-        self.symtab
-            .semantic_type_for_syntactic(search_def_path, generic_params, ty_)
-    }
+    // fn semantic_type_for_syntactic(
+    //     &self,
+    //     search_def_path: &impl symtab::Path,
+    //     generic_params: types::ParamSubstMap,
+    //     ty_: &types::Syntactic,
+    // ) -> Result<types::Semantic, symtab::SymbolError> {
+    //     self.symtab
+    //         .semantic_type_for_syntactic(search_def_path, generic_params, ty_)
+    // }
 }

@@ -2,7 +2,10 @@ use std::fmt;
 
 use serde::Serialize;
 
-use crate::ir::{IrOperation, OperandTypeInference, TypeInferenceContext, ValueId, lowered};
+use crate::{
+    ir::{IrOperation, ValueId, lowered},
+    types,
+};
 
 pub(crate) mod operands;
 pub(crate) use operands::*;
@@ -97,8 +100,8 @@ impl IrOperation for Operation {
     }
 }
 
-impl OperandTypeInference for Operation {
-    fn infer_types(&mut self, ctx: &TypeInferenceContext) -> bool {
+impl types::Inference for Operation {
+    fn infer_types(&mut self, ctx: &types::inference::Ctx) -> bool {
         match self {
             Self::Assignment(a) => a.infer_types(ctx),
             Self::BinaryArithmetic(ba) => ba.infer_types(ctx),

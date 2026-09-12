@@ -21,6 +21,7 @@ pub(crate) type GenericParamsList = Vec<GenericParam>;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub(crate) enum ParamSubst {
+    #[allow(unused)]
     Concrete(types::Semantic),
     Dependent(GenericParam),
 }
