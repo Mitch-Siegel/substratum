@@ -21,6 +21,10 @@ jobs:
 
       - name: Run cargo clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
+
+
+      - name: lint imports 
+        run: cargo run --bin import-linter frontend midend backend import-linter
         
         
       

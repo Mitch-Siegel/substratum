@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["backend","frontend","midend", "ooo_iter", "sbc", "trace"]
+members = ["backend","frontend", "import-linter","midend", "ooo_iter", "sbc", "trace"]
 
 #[package]
 #name = "substratum-compiler"

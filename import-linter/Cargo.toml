@@ -1,0 +1,13 @@
+[package]
+name = "import-linter"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cargo_toml = "1.0.0"
+proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
+syn = { version = "3.0.3", features = ["full", "visit", "extra-traits"] }
+walkdir = "2.5.0"
+
+[lints]
+workspace = true
