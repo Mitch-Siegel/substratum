@@ -1,4 +1,5 @@
 #[derive(Clone, PartialEq, Eq)]
+#[allow(unused)]
 pub(crate) enum PathError {
     CantOwn(PathSegment, PathSegment),
     PopEmpty,
@@ -35,12 +36,14 @@ pub(crate) struct ValueSegment(pub String);
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct MacroSegment(pub String);
 
+#[allow(unused)]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct ImplSegment(pub ImplId);
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub(crate) struct ImplId(pub usize);
 
+#[allow(unused)]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct ScopeSegment(pub ScopeId);
 
@@ -367,13 +370,10 @@ impl std::fmt::Debug for RawPath {
 #[allow(unused)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct TypePath(pub(in crate::symtab) RawPath);
-#[allow(unused)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct ValuePath(pub(in crate::symtab) RawPath);
-#[allow(unused)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct MacroPath(pub(in crate::symtab) RawPath);
-#[allow(unused)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct ImplPath(pub(in crate::symtab) RawPath);
 

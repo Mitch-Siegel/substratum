@@ -1,13 +1,10 @@
-#[allow(unused_imports)]
 pub use btree_map_ooo_iter::{BTreeMapOOOIter, BTreeMapOOOIterMut};
-#[allow(unused_imports)]
 pub use hash_map_ooo_iter::{HashMapOOOIter, HashMapOOOIterMut};
 
 /*
  * TODO: make this more library-like by genericizing errors?
  */
 
-#[allow(dead_code)]
 mod hash_map_ooo_iter {
     use std::collections::{HashMap, HashSet, VecDeque};
     use std::hash::Hash;
@@ -90,7 +87,6 @@ mod hash_map_ooo_iter {
         /// # Panics
         ///
         /// Will panic if `key_order` contains a key not in `map`
-        #[allow(clippy::needless_pass_by_ref_mut)]
         pub fn new(map: &'a mut HashMap<K, V>, key_order: impl Iterator<Item = K> + Clone) -> Self {
             check_hash_key_order(map, key_order.clone());
 
@@ -144,7 +140,6 @@ mod hash_map_ooo_iter {
     }
 }
 
-#[allow(dead_code)]
 mod btree_map_ooo_iter {
     use std::collections::{BTreeMap, BTreeSet, VecDeque};
     fn check_btree_key_order<K, V>(map: &BTreeMap<K, V>, key_order: impl Iterator<Item = K>)
@@ -226,7 +221,6 @@ mod btree_map_ooo_iter {
         /// # Panics
         ///
         /// Will panic if `key_order` contains a key not in `map`
-        #[allow(clippy::needless_pass_by_ref_mut)]
         pub fn new(
             map: &'a mut BTreeMap<K, V>,
             key_order: impl Iterator<Item = K> + Clone,

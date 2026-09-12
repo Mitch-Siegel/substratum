@@ -42,8 +42,9 @@ pub fn symbol_table_from_modules(
 
     functions_to_graphviz(&symtab, "_unlowered".into());
 
+    dbg!("Symtab decls (post linearize):");
     for path in symtab.decls() {
-        println!("{path}");
+        println!("\t{path}");
     }
 
     for (path, instances) in symtab.types.all_monomorphizations() {
@@ -52,7 +53,6 @@ pub fn symbol_table_from_modules(
             println!("\t{i:?}");
         }
     }
-    println!("done printing instances");
 
     /*
     let all_arguments = symtab::Visitor::visit(&symtab, get_all_function_arguments);

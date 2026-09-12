@@ -39,11 +39,13 @@ impl std::fmt::Debug for DefPathWithParamSubsts {
 
 #[derive(Default)]
 pub(crate) struct Interner {
+    #[allow(unused)]
     id_mappings: HashMap<Semantic, DefPathWithParamSubsts>,
     reverse_id_mappings: HashMap<DefPathWithParamSubsts, Semantic>,
     generic_instances: HashMap<symtab::TypePath, monomorphization::InstanceSet>,
 }
 
+#[allow(unused)]
 impl Interner {
     pub(crate) fn new() -> Self {
         Self {

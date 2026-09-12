@@ -55,6 +55,7 @@ impl Value {
         Self { kind, ty: type_ }
     }
 
+    #[allow(unused)]
     pub(crate) fn set_type(&mut self, ty: types::Semantic) -> Result<(), ValueError> {
         match self.ty.replace(ty) {
             Some(existing_type) => Err(ValueError::ValueAlreadyHasType(existing_type)),
@@ -62,6 +63,7 @@ impl Value {
         }
     }
 
+    #[allow(unused)]
     pub(crate) fn ty(&self) -> Result<types::Semantic, ValueError> {
         match self.ty {
             Some(t) => Ok(t),

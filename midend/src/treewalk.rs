@@ -39,6 +39,7 @@ pub(crate) struct PathedCtx<U: UnpathedCtxTrait, P: symtab::Path> {
     path: P,
 }
 
+#[allow(unused)]
 pub(crate) trait PathedCtxTrait: std::fmt::Debug {
     type Unpathed: UnpathedCtxTrait;
     type Path: symtab::Path;
@@ -314,8 +315,9 @@ pub(crate) fn walk(
         }
     }
 
+    dbg!("Symtab decls (post collection)");
     for decl in symtab.decls() {
-        println!("{decl}");
+        println!("\t{decl}");
     }
 
     for (path, uses) in symtab.uses() {

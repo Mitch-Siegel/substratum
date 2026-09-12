@@ -7,49 +7,6 @@ use crate::{
     sourceloc,
 };
 
-pub(crate) enum PathSegmentAction<T> {
-    _Crate(Option<T>),
-    Super(Option<T>),
-    Ident(String, Option<T>),
-    SelfLower(Option<T>),
-    SelfUpper(Option<T>),
-}
-
-impl<T> fmt::Display for PathSegmentAction<T>
-where
-    T: fmt::Display,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
-        let maybe_data = match self {
-            Self::_Crate(d) => {
-                write!(f, "Crate")?;
-                d
-            }
-            Self::Super(d) => {
-                write!(f, "Super")?;
-                d
-            }
-            Self::Ident(i, d) => {
-                write!(f, "{i}")?;
-                d
-            }
-            Self::SelfLower(d) => {
-                write!(f, "self")?;
-                d
-            }
-            Self::SelfUpper(d) => {
-                write!(f, "Self")?;
-                d
-            }
-        };
-
-        if let Some(data) = maybe_data {
-            write!(f, "::{data}")?;
-        }
-        Ok(())
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum IdentSegment {
     Ident(IdentifierTree),

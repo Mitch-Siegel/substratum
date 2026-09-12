@@ -5,9 +5,11 @@ use crate::ir::value::{Value, ValueId, ValueKind, symtab, types};
 #[derive(Debug)]
 pub(crate) enum ValueError {
     NoSuchValueId(ValueId),
+    #[allow(unused)]
     IdHasNoType(ValueId),
     ValueHasNoType,
     ValueAlreadyHasType(types::Semantic),
+    #[allow(unused)]
     IdAlreadyHasType(ValueId, types::Semantic),
 }
 
@@ -53,12 +55,6 @@ impl ValueInterner {
         self.insert(temp_value).unwrap()
     }
 
-    pub(crate) fn next_temp_with_type(&mut self, ty: types::Semantic) -> ValueId {
-        let temp_value = Value::new(ValueKind::Temporary(self.temp_count), Some(ty));
-        self.temp_count += 1;
-        self.insert(temp_value).unwrap()
-    }
-
     /// given a `ValueId`, return a reference to the full backing Value (or `NoSuchValueId` error
     /// if not interned)
     pub(crate) fn value_for_id(&self, val: ValueId) -> Result<&Value, ValueError> {
@@ -69,6 +65,7 @@ impl ValueInterner {
 
     /// given a `ValueId`, return a mutable reference to the full backing value (or `NoSuchValueId`
     /// error if not interned)
+    #[allow(unused)]
     pub(crate) fn value_mut_for_id(&mut self, val: ValueId) -> Result<&mut Value, ValueError> {
         self.values
             .get_mut(val.index)
@@ -77,6 +74,7 @@ impl ValueInterner {
 
     /// given a `ValueId`, return the semantic type of the value (or `HasNoType` error if type is
     /// unknown)
+    #[allow(unused)]
     pub(crate) fn semantic_for_id(&self, val: ValueId) -> Result<types::Semantic, ValueError> {
         self.value_for_id(val)?
             .ty
@@ -97,6 +95,7 @@ impl ValueInterner {
     /// given a `ValueId`, return an option containing the `DefPath` of the associated variable, or
     /// None if the backing value has a kind other than Variable. Returns `NoSuchValueId` in
     /// error cases
+    #[allow(unused)]
     pub(crate) fn def_path_for_id(
         &self,
         id: ValueId,
@@ -140,6 +139,7 @@ impl ValueInterner {
 
 /// Type addition to existing values
 impl ValueInterner {
+    #[allow(unused)]
     pub(crate) fn assign_type_to_id(
         &mut self,
         val: ValueId,
@@ -153,13 +153,5 @@ impl ValueInterner {
 
     pub(crate) fn ids(&self) -> impl Iterator<Item = (&Value, &ValueId)> {
         self.ids.iter()
-    }
-}
-
-impl ValueInterner {
-    pub(crate) fn diag(&self, _symtab: &symtab::SymbolTable) {
-        for (v, id) in &self.ids {
-            println!("{id}: {v:?}");
-        }
     }
 }

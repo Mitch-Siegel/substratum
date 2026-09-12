@@ -39,6 +39,7 @@ pub(crate) struct ParamSubstMap {
     pub substitutions: BTreeMap<GenericParam, ParamSubst>,
 }
 
+#[allow(unused)]
 impl ParamSubstMap {
     pub(crate) fn new(substitutions: impl Iterator<Item = (GenericParam, ParamSubst)>) -> Self {
         Self {

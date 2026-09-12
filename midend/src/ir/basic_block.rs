@@ -27,27 +27,13 @@ impl BasicBlock {
         }
     }
 
-    pub(crate) fn with_statements(
-        label: usize,
-        def_path: symtab::ScopePath,
-        statements: Vec<ir::IrLine>,
-    ) -> Self {
-        let unpropagated_lines: BTreeSet<usize> = (0..statements.len()).collect();
-        Self {
-            label,
-            def_path,
-            statements,
-            unpropagated_lines,
-            arguments: BTreeSet::new(),
-        }
-    }
-
     pub(crate) fn def_path(&self) -> &symtab::ScopePath {
         &self.def_path
     }
 
     /// split the block at statement with specified index, returning vec of that statement and any
     /// following it
+    #[allow(unused)]
     pub(crate) fn split_at(&mut self, idx: usize) -> Vec<IrLine> {
         for no_longer_unpropagated in idx..self.statements.len() {
             self.unpropagated_lines.remove(&no_longer_unpropagated);
@@ -59,10 +45,12 @@ impl BasicBlock {
         self.statements.push(line);
     }
 
+    #[allow(unused)]
     pub(crate) fn append(&mut self, others: &mut Vec<IrLine>) {
         self.statements.append(others);
     }
 
+    #[allow(unused)]
     pub(crate) fn statements(&self) -> impl Iterator<Item = &IrLine> {
         self.statements.iter()
     }

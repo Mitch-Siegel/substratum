@@ -1,18 +1,13 @@
 use frontend::ast::{self, Ast};
 
 use crate::{
-    symtab::{self, TypeOwner},
+    symtab,
     treewalk::{
         Collect, CollectResult, Linearize, LinearizeResult, PathedCtxTrait,
         PathedLinearizeCtxTrait, TypeCollectCtx, UnpathedCollectCtx, UnpathedCtxTrait,
         UnpathedLinearizeCtx, UnpathedLinearizeCtxTrait,
     },
 };
-
-fn path_from_parent(module: &ast::ModuleTree, parent_path: symtab::TypePath) -> symtab::TypePath {
-    let name = module.name.value.clone();
-    parent_path.with_child_type(name)
-}
 
 #[trace::instrument(skip(module, ctx), level = "debug")]
 pub(crate) fn collect_from_parent_path(

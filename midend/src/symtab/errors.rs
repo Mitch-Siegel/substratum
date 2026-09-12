@@ -6,9 +6,11 @@ pub(crate) enum SymbolError {
     // undeclared/undefined errors?
     Undeclared(RawPath),
     Undefined(RawPath),
+    #[allow(unused)] // TODO: specific errors
     UndefinedType(TypePath),
     AlreadyDeclared(RawPath),
     AlreadyDefined(RawPath),
+    #[allow(unused)] // TODO: specific errors
     TypeAlreadyDefined(TypePath),
     PathError(PathError),
 }

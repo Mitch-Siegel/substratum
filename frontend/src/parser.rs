@@ -288,30 +288,6 @@ impl Display for WorklistItem {
     }
 }
 
-fn file_path_to_module_name<'a>(
-    filepath_to_parse: &'a std::path::Path,
-    crate_path: &std::path::PathBuf,
-) -> (String, &'a std::path::Path) {
-    let stem: String = filepath_to_parse
-        .file_stem()
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .into();
-    let module_name: String = match stem.as_str() {
-        "mod" | "lib" => filepath_to_parse.parent().unwrap().to_str().unwrap().into(),
-        _ => stem,
-    };
-    (
-        module_name,
-        filepath_to_parse
-            .strip_prefix(crate_path)
-            .unwrap()
-            .parent()
-            .unwrap_or(std::path::Path::new("")),
-    )
-}
-
 fn lex_and_parse_file(
     crate_name: &str,
     name: String,
@@ -360,7 +336,7 @@ pub(crate) fn find_and_parse_module(
     let direct_mod_path = full_parent_path
         .join(item.module_name.clone())
         .with_extension("sb");
-    dbg!("trying direct mod path: {direct_mod_path:?}");
+    trace::trace!("trying direct mod path: {direct_mod_path:?}");
     if let Ok(infile) = File::open(direct_mod_path) {
         return Ok(lex_and_parse_file(
             crate_name,

@@ -14,11 +14,13 @@ pub(crate) enum Operation {
     BinaryArithmetic(BinaryArithmeticExpressionOperands),
     BinaryComparison(BinaryComparisonExpressionOperands),
     Jump(JumpOperands),
+    #[allow(unused)]
     FunctionCall(CallParams),
     Call(CallOperands),
     Load(LoadOperands),
     Store(StoreOperands),
     ComputeFieldAddress(FieldAddressOperands),
+    #[allow(unused)]
     Switch(SwitchOperands),
 }
 

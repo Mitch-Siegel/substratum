@@ -21,6 +21,7 @@ pub(crate) use types::Type;
 pub(crate) use values::Value;
 pub(crate) use visitor::*;
 
+#[allow(unused)]
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum UseBinding {
     OriginalName,
@@ -54,6 +55,7 @@ pub(crate) struct UseDeclaration {
     local_binding: UseBinding,
 }
 
+#[allow(unused)]
 impl UseDeclaration {
     pub(crate) fn new_original_name(target_path: impl Path) -> Self {
         Self {
@@ -80,6 +82,7 @@ pub(crate) trait SymtabBase {
 
     fn lookup_at_mut(&mut self, path: &RawPath) -> Result<Option<&mut SymbolDef>, SymbolError>;
 
+    #[allow(unused)]
     fn insert_use_declaration(&mut self, path: RawPath, use_declaration: UseDeclaration);
 
     fn get_use_declarations_at(&self, path: &RawPath) -> Option<&BTreeSet<UseDeclaration>>;
@@ -95,6 +98,7 @@ mod private {
 
     impl<T: SymtabBase> SymtabBaseInternal for T {}
 
+    #[allow(unused)]
     pub(crate) trait SymtabBaseInternal: SymtabBase {
         /// declare 'path' to exist
         fn declare(&mut self, path: RawPath) -> Result<RawPath, SymbolError> {
@@ -109,7 +113,7 @@ mod private {
                 SymbolDef::Value(_) => assert!(path.is_value()),
                 SymbolDef::Impl(_) => assert!(path.is_impl()),
             }
-            println!("{path:?}");
+            trace::debug!("declare {path:?}: {symbol}");
             assert_eq!(*path.last(), symbol.path_segment());
 
             match path.last() {
@@ -233,7 +237,7 @@ mod private {
     }
 }
 
-// TODO: pub(in crate::midend)
+#[allow(unused)]
 pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
     // ===== Declaration =====
     fn declare_type(&mut self, path: TypePath) -> Result<TypePath, SymbolError> {
@@ -433,6 +437,7 @@ impl SymbolTable {
         Self::default()
     }
 
+    #[allow(unused)]
     pub(crate) fn children(&self, def_path: &RawPath) -> HashSet<&RawPath> {
         match self.children.get(def_path) {
             Some(paths) => paths.iter().collect(),

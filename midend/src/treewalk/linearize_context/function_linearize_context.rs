@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashSet};
 
 use frontend::sourceloc;
 
@@ -12,18 +12,6 @@ use crate::{
     },
     types,
 };
-
-struct BlockIdMgr {
-    ids: BTreeMap<symtab::ScopeId, Box<Self>>,
-}
-
-impl BlockIdMgr {
-    fn new() -> Self {
-        Self {
-            ids: BTreeMap::new(),
-        }
-    }
-}
 
 pub(crate) struct UnpathedFunctionLinearizeCtx {
     base: UnpathedLinearizeCtx,
@@ -211,17 +199,7 @@ impl WipFunction {
         unit_type: types::Semantic,
         arg_def_paths: &Vec<symtab::ValuePath>,
     ) -> Self {
-        let (mut block_manager, start_block_label) = ir::BlockManager::new(unit_type, &def_path);
-
-        for arg in arg_def_paths {
-            let id = block_manager.values_mut().id_for_path(arg);
-            println!(
-                "arg {}: id {}: value {:?}",
-                arg,
-                id,
-                block_manager.values().value_for_id(id).unwrap()
-            );
-        }
+        let (block_manager, start_block_label) = ir::BlockManager::new(unit_type, &def_path);
 
         Self {
             prototype,

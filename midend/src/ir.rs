@@ -76,6 +76,7 @@ impl OperandTypeInference for IrLine {
 }
 
 // IrLine constructors
+#[allow(dead_code)]
 impl IrLine {
     fn new_lowered(loc: sourceloc::SourceLoc, operation: lowered::Operation) -> Self {
         Self {

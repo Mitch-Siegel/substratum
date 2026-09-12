@@ -14,6 +14,7 @@ pub struct ArithmeticDualOperands {
 }
 
 impl ArithmeticDualOperands {
+    #[allow(dead_code)]
     pub(crate) fn new(e1: Expression, e2: Expression) -> Self {
         Self {
             e1: Box::new(e1),

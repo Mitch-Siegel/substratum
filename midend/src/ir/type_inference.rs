@@ -7,6 +7,7 @@ pub(crate) trait OperandTypeInference {
     fn infer_types(&mut self, ctx: &TypeInferenceContext) -> bool;
 }
 
+#[allow(unused)]
 pub(crate) struct TypeInferenceContext<'a> {
     pub symtab: &'a mut symtab::SymbolTable,
     pub values: &'a mut ValueInterner,

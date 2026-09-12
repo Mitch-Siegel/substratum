@@ -407,7 +407,7 @@ where
         let mut segments = self.segments.into_iter();
 
         while let Some(segment) = segments.next() {
-            dbg!(&walk_state);
+            trace::trace!("{:?}", &walk_state);
             let segment_loc = segment.loc();
             path_span = path_span.merge(&segment_loc).unwrap();
             let action: PathSegmentAction<T>;
@@ -421,7 +421,6 @@ where
                     ctx.unpathed(),
                 )
                 .unwrap();
-            dbg!(&walk_state);
         }
 
         let finished = walk_state.finish().unwrap();
@@ -442,5 +441,6 @@ where
     last_segment_data: Option<T>,
     type_path: Option<symtab::TypePath>,
     value_path: Option<symtab::ValuePath>,
+    #[allow(unused)]
     macro_path: Option<symtab::MacroPath>,
 }

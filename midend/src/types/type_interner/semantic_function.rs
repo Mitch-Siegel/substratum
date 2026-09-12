@@ -4,6 +4,7 @@ use crate::{
     types::{ParamSubstMap, Semantic, Syntactic},
 };
 
+#[allow(unused)]
 pub(crate) enum SemanticFunctionError {
     UnresolvableType(Syntactic),
     NonFunction(Syntactic),
@@ -32,6 +33,7 @@ pub(crate) struct SemanticFunction {
     pub return_value: Semantic,
 }
 
+#[allow(unused)]
 impl SemanticFunction {
     pub(crate) fn new(
         syntactic: Syntactic,

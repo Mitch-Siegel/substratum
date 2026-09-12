@@ -12,6 +12,7 @@ use crate::ir::{
 pub(crate) struct ControlFlow {
     blocks: HashMap<usize, BasicBlock>,
     successors: HashMap<usize, BTreeSet<usize>>,
+    #[allow(unused)]
     predecessors: HashMap<usize, BTreeSet<usize>>,
     values: ValueInterner,
 }
@@ -93,6 +94,7 @@ impl ControlFlow {
         self.successors.get(&label)
     }
 
+    #[allow(unused)]
     pub(crate) fn predecessors(&self, label: usize) -> Option<&BTreeSet<usize>> {
         self.predecessors.get(&label)
     }
@@ -124,24 +126,28 @@ impl ControlFlow {
         postorder_stack
     }
 
+    #[allow(unused)]
     pub(crate) fn blocks_postorder(&self) -> HashMapOOOIter<'_, usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
         HashMapOOOIter::new(&self.blocks, rpo_stack.into_iter().rev())
     }
 
+    #[allow(unused)]
     pub(crate) fn blocks_postorder_mut(&mut self) -> HashMapOOOIterMut<'_, usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
         HashMapOOOIterMut::new(&mut self.blocks, rpo_stack.into_iter().rev())
     }
 
+    #[allow(unused)]
     pub(crate) fn blocks_reverse_postorder(&self) -> HashMapOOOIter<'_, usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
         HashMapOOOIter::new(&self.blocks, rpo_stack.into_iter())
     }
 
+    #[allow(unused)]
     pub(crate) fn blocks_reverse_postorder_mut(
         &mut self,
     ) -> HashMapOOOIterMut<'_, usize, ir::BasicBlock> {
@@ -187,10 +193,12 @@ impl ControlFlow {
         graphviz_string
     }
 
+    #[allow(unused)]
     pub(crate) fn values(&self) -> &ValueInterner {
         &self.values
     }
 
+    #[allow(unused)]
     pub(crate) fn values_mut(&mut self) -> &mut ValueInterner {
         &mut self.values
     }

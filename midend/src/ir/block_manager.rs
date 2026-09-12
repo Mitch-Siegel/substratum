@@ -35,6 +35,7 @@ pub(crate) enum BranchKind {
     SwitchCase(usize), // within a switch and inside one of its cases - owns the
     // label of the switch block
     Loop,
+    #[allow(unused)]
     BlockSplit(Vec<IrLine>), // a block has been split into two. The statements after the split
                              // (not including the statement which was split on) are owned by
                              // the BlockSplit.
@@ -130,6 +131,7 @@ impl BlockManager {
         }
     }
 
+    #[allow(unused)]
     pub(crate) fn values(&self) -> &ValueInterner {
         &self.values
     }
@@ -191,6 +193,7 @@ impl BlockManager {
 
 /// implementation of manipulation functions such as splitting
 impl BlockManager {
+    #[allow(unused)]
     pub(crate) fn finish_block_split(
         &mut self,
         split_end_label: usize,
@@ -215,6 +218,7 @@ impl BlockManager {
 
 /// Implementation of type inference machinery
 impl BlockManager {
+    #[allow(unused)]
     pub(crate) fn infer_types(&mut self, symtab: &mut symtab::SymbolTable) {
         let (values, blocks) = (&mut self.values, &mut self.blocks);
 

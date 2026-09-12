@@ -19,6 +19,7 @@ pub(crate) struct EnumVariant {
     pub data: EnumVariantRepr,
 }
 
+#[allow(unused)]
 impl EnumVariant {
     pub(crate) fn new(discriminant: usize, name: String, data: EnumVariantRepr) -> Self {
         Self {
@@ -83,6 +84,7 @@ pub(crate) struct EnumRepr {
     alignment: Option<usize>,
 }
 
+#[allow(unused)]
 impl EnumRepr {
     pub(crate) fn new(
         name: String,

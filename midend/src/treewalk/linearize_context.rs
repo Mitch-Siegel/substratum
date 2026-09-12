@@ -28,17 +28,6 @@ impl UnpathedLinearizeCtx {
         Self { symtab }
     }
 
-    pub(crate) fn from_existing(
-        _symtab: symtab::SymbolTable,
-        _definition_path: symtab::RawPath,
-        _manager: ir::BlockManager,
-        _block: usize,
-    ) -> Self {
-        unimplemented!();
-
-        // Self { symtab }
-    }
-
     pub(crate) fn take(self) -> symtab::SymbolTable {
         self.symtab
     }
@@ -139,14 +128,7 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
         self.unpathed.reserve_subscope(path)
     }
 
-    pub(crate) fn with_child_scope(mut self) -> Self {
-        let path = self.reserve_subscope();
-        Self {
-            unpathed: self.unpathed,
-            path,
-        }
-    }
-
+    #[allow(unused)]
     pub(crate) fn self_variable(&self) -> Result<symtab::ValuePath, symtab::SymbolError> {
         unimplemented!();
         /*
@@ -157,6 +139,7 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
     }
 
     // resolves a string type name to either a defined type or a generic param
+    #[allow(unused)]
     pub(crate) fn disambiguate_named_type(
         &self,
         _name: &str,
@@ -304,6 +287,7 @@ impl symtab::Symtab for UnpathedLinearizeCtx {
 }
 
 #[derive(Debug)]
+#[allow(unused)]
 pub(crate) enum LinearizeError {
     Symbol(symtab::SymbolError),
     DisallowedInferredType(sourceloc::SourceSpan),
@@ -330,7 +314,9 @@ impl FunctionLinearizeCtx {
     }
 }
 
+#[allow(unused)]
 pub(crate) type ValueLinearizeCtx = LinearizeCtx<symtab::ValuePath>;
+#[allow(unused)]
 pub(crate) type ImplLinearizeCtx = LinearizeCtx<symtab::ImplPath>;
 
 pub(crate) type LinearizeResult<D, U> = Result<(D, U), LinearizeError>;
@@ -408,6 +394,7 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
             .finish_true_branch_switch_to_false(loc, &path);
     }
 
+    #[allow(unused)]
     pub(crate) fn values(&self) -> &ir::ValueInterner {
         self.unpathed.function().values()
     }
@@ -476,6 +463,7 @@ where
 {
     fn new(unpathed: Self::Unpathed, path: Self::Path) -> Self;
 
+    #[allow(unused)]
     fn into_unpathed(self) -> Self::Unpathed;
 
     fn into_result<R>(self, data: R) -> LinearizeResult<R, Self::Unpathed>;
