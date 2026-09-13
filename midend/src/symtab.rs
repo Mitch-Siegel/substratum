@@ -180,7 +180,7 @@ mod private {
             search_path: Option<RawPath>,
             lookup_path: RawPath,
         ) -> Result<RawPath, SymbolError> {
-            let mut search_segments = match search_path {
+            let mut search_segments = match search_path.clone() {
                 Some(search_path) => search_path.into_iter().collect::<Vec<_>>(),
                 None => Vec::new(),
             };
@@ -389,6 +389,13 @@ pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
             (_, _) => {
                 panic!("lookup_value_def_mut found non-value symbol");
             }
+        }
+    }
+
+    fn lookup_value_at(&self, path: &ValuePath) -> Result<&Value, SymbolError> {
+        match self.lookup_def_at(&path.clone().into())? {
+            SymbolDef::Value(v) => Ok(v),
+            _ => Err(SymbolError::Undeclared(path.clone().into())),
         }
     }
 

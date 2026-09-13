@@ -10,5 +10,9 @@ ooo_iter = {path = "../ooo_iter" }
 serde = { workspace = true }
 tracing = "0.1.44"
 
+[features]
+default = ["value_locs"]
+value_locs = []
+
 [lints]
 workspace = true

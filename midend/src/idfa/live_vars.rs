@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
-use crate::midend::{
-    idfa::{idfa_base, IdfaImplementor},
+use crate::{
+    idfa::{IdfaImplementor, idfa_base},
     ir,
 };
 
@@ -15,7 +15,7 @@ pub(crate) struct LiveVars<'a> {
 
 impl<'a> IdfaImplementor<'a, Fact> for LiveVars<'a> {
     fn f_transfer(facts: &mut BlockFacts, to_transfer: BTreeSet<Fact>) -> BTreeSet<Fact> {
-        let mut transferred = facts.gen.clone();
+        let mut transferred = facts.gen_.clone();
 
         for fact in &to_transfer {
             if !facts.kill.contains(fact) {
@@ -35,7 +35,7 @@ impl<'a> IdfaImplementor<'a, Fact> for LiveVars<'a> {
                     block_facts.kill.insert(read);
                 }
                 for write in statement.write_value_ids() {
-                    block_facts.gen.insert(write);
+                    block_facts.gen_.insert(write);
                 }
             }
         }

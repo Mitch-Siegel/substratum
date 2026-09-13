@@ -136,7 +136,11 @@ fn _create_enum_variant_constructor(
         ))
         .unwrap();
 
-    let constructed_object_value = block_mgr.values_mut().id_for_path(&constructed_object_path);
+    let constructed_object_value = block_mgr.values_mut().id_for_path(
+        &constructed_object_path,
+        #[cfg(feature = "value_locs")]
+        frontend::here!(),
+    );
 
     /*
      * for each argument:
@@ -149,8 +153,15 @@ fn _create_enum_variant_constructor(
         let arg_binding =
             symtab::Value::LocalBinding(symtab::values::LocalBinding::FunctionParam(arg.clone()));
         let arg_def_path = ctx.define_value(arg_binding).unwrap();
-        let arg_value = block_mgr.values_mut().id_for_path(&arg_def_path);
-        let field_temp = block_mgr.values_mut().next_temp();
+        let arg_value = block_mgr.values_mut().id_for_path(
+            &arg_def_path,
+            #[cfg(feature = "value_locs")]
+            frontend::here!(),
+        );
+        let field_temp = block_mgr.values_mut().next_temp(
+            #[cfg(feature = "value_locs")]
+            frontend::here!(),
+        );
         let field_get_line = ir::IrLine::new_get_field_pointer(
             loc.clone(),
             constructed_object_value,

@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::DerefMut,
+};
 
 use crate::{
     ir::ControlFlow,
@@ -36,7 +39,7 @@ pub(crate) fn lower_function(
                 panic!("expected {def_path:?} to be a function")
             };
 
-            if let Some(cf) = &mut function.control_flow {
+            if let Some(cf) = function.control_flow.borrow_mut().deref_mut() {
                 trace::trace!("run type inference");
 
                 let unlowered = find_unlowered_irs(cf);
@@ -55,11 +58,14 @@ pub(crate) fn lower_function(
             }
         };
 
-        cf.infer_types(types);
 
-        trace::trace!("the following statements need lowering: {:?}", unlowered);
 
-        unimplemented!();
+
+        // cf.infer_types(&symtab, types);
+
+        // trace::trace!("the following statements need lowering: {:?}", unlowered);
+
+        // unimplemented!();
 
         /*
         let mut manager: BlockManager = cf.into();

@@ -37,7 +37,10 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         let if_condition = ir::lowered::operands::JumpCondition::Conditional(
             ir::lowered::operands::BinaryComparisonOperands::new(
                 condition_value,
-                *ctx.values_mut().id_for_constant(0),
+                *ctx.values_mut().id_for_constant(0,
+                #[cfg(feature = "value_locs")]
+                frontend::here!(),
+                ),
                 ir::lowered::operands::BinaryComparisonKind::NE,
             ),
         );
@@ -64,7 +67,10 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         // if a false block exists AND the 'if' value exists
         if self.false_block.is_some() {
             // we need to copy the 'if' result to the common result_value at the end of the 'if' block
-            let result_value = ctx.values_mut().next_temp();
+            let result_value = ctx.values_mut().next_temp(
+                #[cfg(feature = "value_locs")]
+                frontend::here!(),
+            );
             let assign_if_result_line =
                 ir::IrLine::new_assignment(true_loc.start(), result_value, if_value_id);
             ctx.append_statement_to_current_block(assign_if_result_line);

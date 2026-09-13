@@ -196,7 +196,7 @@ impl Lowerable for MatchOperands {
 }
 
 impl types::Inference for MatchOperands {
-    fn infer_types(&mut self, _ctx: &types::inference::Ctx) -> bool {
+    fn infer_types(&mut self, _ctx: &mut types::inference::Ctx) -> bool {
         unimplemented!();
     }
 }

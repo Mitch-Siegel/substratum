@@ -1,4 +1,4 @@
-use crate::symtab::{PathSegment, Symbol, symbols::SymbolDef};
+use crate::{types, symtab::{PathSegment, Symbol, symbols::SymbolDef}};
 
 pub(crate) mod binding;
 pub(crate) mod function;
@@ -10,6 +10,19 @@ pub(crate) use function::*;
 pub(crate) enum Value {
     Function(Box<Function>),
     LocalBinding(LocalBinding),
+}
+
+impl Value {
+    pub(crate) fn syntactic(&self) -> types::Syntactic {
+        match self {
+            Self::Function(f) => {
+                let arg_types = f.prototype.arguments.iter().map(|arg| arg.type_().unwrap().clone()).collect();
+
+                types::Syntactic::Function { args: arg_types, ret_ty: Box::new(f.prototype.return_type.clone()) }
+            },
+            Self::LocalBinding(b) => b.syntactic().clone()
+        }
+    }
 }
 
 impl Symbol for Value {

@@ -33,19 +33,35 @@ where
 }
 
 impl ValueInterner<Option<types::Syntactic>> {
-    pub(crate) fn next_temp(&mut self) -> ValueId {
+    pub(crate) fn next_temp(
+        &mut self,
+        #[cfg(feature = "value_locs")] loc: frontend::sourceloc::StaticSourceLoc,
+    ) -> ValueId {
         let temp_value = Value::new(ValueKind::Temporary(self.temp_count), None);
         self.temp_count += 1;
-        self.insert(temp_value).unwrap()
+        self.insert(
+            temp_value,
+            #[cfg(feature = "value_locs")]
+            loc,
+        )
+        .unwrap()
     }
 
     /// given the `DefPath`, return its `ValueID`. Requires &mut self as this method may
     /// generate a new `ValueId` if one does not already exist for the variable
-    pub(crate) fn id_for_path(&mut self, def_path: &symtab::ValuePath) -> ValueId {
+    pub(crate) fn id_for_path(
+        &mut self,
+        def_path: &symtab::ValuePath,
+        #[cfg(feature = "value_locs")] loc: frontend::sourceloc::StaticSourceLoc,
+    ) -> ValueId {
         match self.pathed_ids.get(def_path) {
             Some(id) => *id,
             None => self
-                .insert(Value::new(ValueKind::Variable(def_path.clone()), None))
+                .insert(
+                    Value::new(ValueKind::Variable(def_path.clone()), None),
+                    #[cfg(feature = "value_locs")]
+                    loc,
+                )
                 .unwrap(),
         }
     }
@@ -56,16 +72,29 @@ impl ValueInterner<Option<types::Syntactic>> {
         val: ValueId,
         ty: types::Syntactic,
     ) -> Result<(), ValueError> {
+        dbg!("assign type {ty} to id {val}, which currently has {:?}", self.value_mut_for_id(val));
         match self.value_mut_for_id(val)?.ty.replace(ty) {
             Some(_existing_type) => Err(ValueError::IdAlreadyHasType(val)),
             None => Ok(()),
         }
     }
 
-    pub(crate) fn id_for_constant(&mut self, constant: usize) -> &ValueId {
+    pub(crate) fn id_for_constant(
+        &mut self,
+        constant: usize,
+        #[cfg(feature = "value_locs")] loc: frontend::sourceloc::StaticSourceLoc,
+    ) -> &ValueId {
         let constant_value = Value::new(ValueKind::Constant(constant), Some(types::Syntactic::U64));
-        let next_id = self.next_id();
-        self.ids.entry(constant_value).or_insert(next_id)
+
+        if !self.ids.contains_key(&constant_value) {
+            self.insert(
+                constant_value.clone(),
+                #[cfg(feature = "value_locs")]
+                loc,
+            ).unwrap();
+        }
+
+        self.ids.get(&constant_value).unwrap()
     }
 }
 
@@ -77,15 +106,19 @@ where
         let unit_value = Value::new(ValueKind::Temporary(0), unit_type);
 
         Self {
-            values: vec![unit_value],
-            ids: HashMap::new(),
+            values: vec![unit_value.clone()],
+            ids: std::iter::once((unit_value, ValueId::new(0, frontend::here!()))).collect(),
             pathed_ids: HashMap::new(),
             temp_count: 1,
         }
     }
 
     pub(crate) fn unit_value_id() -> ValueId {
-        ValueId::new(0)
+        ValueId::new(
+            0,
+            #[cfg(feature = "value_locs")]
+            frontend::here!(),
+        )
     }
 
     /// given a `ValueId`, return a reference to the full backing Value (or `NoSuchValueId` error
@@ -126,17 +159,29 @@ where
         }
     }
 
-    fn next_id(&self) -> ValueId {
-        ValueId {
-            index: self.ids.len(),
-        }
+    fn next_id(
+        &self,
+        #[cfg(feature = "value_locs")] loc: frontend::sourceloc::StaticSourceLoc,
+    ) -> ValueId {
+        ValueId::new(
+            self.ids.len(),
+            #[cfg(feature = "value_locs")]
+            loc,
+        )
     }
 
-    fn insert(&mut self, value: Value<T>) -> Result<ValueId, ()> {
+    fn insert(
+        &mut self,
+        value: Value<T>,
+        #[cfg(feature = "value_locs")] loc: frontend::sourceloc::StaticSourceLoc,
+    ) -> Result<ValueId, ()> where T: std::fmt::Debug{
         if self.ids.contains_key(&value) {
             Err(())
         } else {
-            let new_id = self.next_id();
+            let new_id = self.next_id(
+                #[cfg(feature = "value_locs")]
+                loc,
+            );
             if let ValueKind::Variable(variable_path) = &value.kind {
                 assert!(
                     self.pathed_ids

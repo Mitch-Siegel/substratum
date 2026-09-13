@@ -7,6 +7,7 @@ use function::lower_function;
 struct FunctionsToLower(Vec<symtab::ValuePath>);
 
 fn check_symbol_for_lowering(
+    _symtab: &symtab::SymbolTable,
     def_path: &symtab::RawPath,
     symbol: &symtab::SymbolDef,
     to_lower: &mut FunctionsToLower,
@@ -29,7 +30,12 @@ pub(crate) fn lower_symtab(
     symtab
 }
 
-fn assert_symbol_lowered(def_path: &symtab::RawPath, symbol: &symtab::SymbolDef, _: &mut ()) {
+fn assert_symbol_lowered(
+    _symtab: &symtab::SymbolTable,
+    def_path: &symtab::RawPath,
+    symbol: &symtab::SymbolDef,
+    _: &mut (),
+) {
     if let symtab::SymbolDef::Value(symtab::Value::Function(function)) = symbol {
         assert!(
             function.is_lowered(),

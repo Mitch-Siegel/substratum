@@ -15,12 +15,27 @@ impl MutVisitor {
 
         data
     }
+
+    pub(crate) fn visit_with_starting_data<C>(
+        symtab: &mut SymbolTable,
+        on_symbol: fn(&RawPath, &mut SymbolDef, &mut C),
+        mut data: C,
+    ) -> C {
+        for (path, def) in symtab.defs_mut() {
+            on_symbol(path, def, &mut data);
+        }
+
+        data
+    }
 }
 
 pub(crate) struct Visitor {}
 
 impl Visitor {
-    pub(crate) fn visit<C>(symtab: &SymbolTable, on_symbol: fn(&RawPath, &SymbolDef, &mut C)) -> C
+    pub(crate) fn visit<C>(
+        symtab: &SymbolTable,
+        on_symbol: fn(&SymbolTable, &RawPath, &SymbolDef, &mut C),
+    ) -> C
     where
         C: Default,
     {
@@ -29,11 +44,11 @@ impl Visitor {
 
     pub(crate) fn visit_with_starting_data<C>(
         symtab: &SymbolTable,
-        on_symbol: fn(&RawPath, &SymbolDef, &mut C),
+        on_symbol: fn(&SymbolTable, &RawPath, &SymbolDef, &mut C),
         mut data: C,
     ) -> C {
         for (path, def) in symtab.defs() {
-            on_symbol(path, def, &mut data);
+            on_symbol(symtab, path, def, &mut data);
         }
 
         data

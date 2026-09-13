@@ -28,7 +28,7 @@ pub(crate) enum Operation {
 }
 
 impl types::Inference for Operation {
-    fn infer_types(&mut self, ctx: &types::inference::Ctx) -> bool {
+    fn infer_types(&mut self, ctx: &mut types::inference::Ctx) -> bool {
         match self {
             Self::Lowered(l) => l.infer_types(ctx),
             Self::Unlowered(u) => u.infer_types(ctx),
@@ -67,7 +67,8 @@ impl IrLine {
 }
 
 impl types::Inference for IrLine {
-    fn infer_types(&mut self, ctx: &types::inference::Ctx) -> bool {
+    fn infer_types(&mut self, ctx: &mut types::inference::Ctx) -> bool {
+        eprintln!("infer types for {self}");
         self.operation.infer_types(ctx)
     }
 }

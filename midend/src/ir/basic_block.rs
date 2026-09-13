@@ -41,11 +41,15 @@ impl BasicBlock {
     }
 
     pub(crate) fn push(&mut self, line: IrLine) {
+        self.unpropagated_lines.insert(self.statements.len());
         self.statements.push(line);
     }
 
     #[allow(unused)]
     pub(crate) fn append(&mut self, others: &mut Vec<IrLine>) {
+        for idx in 0..others.len() {
+            self.unpropagated_lines.insert(self.statements.len() + idx);
+        }
         self.statements.append(others);
     }
 
@@ -57,7 +61,15 @@ impl BasicBlock {
 
 impl types::Inference for BasicBlock {
     /// do type inference on the block, returning whether any line in the block still has un-inferred types
-    fn infer_types(&mut self, ctx: &types::inference::Ctx) -> bool {
+    fn infer_types(&mut self, ctx: &mut types::inference::Ctx) -> bool {
+        eprintln!(
+            "block {} has {} unpropagated_lines",
+            self.label,
+            self.unpropagated_lines.len()
+        );
+        for stmt in &self.statements {
+            eprintln!("\t{stmt}");
+        }
         self.unpropagated_lines = self
             .unpropagated_lines
             .iter()

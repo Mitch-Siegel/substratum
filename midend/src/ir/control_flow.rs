@@ -4,8 +4,7 @@ use frontend::sourceloc;
 use ooo_iter::{HashMapOOOIter, HashMapOOOIterMut};
 
 use crate::{
-    ir::{self, BasicBlock, Operation, ValueInterner, lowered, unlowered},
-    types::{self, Inference},
+    ir::{self, BasicBlock, Operation, ValueInterner, ValueKind, lowered, unlowered}, symtab, types::{self, Inference},
 };
 
 #[derive(Debug, Clone)]
@@ -175,11 +174,7 @@ impl ControlFlow {
             .by_ref()
             .map(|(value, id)| {
                 format!(
-                    "{id}:{}",
-                    value
-                        .ty()
-                        .as_ref()
-                        .map_or(String::from("?"), |ty| format!("{ty}"))
+                    "{id}:{value:?}",
                 )
             })
             .collect::<Vec<_>>()
@@ -223,21 +218,52 @@ impl ControlFlow {
 }
 
 impl ControlFlow {
-    pub(crate) fn infer_types(&mut self, types: &types::Interner) -> bool {
+    pub(crate) fn infer_types(
+        &mut self,
+        symtab: &symtab::SymbolTable,
+        types: &types::Interner,
+    ) -> bool {
         let mut block_order: BTreeSet<usize> = self
             .generate_reverse_postorder_stack()
             .into_iter()
             .collect();
 
         let (values, blocks) = (&mut self.values, &mut self.blocks);
-        let ctx = types::inference::Ctx::new(types, values);
+        let mut ctx = types::inference::Ctx::new(symtab, types, values);
+
+        let mut without_types: usize;
+
+
+
+
+
+        // = ctx.values.ids().filter(|(value, _id)| value.ty().is_none()).count();
+
         loop {
+            without_types = ctx
+                .values
+                .ids()
+                .filter(|(value, _id)| value.ty().is_none())
+                .count();
+            eprintln!(
+                "{}/{} have types",
+                ctx.values.ids().count() - without_types,
+                ctx.values.ids().count()
+            );
+
             let old_size = block_order.len();
 
-            block_order.retain(|label| blocks.get_mut(label).unwrap().infer_types(&ctx));
-            if old_size == block_order.len() {
+            block_order.retain(|label| blocks.get_mut(label).unwrap().infer_types(&mut ctx));
+
+            let new_without_types = ctx.values.ids().filter(|(value, _id)| value.ty().is_none()).count();
+
+            if new_without_types == 0 {
                 break;
             }
+            if new_without_types == without_types {
+                panic!("no iteration accomplished");
+            }
+
         }
 
         block_order.is_empty()

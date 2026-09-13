@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+pub(crate) mod idfa;
 pub(crate) mod ir;
 pub(crate) mod optimization;
 pub(crate) mod ssa_gen;
@@ -7,14 +8,12 @@ pub(crate) mod symtab;
 pub(crate) mod treewalk;
 pub(crate) mod types;
 
-// pub(crate) mod idfa;
-
 fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
     let _ = symtab::Visitor::visit_with_starting_data(
         symtab,
-        |_path, symbol, suffix| {
+        |_symtab, _path, symbol, suffix| {
             if let symtab::SymbolDef::Value(symtab::Value::Function(f)) = symbol {
-                if let Some(cf) = &f.control_flow {
+                if let Some(cf) = &*f.control_flow.borrow() {
                     {
                         use std::io::Write;
                         let path_string = format!("graphviz/{}{}.gv", f.name(), suffix);
@@ -68,6 +67,9 @@ pub fn symbol_table_from_modules(
     functions_to_graphviz(&symtab, String::new());
 
     let types = types::infer_types(&symtab, types);
+
+
+    functions_to_graphviz(&symtab, "_typeinferred".into());
 
     dbg!(types);
 

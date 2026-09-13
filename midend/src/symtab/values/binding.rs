@@ -51,6 +51,15 @@ pub(crate) enum LocalBinding {
     Let(Variable),
 }
 
+impl LocalBinding {
+    pub(crate) fn syntactic(&self) -> &types::Syntactic {
+        match self {
+            Self::FunctionParam(fp) => fp.type_().unwrap(),
+            Self::Let(var) => var.type_().unwrap(),
+        }
+    }
+}
+
 impl Symbol for LocalBinding {
     fn name(&self) -> &str {
         match self {

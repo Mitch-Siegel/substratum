@@ -21,7 +21,7 @@ impl Lowerable for FieldPointerOperands {
 }
 
 impl types::Inference for FieldPointerOperands {
-    fn infer_types(&mut self, _ctx: &types::inference::Ctx) -> bool {
+    fn infer_types(&mut self, _ctx: &mut types::inference::Ctx) -> bool {
         unimplemented!();
     }
 }

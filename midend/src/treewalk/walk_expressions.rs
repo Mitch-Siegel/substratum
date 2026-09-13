@@ -45,13 +45,23 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
     ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
         let (value, ctx) = match self {
             Self::PathIn(path) => path.linearize(ctx)?,
-            Self::UnsignedDecimalConstant(_, constant) => {
-                (ctx.values_mut().id_for_constant(constant).to_owned(), ctx)
-            }
+            Self::UnsignedDecimalConstant(_, constant) => (
+                ctx.values_mut()
+                    .id_for_constant(
+                        constant,
+                        #[cfg(feature = "value_locs")]
+                        frontend::here!(),
+                    )
+                    .to_owned(),
+                ctx,
+            ),
             Self::Arithmetic(arith) => {
                 let loc = arith.loc();
                 let (operands, mut ctx) = arith.linearize(ctx)?;
-                let destination = ctx.values_mut().next_temp();
+                let destination = ctx.values_mut().next_temp(
+                    #[cfg(feature = "value_locs")]
+                    frontend::here!(),
+                );
                 let expression_statement = ir::IrLine::new_binary_arithmetic_expression(
                     loc.start(),
                     destination,
@@ -63,7 +73,10 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
             Self::Comparison(cmp) => {
                 let loc = cmp.loc();
                 let (operands, mut ctx) = cmp.linearize(ctx)?;
-                let destination = ctx.values_mut().next_temp();
+                let destination = ctx.values_mut().next_temp(
+                    #[cfg(feature = "value_locs")]
+                    frontend::here!(),
+                );
                 let comparison_statement = ir::IrLine::new_binary_comparison_expression(
                     loc.start(),
                     destination,
@@ -80,7 +93,10 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
             Self::Field(field_expression) => {
                 let field_loc = field_expression.loc();
                 let ((receiver, field), mut ctx) = field_expression.linearize(ctx)?;
-                let field_pointer_temp = ctx.values_mut().next_temp();
+                let field_pointer_temp = ctx.values_mut().next_temp(
+                    #[cfg(feature = "value_locs")]
+                    frontend::here!(),
+                );
                 let field_read_line = ir::IrLine::new_get_field_pointer(
                     field_loc.start(),
                     receiver,

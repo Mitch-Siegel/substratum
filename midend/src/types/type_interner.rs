@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     symtab::{self, Path},
-    types::Semantic,
+    types::{Semantic, Syntactic},
 };
 
 pub(crate) mod monomorphization;
@@ -93,6 +93,21 @@ impl Interner {
             .get(&DefPathWithParamSubsts::new(def_path, param_substs))
             .copied()
     }
+
+    pub(crate) fn lookup(&self, syntactic: &Syntactic, symtab: &symtab::SymbolTable) -> Semantic {
+        match syntactic {
+            Syntactic::Unit => Semantic::Unit,
+            Syntactic::U8 => Semantic::U8,
+            Syntactic::U16 => Semantic::U16,
+            Syntactic::U32 => Semantic::U32,
+            Syntactic::U64 => Semantic::U64,
+            Syntactic::I8 => Semantic::I8,
+            Syntactic::I16 => Semantic::I16,
+            Syntactic::I32 => Semantic::I32,
+            Syntactic::I64 => Semantic::I64,
+            _ => unimplemented!("{:?}", syntactic),
+    }
+}
 
     #[trace::instrument(skip(self), level = "debug")]
     pub(crate) fn record_monomorphization(

@@ -163,6 +163,7 @@ mod path_walk {
 
             let mut built_data_path = context_path.clone();
             let mut built_walked_path = symtab::MaybeEmptyPath::new();
+
             for (segment, maybe_data) in self
                 .walked_segments
                 .into_iter()
@@ -192,20 +193,17 @@ mod path_walk {
 
             let type_path: Option<symtab::TypePath> =
                 match symtab.lookup_decl(context_path.clone().into(), type_path.clone()) {
-                    Ok(_) => Some(type_path.into()),
+                    Ok(real_type_path) => Some(real_type_path.into()),
                     Err(_) => None,
                 };
 
             let value_path: Option<symtab::ValuePath> =
                 match symtab.lookup_decl(context_path.clone().into(), value_path.clone()) {
-                    Ok(_) => Some(value_path.into()),
+                    Ok(real_value_path) => Some(real_value_path.into()),
                     Err(_) => None,
                 };
 
-            let macro_path: Option<symtab::MacroPath> = match symtab.lookup_at(&macro_path) {
-                Ok(_) => Some(macro_path.into()),
-                Err(_) => None,
-            };
+            let macro_path: Option<symtab::MacroPath> = None;
 
             FinishedPathWalk {
                 loc: loc.clone(),
@@ -267,7 +265,6 @@ where
             self.loc,
         ))?;
         let data = Self::handle_last_segment_data(self.pathed_data, &path, self.last_segment_data);
-
         Ok(PathWithSegmentData { path, data })
     }
 
