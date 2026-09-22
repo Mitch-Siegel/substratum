@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops};
 
 use crate::{
     ir::{self, ValueError, ValueId, value},
@@ -6,9 +6,27 @@ use crate::{
     types::{self},
 };
 
+#[derive(Debug)]
+pub(crate) enum BreakReason {
+    AlreadyKnown,
+    #[allow(unused)] // FUTURE: use this to build dependency graph for type inference
+    Stalled(ValueId),
+}
+
+#[derive(Debug)]
+pub(crate) enum ContinueReason {
+    #[allow(unused)] // FUTURE: use this to build dependency graph for type inference
+    Inferred(ValueId),
+    AlreadyDone,
+}
+
+pub(crate) type Output = ops::ControlFlow<BreakReason, ContinueReason>;
+
+/// Single-line-level IR inference trait
 pub(crate) trait Inference {
-    /// Returns false if types have been fully inferred, or true if there is more work to do
-    fn infer_types(&mut self, ctx: &mut Ctx<'_>) -> bool;
+    /// Returns none if types have been fully inferred, or value ID being
+    /// waited on for additional type information if there is more work to do
+    fn infer_types(&mut self, ctx: &mut Ctx<'_>) -> Output;
 }
 
 #[allow(unused)]
@@ -54,21 +72,35 @@ impl From<ValueError> for TypePropagationError {
 }
 
 impl Ctx<'_> {
-    pub(crate) fn type_for_value(&self, value_id: ValueId) -> Option<&types::Syntactic> {
-        match self.values.type_for_id(value_id) {
-            Ok(ty) => ty.as_ref(),
-            Err(_) => None,
+    pub(crate) fn check_inferee_type(
+        &self,
+        value_id: ValueId,
+    ) -> ops::ControlFlow<BreakReason, ()> {
+        match self.values.type_for_id(value_id).unwrap() {
+            Some(_ty) => ops::ControlFlow::Break(BreakReason::AlreadyKnown),
+            None => ops::ControlFlow::Continue(()),
         }
     }
 
-    pub(crate) fn assign_type_to_value(
+    pub(crate) fn type_for_value(
+        &self,
+        value_id: ValueId,
+    ) -> ops::ControlFlow<BreakReason, &types::Syntactic> {
+        let maybe_type = self.values.type_for_id(value_id).unwrap();
+        match maybe_type {
+            Some(ty) => ops::ControlFlow::Continue(ty),
+            None => ops::ControlFlow::Break(BreakReason::Stalled(value_id)),
+        }
+    }
+
+    pub(crate) fn assign_type_to_inferee(
         &mut self,
         value_id: ValueId,
         ty: types::Syntactic,
-    ) -> Result<(), TypePropagationError> {
+    ) -> Result<Output, TypePropagationError> {
         let value = self.values.value_mut_for_id(value_id)?;
         match value.ty_mut().replace(ty) {
-            None => Ok(()),
+            None => Ok(Output::Continue(ContinueReason::Inferred(value_id))),
             Some(existing) => Err(TypePropagationError::AlreadyHasType(value_id, existing)),
         }
     }
@@ -79,10 +111,8 @@ fn infer_types_for_function(
     f: &symtab::values::Function,
     type_interner: &types::Interner,
 ) {
-    let mut cf_binding = f.control_flow.borrow_mut();
-    let cf = match &mut *cf_binding {
-        Some(cf) => cf,
-        None => return,
+    let Some(cf) = &mut *f.control_flow.borrow_mut() else {
+        return;
     };
 
     let mut assign_types = HashMap::new();
@@ -90,15 +120,15 @@ fn infer_types_for_function(
     for (value, id) in cf.values().ids() {
         if value.ty().is_some() {
             continue;
-        };
+        }
 
         match value.kind() {
             ir::ValueKind::Argument(idx) => {
-                assign_types.insert(*id, f.prototype.arguments[*idx].type_().unwrap().clone());
+                assign_types.insert(id, f.prototype.arguments[*idx].type_().unwrap().clone());
             }
             ir::ValueKind::Variable(path) => {
                 let val_ty = symtab.lookup_value_at(path).unwrap();
-                assign_types.insert(*id, val_ty.syntactic());
+                assign_types.insert(id, val_ty.syntactic());
             }
             ir::ValueKind::StaticFunction(_) => unimplemented!(),
             ir::ValueKind::Constant(_) | ir::ValueKind::Temporary(_) => (),

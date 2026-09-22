@@ -1,11 +1,8 @@
-use serde::Serialize;
-use std::collections::HashMap;
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
-use crate::{
-    ir::{ValueId, ValueKind},
-    types,
-};
+use serde::Serialize;
+
+use crate::{ir::ValueId, types};
 
 /*
  groupings of operands
@@ -51,21 +48,12 @@ impl BinaryArithmeticExpressionOperands {
 }
 
 impl types::Inference for BinaryArithmeticExpressionOperands {
-    fn infer_types(&mut self, ctx: &mut types::inference::Ctx<'_>) -> bool {
-        if ctx.type_for_value(self.destination).is_some() {
-            return false;
-        }
+    fn infer_types(&mut self, ctx: &mut types::inference::Ctx<'_>) -> types::inference::Output {
+        ctx.check_inferee_type(self.destination)?;
 
         let assigned_ty = {
-            let Some(lhs_ty) = ctx.type_for_value(self.arithmetic.sources.lhs) else {
-                dbg!("waiting on type for {}", self.arithmetic.sources.lhs);
-                return true;
-            };
-
-            let Some(rhs_ty) = ctx.type_for_value(self.arithmetic.sources.rhs) else {
-                dbg!("waiting on type for {}", self.arithmetic.sources.rhs);
-                return true;
-            };
+            let lhs_ty = ctx.type_for_value(self.arithmetic.sources.lhs)?;
+            let rhs_ty = ctx.type_for_value(self.arithmetic.sources.rhs)?;
 
             let lhs_sem = ctx.types.lookup(lhs_ty, ctx.symtab);
             let rhs_sem = ctx.types.lookup(rhs_ty, ctx.symtab);
@@ -81,9 +69,8 @@ impl types::Inference for BinaryArithmeticExpressionOperands {
             }
         };
 
-        ctx.assign_type_to_value(self.destination, assigned_ty)
-            .unwrap();
-        false
+        ctx.assign_type_to_inferee(self.destination, assigned_ty)
+            .unwrap()
     }
 }
 
@@ -134,18 +121,12 @@ pub(crate) struct SourceDestOperands {
 
 pub(crate) type AssignmentOperands = SourceDestOperands;
 impl types::Inference for AssignmentOperands {
-    fn infer_types(&mut self, ctx: &mut types::inference::Ctx) -> bool {
-        if ctx.type_for_value(self.destination).is_some() {
-            return false;
-        }
+    fn infer_types(&mut self, ctx: &mut types::inference::Ctx) -> types::inference::Output {
+        ctx.check_inferee_type(self.destination)?;
 
-        if let Some(rhs_ty) = ctx.type_for_value(self.source) {
-            ctx.assign_type_to_value(self.destination, rhs_ty.clone())
-                .unwrap();
-            false
-        } else {
-            true
-        }
+        let rhs_ty = ctx.type_for_value(self.source)?;
+        ctx.assign_type_to_inferee(self.destination, rhs_ty.clone())
+            .unwrap()
     }
 }
 
@@ -192,19 +173,12 @@ impl BinaryComparisonExpressionOperands {
 }
 
 impl types::Inference for BinaryComparisonExpressionOperands {
-    fn infer_types(&mut self, ctx: &mut types::inference::Ctx) -> bool {
-        if ctx.type_for_value(self.destination).is_some() {
-            return false;
-        }
+    fn infer_types(&mut self, ctx: &mut types::inference::Ctx) -> types::inference::Output {
+        ctx.check_inferee_type(self.destination)?;
 
         let assigned_ty = {
-            let Some(lhs_ty) = ctx.type_for_value(self.comparison.sources.lhs) else {
-                return true;
-            };
-
-            let Some(rhs_ty) = ctx.type_for_value(self.comparison.sources.rhs) else {
-                return true;
-            };
+            let lhs_ty = ctx.type_for_value(self.comparison.sources.lhs)?;
+            let rhs_ty = ctx.type_for_value(self.comparison.sources.rhs)?;
 
             let lhs_sem = ctx.types.lookup(lhs_ty, ctx.symtab);
             let rhs_sem = ctx.types.lookup(rhs_ty, ctx.symtab);
@@ -220,9 +194,8 @@ impl types::Inference for BinaryComparisonExpressionOperands {
             }
         };
 
-        ctx.assign_type_to_value(self.destination, assigned_ty)
-            .unwrap();
-        false
+        ctx.assign_type_to_inferee(self.destination, assigned_ty)
+            .unwrap()
     }
 }
 
@@ -258,6 +231,19 @@ impl BinaryComparisonOperands {
 pub(crate) enum JumpCondition {
     Unconditional,
     Conditional(BinaryComparisonOperands),
+}
+
+impl types::Inference for JumpCondition {
+    fn infer_types(&mut self, ctx: &mut types::inference::Ctx<'_>) -> types::inference::Output {
+        match self {
+            Self::Unconditional => (),
+            Self::Conditional(c) => {
+                ctx.type_for_value(c.sources.lhs)?;
+                ctx.type_for_value(c.sources.rhs)?;
+            }
+        }
+        types::inference::Output::Continue(types::inference::ContinueReason::AlreadyDone)
+    }
 }
 
 impl Display for JumpCondition {
@@ -332,8 +318,8 @@ impl JumpOperands {
 }
 
 impl types::Inference for JumpOperands {
-    fn infer_types(&mut self, _ctx: &mut types::inference::Ctx) -> bool {
-        false
+    fn infer_types(&mut self, ctx: &mut types::inference::Ctx) -> types::inference::Output {
+        self.condition.infer_types(ctx)
     }
 }
 
@@ -372,7 +358,7 @@ impl CallParams {
 }
 
 impl types::Inference for CallParams {
-    fn infer_types(&mut self, _ctx: &mut types::inference::Ctx) -> bool {
+    fn infer_types(&mut self, _ctx: &mut types::inference::Ctx) -> types::inference::Output {
         unimplemented!()
     }
 }
@@ -417,34 +403,21 @@ impl CallOperands {
 }
 
 impl types::Inference for CallOperands {
-    fn infer_types(&mut self, ctx: &mut types::inference::Ctx) -> bool {
+    fn infer_types(&mut self, ctx: &mut types::inference::Ctx) -> types::inference::Output {
         let Some(ret_val_id) = self.params.return_value_to else {
-            return true;
+            return types::inference::Output::Continue(
+                types::inference::ContinueReason::AlreadyDone,
+            );
         };
 
-        if ctx.type_for_value(ret_val_id).is_some() {
-            return true;
-        }
+        ctx.check_inferee_type(ret_val_id)?;
 
         let called_function = self.function_operand;
-        match ctx.type_for_value(called_function) {
-            None => {
-                let Ok(function_value) = ctx.values.value_for_id(called_function) else {
-                    panic!("called function does not have value interned");
-                };
-
-                let ValueKind::StaticFunction(_path) = &function_value.kind() else {
-                    unimplemented!("look up function return type");
-                };
-
-                unimplemented!("look up value with static function type");
-            }
-            Some(types::Syntactic::Function { args: _, ret_ty }) => {
-                ctx.assign_type_to_value(ret_val_id, *ret_ty.clone())
-                    .unwrap();
-                false
-            }
-            Some(_) => {
+        match ctx.type_for_value(called_function)? {
+            types::Syntactic::Function { args: _, ret_ty } => ctx
+                .assign_type_to_inferee(ret_val_id, *ret_ty.clone())
+                .unwrap(),
+            _ => {
                 unreachable!("Function operand with non-function type");
             }
         }
@@ -464,7 +437,7 @@ pub(crate) struct LoadOperands {
 }
 
 impl types::Inference for LoadOperands {
-    fn infer_types(&mut self, _ctx: &mut types::inference::Ctx) -> bool {
+    fn infer_types(&mut self, _ctx: &mut types::inference::Ctx) -> types::inference::Output {
         unimplemented!();
     }
 }
@@ -476,7 +449,7 @@ pub(crate) struct StoreOperands {
 }
 
 impl types::Inference for StoreOperands {
-    fn infer_types(&mut self, _ctx: &mut types::inference::Ctx) -> bool {
+    fn infer_types(&mut self, _ctx: &mut types::inference::Ctx) -> types::inference::Output {
         unimplemented!();
     }
 }
@@ -489,7 +462,7 @@ pub(crate) struct FieldAddressOperands {
 }
 
 impl types::Inference for FieldAddressOperands {
-    fn infer_types(&mut self, _ctx: &mut types::inference::Ctx) -> bool {
+    fn infer_types(&mut self, _ctx: &mut types::inference::Ctx) -> types::inference::Output {
         unimplemented!();
     }
 }
@@ -502,7 +475,7 @@ pub(crate) struct SwitchOperands {
 }
 
 impl types::Inference for SwitchOperands {
-    fn infer_types(&mut self, _ctx: &mut types::inference::Ctx) -> bool {
+    fn infer_types(&mut self, _ctx: &mut types::inference::Ctx) -> types::inference::Output {
         unimplemented!();
     }
 }

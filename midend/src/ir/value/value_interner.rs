@@ -24,11 +24,11 @@ impl std::fmt::Display for ValueError {
 #[derive(Debug, Clone)]
 pub(crate) struct ValueInterner<T>
 where
-    T: Clone + Eq + hash::Hash,
+    T: Clone + Eq + Ord + hash::Hash,
 {
     values: Vec<Value<T>>,
-    ids: HashMap<Value<T>, ValueId>,
     pathed_ids: HashMap<symtab::ValuePath, ValueId>,
+    constant_ids: HashMap<usize, ValueId>,
     temp_count: usize,
 }
 
@@ -37,14 +37,15 @@ impl ValueInterner<Option<types::Syntactic>> {
         &mut self,
         #[cfg(feature = "value_locs")] loc: frontend::sourceloc::StaticSourceLoc,
     ) -> ValueId {
-        let temp_value = Value::new(ValueKind::Temporary(self.temp_count), None);
-        self.temp_count += 1;
-        self.insert(
-            temp_value,
+        let temp_value = Value::new(
+            ValueKind::Temporary(self.temp_count),
+            None,
             #[cfg(feature = "value_locs")]
             loc,
-        )
-        .unwrap()
+        );
+
+        self.temp_count += 1;
+        self.insert(temp_value)
     }
 
     /// given the `DefPath`, return its `ValueID`. Requires &mut self as this method may
@@ -56,13 +57,12 @@ impl ValueInterner<Option<types::Syntactic>> {
     ) -> ValueId {
         match self.pathed_ids.get(def_path) {
             Some(id) => *id,
-            None => self
-                .insert(
-                    Value::new(ValueKind::Variable(def_path.clone()), None),
-                    #[cfg(feature = "value_locs")]
-                    loc,
-                )
-                .unwrap(),
+            None => self.insert(Value::new(
+                ValueKind::Variable(def_path.clone()),
+                None,
+                #[cfg(feature = "value_locs")]
+                loc,
+            )),
         }
     }
 
@@ -72,7 +72,10 @@ impl ValueInterner<Option<types::Syntactic>> {
         val: ValueId,
         ty: types::Syntactic,
     ) -> Result<(), ValueError> {
-        dbg!("assign type {ty} to id {val}, which currently has {:?}", self.value_mut_for_id(val));
+        dbg!(
+            "assign type {ty} to id {val}, which currently has {:?}",
+            self.value_mut_for_id(val)
+        );
         match self.value_mut_for_id(val)?.ty.replace(ty) {
             Some(_existing_type) => Err(ValueError::IdAlreadyHasType(val)),
             None => Ok(()),
@@ -84,41 +87,45 @@ impl ValueInterner<Option<types::Syntactic>> {
         constant: usize,
         #[cfg(feature = "value_locs")] loc: frontend::sourceloc::StaticSourceLoc,
     ) -> &ValueId {
-        let constant_value = Value::new(ValueKind::Constant(constant), Some(types::Syntactic::U64));
-
-        if !self.ids.contains_key(&constant_value) {
-            self.insert(
-                constant_value.clone(),
+        if !self.constant_ids.contains_key(&constant) {
+            let constant_value = Value::new(
+                ValueKind::Constant(constant),
+                Some(types::Syntactic::U64),
                 #[cfg(feature = "value_locs")]
                 loc,
-            ).unwrap();
+            );
+            self.insert(constant_value);
         }
 
-        self.ids.get(&constant_value).unwrap()
+        self.constant_ids.get(&constant).unwrap()
     }
 }
 
 impl<T> ValueInterner<T>
 where
-    T: Clone + Eq + hash::Hash,
+    T: Clone + Eq + Ord + hash::Hash,
 {
-    pub(crate) fn new(unit_type: T) -> Self {
-        let unit_value = Value::new(ValueKind::Temporary(0), unit_type);
+    pub(crate) fn new(
+        unit_type: T,
+        #[cfg(feature = "value_locs")] loc: frontend::sourceloc::StaticSourceLoc,
+    ) -> Self {
+        let unit_value = Value::new(
+            ValueKind::Temporary(0),
+            unit_type,
+            #[cfg(feature = "value_locs")]
+            loc,
+        );
 
         Self {
-            values: vec![unit_value.clone()],
-            ids: std::iter::once((unit_value, ValueId::new(0, frontend::here!()))).collect(),
+            values: vec![unit_value],
             pathed_ids: HashMap::new(),
+            constant_ids: HashMap::new(),
             temp_count: 1,
         }
     }
 
     pub(crate) fn unit_value_id() -> ValueId {
-        ValueId::new(
-            0,
-            #[cfg(feature = "value_locs")]
-            frontend::here!(),
-        )
+        ValueId::new(0)
     }
 
     /// given a `ValueId`, return a reference to the full backing Value (or `NoSuchValueId` error
@@ -159,43 +166,29 @@ where
         }
     }
 
-    fn next_id(
-        &self,
-        #[cfg(feature = "value_locs")] loc: frontend::sourceloc::StaticSourceLoc,
-    ) -> ValueId {
-        ValueId::new(
-            self.ids.len(),
-            #[cfg(feature = "value_locs")]
-            loc,
-        )
-    }
-
-    fn insert(
-        &mut self,
-        value: Value<T>,
-        #[cfg(feature = "value_locs")] loc: frontend::sourceloc::StaticSourceLoc,
-    ) -> Result<ValueId, ()> where T: std::fmt::Debug{
-        if self.ids.contains_key(&value) {
-            Err(())
-        } else {
-            let new_id = self.next_id(
-                #[cfg(feature = "value_locs")]
-                loc,
-            );
-            if let ValueKind::Variable(variable_path) = &value.kind {
-                assert!(
-                    self.pathed_ids
-                        .insert(variable_path.clone(), new_id)
-                        .is_none()
-                );
+    fn insert(&mut self, value: Value<T>) -> ValueId
+    where
+        T: std::fmt::Debug,
+    {
+        let new_id = ValueId::new(self.values.len());
+        match &value.kind {
+            ValueKind::Variable(path) => {
+                assert!(self.pathed_ids.insert(path.clone(), new_id).is_none());
             }
-            self.ids.insert(value.clone(), new_id);
-            self.values.push(value);
-            Ok(new_id)
+            ValueKind::Constant(constant) => {
+                assert!(self.constant_ids.insert(*constant, new_id).is_none());
+            }
+            _ => (),
         }
+
+        self.values.push(value);
+        new_id
     }
 
-    pub(crate) fn ids(&self) -> impl Iterator<Item = (&Value<T>, &ValueId)> {
-        self.ids.iter()
+    pub(crate) fn ids(&self) -> impl Iterator<Item = (&Value<T>, ValueId)> {
+        self.values
+            .iter()
+            .enumerate()
+            .map(|(idx, val)| (val, ValueId::new(idx)))
     }
 }

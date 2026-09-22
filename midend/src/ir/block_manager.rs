@@ -77,7 +77,7 @@ impl BlockManager {
                 max_block: 1,
                 open_branch_path: Vec::new(),
                 blocks: vec![(start_block.label, start_block)].into_iter().collect(),
-                values: ValueInterner::new(Some(types::Syntactic::Unit)),
+                values: ValueInterner::new(Some(types::Syntactic::Unit), frontend::here!()),
             },
             start_label,
         )

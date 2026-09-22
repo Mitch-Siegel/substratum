@@ -106,8 +106,8 @@ impl Interner {
             Syntactic::I32 => Semantic::I32,
             Syntactic::I64 => Semantic::I64,
             _ => unimplemented!("{:?}", syntactic),
+        }
     }
-}
 
     #[trace::instrument(skip(self), level = "debug")]
     pub(crate) fn record_monomorphization(

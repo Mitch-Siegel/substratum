@@ -5,40 +5,10 @@ use crate::{ir::Serialize, symtab, types};
 mod value_interner;
 pub(crate) use value_interner::{ValueError, ValueInterner};
 
-#[derive(Copy, Clone, Debug, Serialize)]
+#[derive(Copy, Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct ValueId {
     index: usize,
-    #[cfg(feature = "value_locs")]
-    loc: frontend::sourceloc::StaticSourceLoc,
 }
-
-impl PartialEq for ValueId {
-    fn eq(&self, other: &Self) -> bool {
-        self.index.eq(&other.index)
-    }
-}
-
-impl Eq for ValueId{}
-
-impl PartialOrd for ValueId {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for ValueId {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.index.cmp(&other.index)
-    }
-}
-
-impl hash::Hash for ValueId {
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
-        self.index.hash(state);
-    }
-}
-
-
 
 impl fmt::Display for ValueId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -47,15 +17,8 @@ impl fmt::Display for ValueId {
 }
 
 impl ValueId {
-    pub(crate) fn new(
-        index: usize,
-        #[cfg(feature = "value_locs")] loc: frontend::sourceloc::StaticSourceLoc,
-    ) -> Self {
-        Self {
-            index,
-            #[cfg(feature = "value_locs")]
-            loc,
-        }
+    pub(crate) fn new(index: usize) -> Self {
+        Self { index }
     }
 }
 
@@ -81,15 +44,28 @@ impl fmt::Display for ValueKind {
     }
 }
 
-#[derive(Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
-pub(crate) struct Value<T> {
+#[derive(Clone, Debug)]
+pub(crate) struct Value<T>
+where
+    T: Eq + Ord + hash::Hash,
+{
     kind: ValueKind,
     ty: T,
+    #[cfg(feature = "value_locs")]
+    #[allow(unused)]
+    loc: frontend::sourceloc::StaticSourceLoc,
 }
 
-impl<T> Value<T> {
-    pub(crate) fn new(kind: ValueKind, ty: T) -> Self {
-        Self { kind, ty }
+impl<T> Value<T>
+where
+    T: Eq + Ord + hash::Hash,
+{
+    pub(crate) fn new(
+        kind: ValueKind,
+        ty: T,
+        #[cfg(feature = "value_locs")] loc: frontend::sourceloc::StaticSourceLoc,
+    ) -> Self {
+        Self { kind, ty, loc }
     }
 
     pub(crate) fn kind(&self) -> &ValueKind {
@@ -106,9 +82,48 @@ impl<T> Value<T> {
     }
 }
 
+impl<T> PartialEq for Value<T>
+where
+    T: Eq + Ord + hash::Hash,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.kind.eq(&other.kind) && self.ty.eq(&other.ty)
+    }
+}
+
+impl<T> Eq for Value<T> where T: Eq + Ord + hash::Hash {}
+
+impl<T> PartialOrd for Value<T>
+where
+    T: Eq + Ord + hash::Hash,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<T> Ord for Value<T>
+where
+    T: Eq + Ord + hash::Hash,
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.kind.cmp(&other.kind).then(self.ty.cmp(&other.ty))
+    }
+}
+
+impl<T> hash::Hash for Value<T>
+where
+    T: Eq + Ord + hash::Hash,
+{
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.kind.hash(state);
+        self.ty.hash(state);
+    }
+}
+
 impl<T> fmt::Display for Value<T>
 where
-    T: fmt::Display,
+    T: Eq + Ord + hash::Hash + fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.kind, self.ty)

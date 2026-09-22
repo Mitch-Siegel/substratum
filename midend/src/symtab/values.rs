@@ -1,4 +1,7 @@
-use crate::{types, symtab::{PathSegment, Symbol, symbols::SymbolDef}};
+use crate::{
+    symtab::{PathSegment, Symbol, symbols::SymbolDef},
+    types,
+};
 
 pub(crate) mod binding;
 pub(crate) mod function;
@@ -16,11 +19,19 @@ impl Value {
     pub(crate) fn syntactic(&self) -> types::Syntactic {
         match self {
             Self::Function(f) => {
-                let arg_types = f.prototype.arguments.iter().map(|arg| arg.type_().unwrap().clone()).collect();
+                let arg_types = f
+                    .prototype
+                    .arguments
+                    .iter()
+                    .map(|arg| arg.type_().unwrap().clone())
+                    .collect();
 
-                types::Syntactic::Function { args: arg_types, ret_ty: Box::new(f.prototype.return_type.clone()) }
-            },
-            Self::LocalBinding(b) => b.syntactic().clone()
+                types::Syntactic::Function {
+                    args: arg_types,
+                    ret_ty: Box::new(f.prototype.return_type.clone()),
+                }
+            }
+            Self::LocalBinding(b) => b.syntactic().clone(),
         }
     }
 }

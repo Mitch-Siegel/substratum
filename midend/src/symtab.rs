@@ -180,7 +180,7 @@ mod private {
             search_path: Option<RawPath>,
             lookup_path: RawPath,
         ) -> Result<RawPath, SymbolError> {
-            let mut search_segments = match search_path.clone() {
+            let mut search_segments = match search_path {
                 Some(search_path) => search_path.into_iter().collect::<Vec<_>>(),
                 None => Vec::new(),
             };

@@ -68,7 +68,6 @@ pub fn symbol_table_from_modules(
 
     let types = types::infer_types(&symtab, types);
 
-
     functions_to_graphviz(&symtab, "_typeinferred".into());
 
     dbg!(types);

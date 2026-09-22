@@ -1,10 +1,15 @@
-use std::collections::{BTreeSet, HashMap, VecDeque};
+use std::{
+    collections::{BTreeSet, HashMap, VecDeque},
+    ops,
+};
 
 use frontend::sourceloc;
 use ooo_iter::{HashMapOOOIter, HashMapOOOIterMut};
 
 use crate::{
-    ir::{self, BasicBlock, Operation, ValueInterner, ValueKind, lowered, unlowered}, symtab, types::{self, Inference},
+    ir::{self, BasicBlock, Operation, ValueInterner, lowered, unlowered},
+    symtab,
+    types::{self, Inference},
 };
 
 #[derive(Debug, Clone)]
@@ -172,11 +177,7 @@ impl ControlFlow {
             .values
             .ids()
             .by_ref()
-            .map(|(value, id)| {
-                format!(
-                    "{id}:{value:?}",
-                )
-            })
+            .map(|(value, id)| format!("{id}:{value:?}"))
             .collect::<Vec<_>>()
             .join("\n");
         graphviz_string += &format!("values[label=\"{values_str}\"]");
@@ -223,7 +224,7 @@ impl ControlFlow {
         symtab: &symtab::SymbolTable,
         types: &types::Interner,
     ) -> bool {
-        let mut block_order: BTreeSet<usize> = self
+        let block_order: BTreeSet<usize> = self
             .generate_reverse_postorder_stack()
             .into_iter()
             .collect();
@@ -231,39 +232,54 @@ impl ControlFlow {
         let (values, blocks) = (&mut self.values, &mut self.blocks);
         let mut ctx = types::inference::Ctx::new(symtab, types, values);
 
-        let mut without_types: usize;
+        // map of block -> set of statement indices that need to be reinferred
+        let mut reinfer_statements = HashMap::<usize, BTreeSet<usize>>::new();
 
+        for label in &block_order {
+            let block = blocks.get(label).unwrap();
+            let reinfer_at_block = (0..block.len()).collect();
+            reinfer_statements.insert(*label, reinfer_at_block);
+        }
 
+        while !reinfer_statements.is_empty() {
+            let mut missing_ids = BTreeSet::new();
 
+            let start_stmt_count: usize = reinfer_statements.values().map(BTreeSet::len).sum();
+            for label in &block_order {
+                let block = blocks.get_mut(label).unwrap();
 
+                let mut reinfer_at_block = BTreeSet::new();
 
-        // = ctx.values.ids().filter(|(value, _id)| value.ty().is_none()).count();
+                for (idx, stmt) in block.into_iter().enumerate() {
+                    match stmt.infer_types(&mut ctx) {
+                        ops::ControlFlow::Continue(_) => {
+                            // FUTURE: use this to build dependency graphs for type inference
+                        }
+                        ops::ControlFlow::Break(reason) => {
+                            // FUTURE: use this to build dependency graphs for type inference
+                            if let types::inference::BreakReason::Stalled(id) = reason {
+                                missing_ids.insert(id);
+                                reinfer_at_block.insert(idx);
+                            }
+                        }
+                    }
+                }
 
-        loop {
-            without_types = ctx
-                .values
-                .ids()
-                .filter(|(value, _id)| value.ty().is_none())
-                .count();
-            eprintln!(
-                "{}/{} have types",
-                ctx.values.ids().count() - without_types,
-                ctx.values.ids().count()
+                if reinfer_at_block.is_empty() {
+                    reinfer_statements.remove(label);
+                } else {
+                    reinfer_statements.insert(*label, reinfer_at_block);
+                }
+            }
+
+            let end_stmt_count: usize = reinfer_statements.values().map(BTreeSet::len).sum();
+            if start_stmt_count == end_stmt_count {
+                dbg!(&reinfer_statements);
+            }
+            assert_ne!(
+                start_stmt_count, end_stmt_count,
+                "type inference reached unexpected fixed point"
             );
-
-            let old_size = block_order.len();
-
-            block_order.retain(|label| blocks.get_mut(label).unwrap().infer_types(&mut ctx));
-
-            let new_without_types = ctx.values.ids().filter(|(value, _id)| value.ty().is_none()).count();
-
-            if new_without_types == 0 {
-                break;
-            }
-            if new_without_types == without_types {
-                panic!("no iteration accomplished");
-            }
-
         }
 
         block_order.is_empty()

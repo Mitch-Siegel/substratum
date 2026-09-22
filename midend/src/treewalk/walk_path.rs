@@ -186,19 +186,19 @@ mod path_walk {
                 symtab::PathSegment::Value(segment_name.clone()),
             );
 
-            let macro_path = symtab::RawPath::new(
+            let _macro_path = symtab::RawPath::new(
                 built_walked_path.into(),
                 symtab::PathSegment::Macro(segment_name.clone()),
             );
 
             let type_path: Option<symtab::TypePath> =
-                match symtab.lookup_decl(context_path.clone().into(), type_path.clone()) {
+                match symtab.lookup_decl(context_path.clone().into(), type_path) {
                     Ok(real_type_path) => Some(real_type_path.into()),
                     Err(_) => None,
                 };
 
             let value_path: Option<symtab::ValuePath> =
-                match symtab.lookup_decl(context_path.clone().into(), value_path.clone()) {
+                match symtab.lookup_decl(context_path.clone().into(), value_path) {
                     Ok(real_value_path) => Some(real_value_path.into()),
                     Err(_) => None,
                 };

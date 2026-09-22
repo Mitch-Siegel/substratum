@@ -27,13 +27,13 @@ pub(crate) fn find_unlowered_irs(cf: &ControlFlow) -> HashMap<usize, HashSet<usi
 pub(crate) fn lower_function(
     def_path: &symtab::ValuePath,
     mut symtab: symtab::SymbolTable,
-    types: &types::Interner,
+    _types: &types::Interner,
 ) -> symtab::SymbolTable {
     let _span = trace::span_auto_debug!("Lower function ", "{}", def_path.last());
 
     #[allow(clippy::never_loop)]
     loop {
-        let (mut cf, unlowered, _function_name) = {
+        let (_cf, _unlowered, _function_name) = {
             let symtab::Value::Function(function) = symtab.lookup_value_at_mut(def_path).unwrap()
             else {
                 panic!("expected {def_path:?} to be a function")
@@ -57,9 +57,6 @@ pub(crate) fn lower_function(
                 break;
             }
         };
-
-
-
 
         // cf.infer_types(&symtab, types);
 

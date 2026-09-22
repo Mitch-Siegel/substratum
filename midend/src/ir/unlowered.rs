@@ -28,7 +28,7 @@ impl Lowerable for Operation {
 }
 
 impl types::Inference for Operation {
-    fn infer_types(&mut self, ctx: &mut types::inference::Ctx) -> bool {
+    fn infer_types(&mut self, ctx: &mut types::inference::Ctx) -> types::inference::Output {
         match self {
             Self::Match(m) => m.infer_types(ctx),
             Self::Discriminant(d) => d.infer_types(ctx),

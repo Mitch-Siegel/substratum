@@ -26,7 +26,7 @@ impl Lowerable for DiscriminantOperands {
 }
 
 impl types::Inference for DiscriminantOperands {
-    fn infer_types(&mut self, _ctx: &mut types::inference::Ctx) -> bool {
+    fn infer_types(&mut self, _ctx: &mut types::inference::Ctx) -> types::inference::Output {
         unimplemented!();
     }
 }

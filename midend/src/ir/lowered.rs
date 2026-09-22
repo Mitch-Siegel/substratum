@@ -17,8 +17,6 @@ pub(crate) enum Operation {
     BinaryArithmetic(BinaryArithmeticExpressionOperands),
     BinaryComparison(BinaryComparisonExpressionOperands),
     Jump(JumpOperands),
-    #[allow(unused)]
-    FunctionCall(CallParams),
     Call(CallOperands),
     Load(LoadOperands),
     Store(StoreOperands),
@@ -53,8 +51,13 @@ impl IrOperation for Operation {
                 }
                 operands
             }
-            Self::FunctionCall(function_call) => function_call.arguments.clone(),
-            Self::Call(call) => call.params.arguments.clone(),
+            Self::Call(call) => call
+                .params
+                .arguments
+                .clone()
+                .into_iter()
+                .chain(std::iter::once(call.function_operand))
+                .collect(),
             Self::Load(load) => {
                 vec![load.pointer]
             }
@@ -71,13 +74,6 @@ impl IrOperation for Operation {
             Self::Assignment(assignment) => vec![assignment.destination],
             Self::BinaryArithmetic(arithmetic) => vec![arithmetic.destination],
             Self::BinaryComparison(comparison) => vec![comparison.destination],
-            Self::FunctionCall(function_call) => {
-                if let Some(retval) = &function_call.return_value_to {
-                    vec![*retval]
-                } else {
-                    vec![]
-                }
-            }
             Self::Call(call) => {
                 let inner_function_call = &call;
                 if let Some(retval) = &inner_function_call.params.return_value_to {
@@ -101,13 +97,12 @@ impl IrOperation for Operation {
 }
 
 impl types::Inference for Operation {
-    fn infer_types(&mut self, ctx: &mut types::inference::Ctx) -> bool {
+    fn infer_types(&mut self, ctx: &mut types::inference::Ctx) -> types::inference::Output {
         match self {
             Self::Assignment(a) => a.infer_types(ctx),
             Self::BinaryArithmetic(ba) => ba.infer_types(ctx),
             Self::BinaryComparison(bc) => bc.infer_types(ctx),
             Self::Jump(j) => j.infer_types(ctx),
-            Self::FunctionCall(fc) => fc.infer_types(ctx),
             Self::Call(c) => c.infer_types(ctx),
             Self::Load(l) => l.infer_types(ctx),
             Self::Store(s) => s.infer_types(ctx),
@@ -126,7 +121,6 @@ impl fmt::Display for Operation {
             Self::BinaryArithmetic(arithmetic) => write!(f, "{arithmetic}"),
             Self::BinaryComparison(comparison) => write!(f, "{comparison}"),
             Self::Jump(jump) => write!(f, "{jump}"),
-            Self::FunctionCall(function_call) => write!(f, "{function_call}"),
             Self::Call(call) => write!(f, "{call}"),
             Self::Load(load) => write!(f, "{} = *{}", load.destination, load.pointer),
             Self::Store(store) => write!(f, "*{} = {}", store.pointer, store.source),
