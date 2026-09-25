@@ -17,7 +17,9 @@ fn convert_block_writes_to_ssa(
     for statement in block.statements_mut() {
         for write in statement.write_value_ids_mut() {
             match values.value_for_id(*write).unwrap().kind {
-                ir::value::ValueKind::Variable(_) | ir::value::ValueKind::Argument(_) => {
+                ir::value::ValueKind::Variable(_)
+                | ir::value::ValueKind::Argument(_)
+                | ir::value::ValueKind::Temporary(_) => {
                     *write = values
                         .make_unique_ssa_for(*write, frontend::here!())
                         .unwrap();

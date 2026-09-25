@@ -174,10 +174,10 @@ impl ControlFlow {
 
         for id in self.values.ids() {
             let value = self.values.ssa_value_for_id(id).unwrap();
-            value_names_by_id.insert(
-                id,
-                value.pretty_print(&self.values).replace(&format!("{parent_path}::"), "").replace(parent_path, ""),
-            );
+            let pretty = value
+                .pretty_print(&self.values)
+                .replace(&format!("{parent_path}::"), "");
+            value_names_by_id.insert(id, pretty);
         }
 
         let mut graphviz_string = String::from("digraph {\n");
@@ -207,7 +207,10 @@ impl ControlFlow {
                 for used in statement
                     .read_value_ids()
                     .into_iter()
-                    .chain(statement.write_value_ids())
+                    .chain(statement.write_value_ids()) // get all value IDs used in the statements
+                    .collect::<BTreeSet<ir::ValueId>>() // sort it
+                    .into_iter() // go from largest to smallest value ID to replace longer strings first
+                    .rev()
                 {
                     printed_statement = printed_statement
                         .replace(&format!("{used}"), value_names_by_id.get(&used).unwrap());

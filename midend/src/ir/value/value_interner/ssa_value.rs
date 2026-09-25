@@ -1,6 +1,6 @@
 use std::{fmt, hash};
 
-use crate::ir::value::{ValueInterner, ValueId, ValueKind};
+use crate::ir::value::{ValueId, ValueInterner, ValueKind};
 
 #[derive(Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum SsaValueKind {
@@ -42,8 +42,10 @@ impl<T> SsaValue<T> {
         Self { kind, ty, loc }
     }
 
-    pub(crate) fn pretty_print(&self, values: &ValueInterner<T>) -> String 
-    where T: Clone + Eq + Ord + hash::Hash{
+    pub(crate) fn pretty_print(&self, values: &ValueInterner<T>) -> String
+    where
+        T: Clone + Eq + Ord + hash::Hash,
+    {
         match &self.kind {
             SsaValueKind::Base(ValueKind::Argument(idx)) => format!("arg{idx}"),
             SsaValueKind::Base(ValueKind::Variable(path)) => format!("{path}"),
@@ -51,7 +53,14 @@ impl<T> SsaValue<T> {
             SsaValueKind::Base(ValueKind::StaticFunction(path)) => format!("{path}()"),
             SsaValueKind::Base(ValueKind::Constant(value)) => format!("{value}"),
             SsaValueKind::Instance { base_id, instance } => {
-                format!("{}.{}", values.ssa_value_for_id(*base_id).unwrap().pretty_print(values), instance)
+                format!(
+                    "{}.SSA{}",
+                    values
+                        .ssa_value_for_id(*base_id)
+                        .unwrap()
+                        .pretty_print(values),
+                    instance
+                )
             }
         }
     }

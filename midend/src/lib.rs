@@ -20,7 +20,8 @@ fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
                         let filepath = std::path::Path::new(&path_string);
                         std::fs::create_dir_all(filepath.parent().unwrap()).unwrap();
                         let mut file = std::fs::File::create(filepath).unwrap();
-                        file.write_all(cf.graphviz_string(&format!("Value {path}")).as_bytes()).unwrap();
+                        file.write_all(cf.graphviz_string(&format!("Value {path}")).as_bytes())
+                            .unwrap();
                     }
                 } else {
                     panic!();
@@ -64,7 +65,7 @@ pub fn symbol_table_from_modules(
     symtab = ir::lowering::lower_symtab(symtab, &types);
     ir::lowering::assert_lowered(&symtab);
 
-    functions_to_graphviz(&symtab, String::new());
+    functions_to_graphviz(&symtab, "_lowered".into());
 
     let types = types::infer_types(&symtab, types);
 
