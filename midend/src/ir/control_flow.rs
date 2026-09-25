@@ -169,7 +169,17 @@ impl ControlFlow {
     }
 
     #[allow(clippy::format_push_string)]
-    pub(crate) fn graphviz_string(&self) -> String {
+    pub(crate) fn graphviz_string(&self, parent_path: &str) -> String {
+        let mut value_names_by_id = HashMap::<ir::ValueId, String>::new();
+
+        for id in self.values.ids() {
+            let value = self.values.ssa_value_for_id(id).unwrap();
+            value_names_by_id.insert(
+                id,
+                value.pretty_print(&self.values).replace(&format!("{parent_path}::"), "").replace(parent_path, ""),
+            );
+        }
+
         let mut graphviz_string = String::from("digraph {\n");
 
         // WOW!
@@ -177,7 +187,7 @@ impl ControlFlow {
             .values
             .ids()
             .by_ref()
-            .map(|(value, id)| format!("{id}:{value:?}"))
+            .map(|id| format!("{id}:{:?}", self.values.ssa_value_for_id(id).unwrap()))
             .collect::<Vec<_>>()
             .join("\n");
         graphviz_string += &format!("values[label=\"{values_str}\"]");
@@ -193,7 +203,16 @@ impl ControlFlow {
 
             graphviz_string += &format!("{label}[label=\"{label}\n{block_loc}\n");
             for statement in block {
-                graphviz_string += &format!("{statement}\n");
+                let mut printed_statement = format!("{statement}\n");
+                for used in statement
+                    .read_value_ids()
+                    .into_iter()
+                    .chain(statement.write_value_ids())
+                {
+                    printed_statement = printed_statement
+                        .replace(&format!("{used}"), value_names_by_id.get(&used).unwrap());
+                }
+                graphviz_string += &printed_statement;
             }
             graphviz_string += "\"];\n";
 
@@ -283,6 +302,21 @@ impl ControlFlow {
         }
 
         block_order.is_empty()
+    }
+
+    pub(crate) fn blocks_postorder_mut_with_values(
+        &mut self,
+    ) -> (
+        impl Iterator<Item = &mut BasicBlock>,
+        &mut ir::ValueInterner<Option<types::Syntactic>>,
+    ) {
+        let rpo_stack = self.generate_reverse_postorder_stack();
+
+        let Self { blocks, values, .. } = self;
+
+        let postorder_mut = HashMapOOOIterMut::new(blocks, rpo_stack.into_iter().rev());
+
+        (postorder_mut.map(|(_label, block)| block), values)
     }
 }
 

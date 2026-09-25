@@ -11,7 +11,7 @@ pub(crate) mod types;
 fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
     let _ = symtab::Visitor::visit_with_starting_data(
         symtab,
-        |_symtab, _path, symbol, suffix| {
+        |_symtab, path, symbol, suffix| {
             if let symtab::SymbolDef::Value(symtab::Value::Function(f)) = symbol {
                 if let Some(cf) = &*f.control_flow.borrow() {
                     {
@@ -20,7 +20,7 @@ fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
                         let filepath = std::path::Path::new(&path_string);
                         std::fs::create_dir_all(filepath.parent().unwrap()).unwrap();
                         let mut file = std::fs::File::create(filepath).unwrap();
-                        file.write_all(cf.graphviz_string().as_bytes()).unwrap();
+                        file.write_all(cf.graphviz_string(&format!("Value {path}")).as_bytes()).unwrap();
                     }
                 } else {
                     panic!();
@@ -72,8 +72,9 @@ pub fn symbol_table_from_modules(
 
     dbg!(types);
 
-    //tracing::debug!("convert IR to SSA");
-    //ssa_gen::convert_functions_to_ssa(&mut symtab);
+    tracing::debug!("convert IR to SSA");
+    ssa_gen::convert_functions_to_ssa(&mut symtab);
+    functions_to_graphviz(&symtab, "_ssa".into());
 
     // optimization::optimize_functions(&mut symtab.functions);
 

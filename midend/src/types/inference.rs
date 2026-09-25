@@ -99,7 +99,8 @@ impl Ctx<'_> {
         ty: types::Syntactic,
     ) -> Result<Output, TypePropagationError> {
         let value = self.values.value_mut_for_id(value_id)?;
-        match value.ty_mut().replace(ty) {
+        // TODO: fix up API here
+        match value.ty.replace(ty) {
             None => Ok(Output::Continue(ContinueReason::Inferred(value_id))),
             Some(existing) => Err(TypePropagationError::AlreadyHasType(value_id, existing)),
         }
@@ -117,12 +118,13 @@ fn infer_types_for_function(
 
     let mut assign_types = HashMap::new();
 
-    for (value, id) in cf.values().ids() {
-        if value.ty().is_some() {
+    for id in cf.values().ids() {
+        let value = cf.values().value_for_id(id).unwrap();
+        if value.ty.is_some() {
             continue;
         }
 
-        match value.kind() {
+        match cf.values().kind_of(id).unwrap() {
             ir::ValueKind::Argument(idx) => {
                 assign_types.insert(id, f.prototype.arguments[*idx].type_().unwrap().clone());
             }

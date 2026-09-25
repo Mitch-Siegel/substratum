@@ -1,78 +1,37 @@
-use std::{collections::HashMap, fmt::Display};
-
-use crate::midend::{ir, symtab};
-
-#[derive(Debug)]
-struct SsaWriteConversionMetadata {
-    variables: HashMap<String, usize>,
-}
-
-impl Display for SsaWriteConversionMetadata {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut result: std::fmt::Result = write!(f, "Variables: {{");
-
-        for (variable, ssa_number) in &self.variables {
-            result = result.and(writeln!(f, "{}:{}", variable, ssa_number));
-        }
-
-        result
-    }
-}
-
-impl SsaWriteConversionMetadata {
-    pub(crate) fn new() -> Self {
-        Self {
-            variables: HashMap::new(),
-        }
-    }
-
-    pub(crate) fn next_number_for_variable(&mut self, operand_name: &ir::OperandName) -> usize {
-        let entry = self
-            .variables
-            .entry(operand_name.base_name.clone())
-            .or_insert(0);
-        let returned_write = *entry;
-        *entry += 1;
-
-        returned_write
-    }
-
-    pub(crate) fn next_number_for_string(&mut self, string: &str) -> usize {
-        let entry = self.variables.entry(String::from(string)).or_insert(0);
-        let returned_write = *entry;
-        *entry += 1;
-
-        returned_write
-    }
-}
+use crate::{ir, types};
 
 fn convert_block_writes_to_ssa(
     block: &mut ir::BasicBlock,
-    metadata: &mut SsaWriteConversionMetadata,
+    values: &mut ir::ValueInterner<Option<types::Syntactic>>,
 ) {
-    let old_args = block.arguments.clone();
-    block.arguments.clear();
+    // let old_args = block.arguments.clone();
+    // block.arguments.clear();
 
-    for argument in old_args.iter() {
-        let mut new_argument = argument.clone();
-        new_argument.ssa_number = Some(metadata.next_number_for_variable(argument));
-        block.arguments.insert(new_argument);
-    }
+    // for argument in &old_args {
+    //     let new_argument = values
+    //         .make_unique_ssa_for(*argument, frontend::here!())
+    //         .unwrap();
+    //     block.arguments.insert(new_argument);
+    // }
 
-    for statement in &mut block.statements {
-        for write in statement.write_operand_names_mut() {
-            write.ssa_number = Some(metadata.next_number_for_variable(write));
+    for statement in block.statements_mut() {
+        for write in statement.write_value_ids_mut() {
+            match values.value_for_id(*write).unwrap().kind {
+                ir::value::ValueKind::Variable(_) | ir::value::ValueKind::Argument(_) => {
+                    *write = values
+                        .make_unique_ssa_for(*write, frontend::here!())
+                        .unwrap();
+                }
+                _ => (),
+            }
         }
     }
 }
 
-pub(crate) fn convert_writes_to_ssa(function: &mut symtab::Function) {
-    let mut write_conversion_metadata = SsaWriteConversionMetadata::new();
-    for argument in &function.prototype.arguments {
-        write_conversion_metadata.next_number_for_string(argument.name.as_str());
-    }
+pub(crate) fn convert_writes_to_ssa(cf: &mut ir::ControlFlow) {
+    let (blocks, values) = cf.blocks_postorder_mut_with_values();
 
-    for (_, block) in function.control_flow.blocks_postorder_mut() {
-        convert_block_writes_to_ssa(block, &mut write_conversion_metadata)
+    for block in blocks {
+        convert_block_writes_to_ssa(block, values);
     }
 }

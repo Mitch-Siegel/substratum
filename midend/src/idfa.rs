@@ -3,4 +3,5 @@ mod idfa_base;
 pub(crate) mod live_vars;
 pub(crate) mod reaching_defs;
 
+pub(crate) use block_args::BlockArgs;
 pub(crate) use idfa_base::{Facts, IdfaImplementor};

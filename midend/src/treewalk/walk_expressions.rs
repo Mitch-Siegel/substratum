@@ -46,13 +46,11 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         let (value, ctx) = match self {
             Self::PathIn(path) => path.linearize(ctx)?,
             Self::UnsignedDecimalConstant(_, constant) => (
-                ctx.values_mut()
-                    .id_for_constant(
-                        constant,
-                        #[cfg(feature = "value_locs")]
-                        frontend::here!(),
-                    )
-                    .to_owned(),
+                ctx.values_mut().id_for_constant(
+                    constant,
+                    #[cfg(feature = "value_locs")]
+                    frontend::here!(),
+                ),
                 ctx,
             ),
             Self::Arithmetic(arith) => {

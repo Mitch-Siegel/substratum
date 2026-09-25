@@ -208,9 +208,26 @@ impl IrLine {
             Operation::Unlowered(unlowered) => unlowered.write_value_ids(),
         }
     }
+
+    pub(crate) fn read_value_ids_mut(&mut self) -> Vec<&mut ValueId> {
+        match &mut self.operation {
+            Operation::Lowered(lowered) => lowered.read_value_ids_mut(),
+            Operation::Unlowered(unlowered) => unlowered.read_value_ids_mut(),
+        }
+    }
+
+    pub(crate) fn write_value_ids_mut(&mut self) -> Vec<&mut ValueId> {
+        match &mut self.operation {
+            Operation::Lowered(lowered) => lowered.write_value_ids_mut(),
+            Operation::Unlowered(unlowered) => unlowered.write_value_ids_mut(),
+        }
+    }
 }
 
 pub(crate) trait IrOperation: types::Inference {
     fn read_value_ids(&self) -> Vec<ValueId>;
     fn write_value_ids(&self) -> Vec<ValueId>;
+
+    fn read_value_ids_mut(&mut self) -> Vec<&mut ValueId>;
+    fn write_value_ids_mut(&mut self) -> Vec<&mut ValueId>;
 }

@@ -44,7 +44,7 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
             ir::lowered::operands::JumpCondition::Conditional(
                 ir::lowered::operands::BinaryComparisonOperands::new(
                     condition,
-                    *ctx.values_mut().id_for_constant(
+                    ctx.values_mut().id_for_constant(
                         0,
                         #[cfg(feature = "value_locs")]
                         frontend::here!(),

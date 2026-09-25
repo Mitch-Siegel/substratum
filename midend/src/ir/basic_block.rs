@@ -48,6 +48,10 @@ impl BasicBlock {
         self.statements.iter()
     }
 
+    pub(crate) fn statements_mut(&mut self) -> impl Iterator<Item = &mut IrLine> {
+        self.statements.iter_mut()
+    }
+
     pub(crate) fn len(&self) -> usize {
         self.statements.len()
     }

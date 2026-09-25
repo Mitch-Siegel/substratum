@@ -42,7 +42,7 @@ impl IrOperation for Operation {
                 match &jump.condition {
                     lowered::operands::JumpCondition::Conditional(condition) => {
                         operands.push(condition.sources.lhs);
-                        operands.push(condition.sources.lhs);
+                        operands.push(condition.sources.rhs);
                     }
                     lowered::operands::JumpCondition::Unconditional => {}
                 }
@@ -88,6 +88,73 @@ impl IrOperation for Operation {
             }
             Self::Store(store) => {
                 vec![store.pointer]
+            }
+            Self::Jump(_) | Self::Switch(_) => {
+                vec![]
+            }
+        }
+    }
+
+    fn read_value_ids_mut(&mut self) -> Vec<&mut ValueId> {
+        match self {
+            Self::Assignment(source_dest) => vec![&mut source_dest.source],
+            Self::BinaryArithmetic(arithmetic) => {
+                let sources = &mut arithmetic.arithmetic.sources;
+                vec![&mut sources.lhs, &mut sources.rhs]
+            }
+            Self::BinaryComparison(comparison) => {
+                let sources = &mut comparison.comparison.sources;
+                vec![&mut sources.lhs, &mut sources.rhs]
+            }
+            Self::Jump(jump) => {
+                let mut operands = Vec::new();
+                match &mut jump.condition {
+                    lowered::operands::JumpCondition::Conditional(condition) => {
+                        operands.push(&mut condition.sources.lhs);
+                        operands.push(&mut condition.sources.rhs);
+                    }
+                    lowered::operands::JumpCondition::Unconditional => {}
+                }
+                for arg in jump.block_args.values_mut() {
+                    operands.push(arg);
+                }
+                operands
+            }
+            Self::Call(call) => call
+                .params
+                .arguments
+                .iter_mut()
+                .chain(std::iter::once(&mut call.function_operand))
+                .collect(),
+            Self::Load(load) => {
+                vec![&mut load.pointer]
+            }
+            Self::Store(store) => {
+                vec![&mut store.source]
+            }
+            Self::ComputeFieldAddress(field_address) => vec![&mut field_address.receiver],
+            Self::Switch(switch) => vec![&mut switch.scrutinee],
+        }
+    }
+
+    fn write_value_ids_mut(&mut self) -> Vec<&mut ValueId> {
+        match self {
+            Self::Assignment(assignment) => vec![&mut assignment.destination],
+            Self::BinaryArithmetic(arithmetic) => vec![&mut arithmetic.destination],
+            Self::BinaryComparison(comparison) => vec![&mut comparison.destination],
+            Self::Call(call) => {
+                if let Some(retval) = &mut call.params.return_value_to {
+                    vec![retval]
+                } else {
+                    vec![]
+                }
+            }
+            Self::ComputeFieldAddress(field_address) => vec![&mut field_address.receiver],
+            Self::Load(load) => {
+                vec![&mut load.destination]
+            }
+            Self::Store(store) => {
+                vec![&mut store.pointer]
             }
             Self::Jump(_) | Self::Switch(_) => {
                 vec![]

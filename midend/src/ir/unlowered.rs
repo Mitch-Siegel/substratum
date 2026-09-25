@@ -53,11 +53,19 @@ impl std::fmt::Display for Operation {
 
 impl Operation {
     pub(crate) fn read_value_ids(&self) -> Vec<ValueId> {
-        vec![]
+        unreachable!();
     }
 
     pub(crate) fn write_value_ids(&self) -> Vec<ValueId> {
-        vec![]
+        unreachable!();
+    }
+
+    pub(crate) fn read_value_ids_mut(&self) -> Vec<&mut ValueId> {
+        unreachable!();
+    }
+
+    pub(crate) fn write_value_ids_mut(&self) -> Vec<&mut ValueId> {
+        unreachable!();
     }
 }
 

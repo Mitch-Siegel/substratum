@@ -100,7 +100,7 @@ impl std::fmt::Display for ReachingDefs<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for block in self.idfa.blocks() {
             let label = block.label;
-            let facts = self.idfa.facts.for_label(label).unwrap();
+            let facts = self.idfa.facts.for_label(label);
             write!(f, "{label}:")?;
 
             write!(f, "\tGEN:")?;
