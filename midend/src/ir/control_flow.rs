@@ -201,7 +201,7 @@ impl ControlFlow {
                 .next()
                 .unwrap_or(&loc_none);
 
-            graphviz_string += &format!("{label}[label=\"{label}\n{block_loc}\n");
+            graphviz_string += &format!("{label}[label=\"{label}\nloc:{block_loc}\n");
             for statement in block {
                 let mut printed_statement = format!("{statement}\n");
                 for used in statement

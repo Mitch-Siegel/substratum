@@ -7,6 +7,7 @@ use crate::{
 
 pub(crate) type Fact = ir::ValueId;
 pub(crate) type BlockFacts = idfa_base::BlockFacts<Fact>;
+#[allow(unused)]
 pub(crate) type Facts = idfa_base::Facts<Fact>;
 
 pub(crate) struct BlockArgs<'a> {

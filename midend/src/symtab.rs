@@ -428,6 +428,7 @@ pub struct SymbolTable {
     symbols: BTreeMap<RawPath, Option<SymbolDef>>,
     children: BTreeMap<RawPath, HashSet<RawPath>>,
     // mapping from type definitions to implementations that match them
+    #[allow(unused)]
     impls: BTreeMap<TypePath, HashSet<ImplPath>>,
     use_declarations: BTreeMap<RawPath, BTreeSet<UseDeclaration>>,
 }

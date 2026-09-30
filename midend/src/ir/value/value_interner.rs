@@ -79,10 +79,6 @@ impl ValueInterner<Option<types::Syntactic>> {
         val: ValueId,
         ty: types::Syntactic,
     ) -> Result<(), ValueError> {
-        dbg!(
-            "assign type {ty} to id {val}, which currently has {:?}",
-            self.value_mut_for_id(val)
-        );
         match self.value_mut_for_id(val)?.ty.replace(ty) {
             Some(_existing_type) => Err(ValueError::IdAlreadyHasType(val)),
             None => Ok(()),

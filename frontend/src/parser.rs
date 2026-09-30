@@ -104,9 +104,9 @@ impl<'a> Parser<'a> {
             .upcoming_tokens
             .pop_front()
             .unwrap_or((Token::Eof, self.lexer.current_loc().into()));
-        self.last_match = start_loc;
         #[cfg(feature = "loud_parsing")]
-        self.annotate_parsing(&format!("Parser::next_token() -> {}@{}", next, start_loc));
+        self.annotate_parsing(&format!("Parser::next_token() -> {next}@{start_loc}"));
+        self.last_match = start_loc;
         Ok(next)
     }
 
@@ -118,7 +118,7 @@ impl<'a> Parser<'a> {
             .unwrap_or((Token::Eof, self.lexer.current_loc().into()));
         self.last_match = next.1.clone();
         #[cfg(feature = "loud_parsing")]
-        self.annotate_parsing(&format!("Parser::next_token() -> {}@{}", next, start_loc));
+        self.annotate_parsing(&format!("Parser::next_token() -> {}@{}", next.0, next.1));
         Ok(next)
     }
 
@@ -192,17 +192,18 @@ impl<'a> Parser<'a> {
         Ok((start_loc, exit_on_drop_span))
     }
 
-    // FUTURE: is putting everything in a box really the right choice?
-    // allow for ergonomics: just stick this at the bottom of parsing functions that return results
     #[allow(clippy::unnecessary_wraps)]
     fn finish_parsing<T>(&mut self, parsed: T) -> Result<T, ParseError>
     where
         T: std::fmt::Debug,
     {
-        let (_parse_start, parsed_description) = self
+        let tracked_parse = self
             .parsing_stack
             .pop()
             .expect("Mismatched loud parsing tracking");
+
+        let parsed_description = &tracked_parse.1;
+
         trace::event!(
             trace::Level::DEBUG,
             "Finish parsing {}: {:?}",
@@ -213,11 +214,11 @@ impl<'a> Parser<'a> {
         #[cfg(feature = "loud_parsing")]
         {
             let annotation_string = format!(
-                "Done parsing {} ({}-{}): {}",
-                _parsed_description,
-                _parse_start,
+                "Done parsing {} ({}-{}): {:?}",
+                parsed_description,
+                tracked_parse.0,
                 self.peek_token_with_loc()?.1,
-                _parsed
+                parsed
             );
 
             self.annotate_parsing(&annotation_string);
@@ -232,7 +233,7 @@ impl<'a> Parser<'a> {
             print!("\t");
         }
 
-        println!("{}", output);
+        println!("{output}");
     }
 }
 
