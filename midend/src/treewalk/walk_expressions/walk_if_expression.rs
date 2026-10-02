@@ -31,6 +31,8 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         // FUTURE: optimize condition walk to use different jumps
         let condition_loc = self.condition.loc();
         let if_loc = self.loc();
+        let after_loc = self.loc().end();
+
         let condition_value;
         (condition_value, ctx) = self.condition.linearize(ctx)?;
 
@@ -47,15 +49,31 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         );
 
         let parent_scope_def_path = ctx.path().clone();
-        let true_scope_def_path = ctx.reserve_subscope();
-        let false_scope_def_path = ctx.reserve_subscope();
+
+        let true_data =
+            ir::block_manager::BranchTarget::new(if_loc.start(), ctx.reserve_subscope());
+
+        // only generate false data if a false block actually exists
+        let false_data = if let Some(f) = self.false_block.as_ref() {
+            ir::block_manager::BranchTarget::new(f.loc().start(), ctx.reserve_subscope())
+        } else {
+            // TODO: remove me when we can pass options to conditional branch functions for branches with no false
+            ir::block_manager::BranchTarget::new(
+                frontend::sourceloc::SourceLoc::new(
+                    String::new(),
+                    frontend::sourceloc::SourcePoint::new(0, 0),
+                ),
+                ctx.reserve_subscope(),
+            )
+        };
 
         ctx.conditional_branch_from_current(
-            condition_loc.clone().start(),
+            condition_loc.start(),
+            true_data,
+            false_data,
+            after_loc, // TODO: this will artificially capture the close brace as included in the range of "after". How to cleanly mitigate?
             if_condition,
             parent_scope_def_path,
-            true_scope_def_path,
-            false_scope_def_path,
         );
 
         let true_loc = self.true_block.loc();
@@ -65,8 +83,8 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         // create a separate, mutable value which contains the true result
         let mut result_value = if_value_id;
 
-        // if a false block exists
-        if self.false_block.is_some() {
+        // handle branch linearization and assignment to the result value
+        if let Some(else_block) = self.false_block {
             // we need to copy the 'if' result to the common result_value at the end of the 'if' block
             result_value = ctx.values_mut().next_temp(
                 #[cfg(feature = "value_locs")]
@@ -75,12 +93,7 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
             let assign_if_result_line =
                 ir::IrLine::new_assignment(true_loc.start(), result_value, if_value_id);
             ctx.append_statement_to_current_block(assign_if_result_line);
-        }
-
-        ctx.finish_true_branch_switch_to_false(condition_loc.start());
-
-        // handle branch linearization and assignment to the result value
-        if let Some(else_block) = self.false_block {
+            ctx.finish_true_branch_switch_to_false(condition_loc.start());
             let else_loc = else_block.loc();
             let else_value_id;
             (else_value_id, ctx) = else_block.linearize(ctx)?;

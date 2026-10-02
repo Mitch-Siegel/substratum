@@ -99,7 +99,7 @@ fn _create_enum_variant_constructor(
     _enum_name: &str,
     variant_name: &str,
     arg_types: Vec<types::Syntactic>,
-    loc: &sourceloc::SourceLoc,
+    loc: &sourceloc::SourceLoc, // TODO: should be a span? to get start/end for blockmanager stuff?
 ) {
     // create variables for each argument, named by index
     let args: Vec<symtab::values::Variable> = arg_types
@@ -125,7 +125,8 @@ fn _create_enum_variant_constructor(
     ctx.declare_value(String::from(variant_name))
         .expect("Duplicate enum variant constructor");
 
-    let (mut block_mgr, current_block) = ir::BlockManager::new(&ctor_function_path);
+    let (mut block_mgr, current_block) =
+        ir::BlockManager::new(&ctor_function_path, loc.clone(), loc.clone());
 
     // define a variable for the object we are building
     let constructed_object =
@@ -178,7 +179,7 @@ fn _create_enum_variant_constructor(
     }
 
     let ctor_function =
-        symtab::values::Function::new(prototype, Some(block_mgr.take(current_block)));
+        symtab::values::Function::new(prototype, Some(block_mgr.take(current_block, loc.clone())));
 
     ctx.define_value(symtab::Value::Function(Box::new(ctor_function)))
         .unwrap();

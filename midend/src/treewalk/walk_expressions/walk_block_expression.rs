@@ -31,6 +31,8 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         let true_scope_def_path = ctx.reserve_subscope();
         ctx.unconditional_branch_from_current(
             self.open_brace_loc.start(),
+            // TODO: this will artifically capture the close brace as included in the range of "after". How to cleanly mitigate?
+            self.close_brace_loc.end(),
             parent_def_path,
             true_scope_def_path,
         );

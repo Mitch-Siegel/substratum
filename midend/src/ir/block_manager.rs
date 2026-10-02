@@ -14,16 +14,19 @@ mod branch_error;
 mod convergence_error;
 
 use block_convergences::BlockConvergences;
+
 pub(crate) use block_convergences::ConvergenceResult;
+pub(crate) use branch::{BranchDesc, BranchTarget};
 pub(crate) use branch_error::BranchError;
 pub(crate) use convergence_error::ConvergenceError;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum BranchKind {
     Unconditional,
-    ConditionalTrue(Box<BasicBlock>), // currently on the true branch of a conditional. Owns the
-    // block targeted by the false branch
-    ConditionalFalse, // currently on the false branch of a conditional
+    ConditionalTrue(Box<BasicBlock>),
+    // currently on the true branch of a conditional. Owns the
+    // block targeted by the false branch (if one should exist)
+    ConditionalFalse, // currently on the false branch of a conditional, came from a true branch
     Switch(usize),    // within a switch but not one of its cases - owns the label of the switch
     // block
     SwitchCase(usize), // within a switch and inside one of its cases - owns the
@@ -61,12 +64,16 @@ pub(crate) struct BlockManager {
 impl BlockManager {
     // returns (Self, start_block)
     // where start_block is the first basic block in the function
-    pub(crate) fn new(parent_def_path: &symtab::ValuePath) -> (Self, usize) {
+    pub(crate) fn new(
+        parent_def_path: &symtab::ValuePath,
+        start_loc: sourceloc::SourceLoc,
+        end_loc: sourceloc::SourceLoc,
+    ) -> (Self, usize) {
         // set up the initlal convergence - must always end up at the end_block
         let start_block_path = parent_def_path.clone().with_scope(symtab::ScopeId(0));
         let end_block_path = parent_def_path.clone().with_scope(symtab::ScopeId(1));
-        let start_block = BasicBlock::new(0, start_block_path);
-        let end_block = BasicBlock::new(1, end_block_path);
+        let start_block = BasicBlock::new(0, start_block_path, start_loc);
+        let end_block = BasicBlock::new(1, end_block_path, end_loc);
         let mut convergences = BlockConvergences::new();
         convergences.add(&[start_block.label], end_block).unwrap();
 
@@ -83,8 +90,12 @@ impl BlockManager {
         )
     }
 
-    pub(crate) fn take(mut self, before_final_block: usize) -> ControlFlow {
-        match self.converge_with_jump(before_final_block, sourceloc::SourceLoc::none()) {
+    pub(crate) fn take(
+        mut self,
+        before_final_block: usize,
+        loc: sourceloc::SourceLoc,
+    ) -> ControlFlow {
+        match self.converge_with_jump(before_final_block, loc) {
             Ok(ConvergenceResult::Done(block)) => {
                 self.blocks.insert(block.label, block);
             }

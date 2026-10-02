@@ -141,6 +141,8 @@ impl Lexer<'_> {
             } else {
                 self.cur_col += 1;
             }
+            assert_ne!(self.cur_line, 0);
+            assert_ne!(self.cur_col, 0);
         }
         self.current_char = self.char_source.next();
     }

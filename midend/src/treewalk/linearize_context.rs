@@ -251,9 +251,10 @@ pub(crate) type FunctionLinearizeCtx = PathedCtx<UnpathedFunctionLinearizeCtx, s
 impl FunctionLinearizeCtx {
     pub(crate) fn finalize(
         self,
+        loc: sourceloc::SourceLoc,
         return_value_id: ir::ValueId,
     ) -> treewalk::LinearizeResult<symtab::values::Function, UnpathedLinearizeCtx> {
-        self.unpathed.finalize(&self.path, return_value_id)
+        self.unpathed.finalize(&self.path, loc, return_value_id)
     }
 }
 
@@ -300,33 +301,41 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
 
     pub(crate) fn conditional_branch_from_current(
         &mut self,
-        loc: sourceloc::SourceLoc,
+        branch_loc: sourceloc::SourceLoc,
+        true_data: ir::block_manager::BranchTarget,
+        false_data: ir::block_manager::BranchTarget, // TODO: make this an option to support true-only branch conditioning
+        after_loc: sourceloc::SourceLoc,
         condition: ir::lowered::JumpCondition,
         parent_scope_def_path: symtab::ScopePath,
-        true_scope_def_path: symtab::ScopePath,
-        false_scope_def_path: symtab::ScopePath,
     ) {
         self.unpathed
             .function_mut()
             .conditional_branch_from_current(
-                loc,
+                branch_loc,
+                true_data,
+                false_data,
+                after_loc,
                 condition,
                 parent_scope_def_path,
-                true_scope_def_path,
-                false_scope_def_path,
             );
     }
 
     pub(crate) fn unconditional_branch_from_current(
         &mut self,
-        loc: sourceloc::SourceLoc,
+        branch_loc: sourceloc::SourceLoc,
+        after_loc: sourceloc::SourceLoc,
         parent_def_path: symtab::ScopePath,
         true_scope_def_path: symtab::ScopePath,
     ) {
         // TODO: implicitly handle path here
         self.unpathed
             .function_mut()
-            .unconditional_branch_from_current(loc, parent_def_path, true_scope_def_path);
+            .unconditional_branch_from_current(
+                branch_loc,
+                after_loc,
+                parent_def_path,
+                true_scope_def_path,
+            );
     }
 
     pub(crate) fn finish_true_branch_switch_to_false(&mut self, loc: sourceloc::SourceLoc) {
@@ -349,12 +358,13 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
     pub(crate) fn create_switch(
         &mut self,
         loc: sourceloc::SourceLoc,
+        after_loc: sourceloc::SourceLoc,
         parent_scope_def_path: symtab::ScopePath,
         switch_scope_def_path: symtab::ScopePath,
     ) {
         self.unpathed
             .function_mut()
-            .create_switch(loc, parent_scope_def_path, switch_scope_def_path)
+            .create_switch(loc, after_loc, parent_scope_def_path, switch_scope_def_path)
             .unwrap();
     }
 
@@ -362,10 +372,14 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
         self.unpathed.function_mut().finish_switch(loc).unwrap();
     }
 
-    pub(crate) fn create_switch_case(&mut self, case_scope_def_path: symtab::ScopePath) -> usize {
+    pub(crate) fn create_switch_case(
+        &mut self,
+        case_scope_def_path: symtab::ScopePath,
+        loc: sourceloc::SourceLoc,
+    ) -> usize {
         self.unpathed
             .function_mut()
-            .create_switch_case(case_scope_def_path)
+            .create_switch_case(case_scope_def_path, loc)
             .unwrap()
     }
 
@@ -379,12 +393,22 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
     pub(crate) fn create_loop(
         &mut self,
         loc: sourceloc::SourceLoc,
+        top_loc: sourceloc::SourceLoc,
+        bottom_loc: sourceloc::SourceLoc,
+        after_loc: sourceloc::SourceLoc,
         parent_scope_def_path: symtab::ScopePath,
         loop_scope_def_path: symtab::ScopePath,
     ) -> usize {
         self.unpathed
             .function_mut()
-            .create_loop(loc, parent_scope_def_path, loop_scope_def_path)
+            .create_loop(
+                loc,
+                top_loc,
+                bottom_loc,
+                after_loc,
+                parent_scope_def_path,
+                loop_scope_def_path,
+            )
             .unwrap()
     }
 

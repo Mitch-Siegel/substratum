@@ -129,7 +129,7 @@ impl<'a> Parser<'a> {
         let (current_parse_start_loc, current_parse_string) = self
             .parsing_stack
             .last()
-            .unwrap_or(&(SourceLoc::none(), String::from("UNKNOWN")))
+            .expect("nothing tracked as currently being parsed")
             .to_owned();
 
         let (upcoming_token, upcoming_loc) = self.peek_token_with_loc()?;
@@ -152,7 +152,7 @@ impl<'a> Parser<'a> {
         let (current_parse_start_loc, current_parse_string) = self
             .parsing_stack
             .last()
-            .unwrap_or(&(SourceLoc::none(), String::from("UNKNOWN")))
+            .expect("nothing tracked as currently being parsed")
             .to_owned();
 
         let (upcoming_token, upcoming_loc) = match self.peek_token_with_loc() {

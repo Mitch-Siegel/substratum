@@ -26,6 +26,8 @@ impl UnpathedFunctionLinearizeCtx {
         prototype: symtab::values::function::FunctionPrototype,
         // def_path: symtab::ValuePath,
         arg_def_paths: &Vec<symtab::ValuePath>,
+        start_loc: sourceloc::SourceLoc,
+        end_loc: sourceloc::SourceLoc,
     ) -> Self {
         let function_path = ctx.path().clone().with_child_value(prototype.name.clone());
         let base = ctx.into_result(()).unwrap().1;
@@ -33,7 +35,7 @@ impl UnpathedFunctionLinearizeCtx {
         Self {
             base,
             function_path: function_path.clone(),
-            function: WipFunction::new(prototype, function_path, arg_def_paths),
+            function: WipFunction::new(prototype, function_path, arg_def_paths, start_loc, end_loc),
         }
     }
 
@@ -68,6 +70,7 @@ impl UnpathedFunctionLinearizeCtx {
     pub(crate) fn finalize<P>(
         self,
         path: &P,
+        loc: sourceloc::SourceLoc,
         _return_value_id: ir::ValueId,
     ) -> treewalk::LinearizeResult<symtab::values::Function, UnpathedLinearizeCtx>
     where
@@ -79,7 +82,7 @@ impl UnpathedFunctionLinearizeCtx {
             Into::<symtab::RawPath>::into(path.clone().split_last().0.unwrap())
         );
 
-        let function = self.function.finish().unwrap();
+        let function = self.function.finish(loc).unwrap();
 
         Ok((function, self.base))
     }
@@ -135,8 +138,11 @@ impl WipFunction {
         prototype: symtab::values::FunctionPrototype,
         def_path: symtab::ValuePath,
         arg_def_paths: &Vec<symtab::ValuePath>,
+        start_loc: sourceloc::SourceLoc,
+        end_loc: sourceloc::SourceLoc,
     ) -> Self {
-        let (block_manager, start_block_label) = ir::BlockManager::new(&def_path);
+        let (block_manager, start_block_label) =
+            ir::BlockManager::new(&def_path, start_loc, end_loc);
 
         Self {
             prototype,
@@ -215,20 +221,22 @@ impl WipFunction {
     // block to the target. Inserts the current block (before call) into the current scope
     pub(crate) fn unconditional_branch_from_current(
         &mut self,
-        loc: sourceloc::SourceLoc,
+        branch_loc: sourceloc::SourceLoc,
+        after_loc: sourceloc::SourceLoc,
         parent_scope_def_path: symtab::ScopePath,
         true_scope_def_path: symtab::ScopePath,
     ) {
         trace::debug!("create unconditional branch from current block");
 
+        let desc = ir::block_manager::BranchDesc {
+            from: self.current_block,
+            loc: branch_loc,
+            after: after_loc,
+        };
+
         let branched_to_block = self
             .block_manager
-            .create_unconditional_branch(
-                self.current_block,
-                loc,
-                parent_scope_def_path,
-                true_scope_def_path,
-            )
+            .create_unconditional_branch(desc, parent_scope_def_path, true_scope_def_path)
             .unwrap();
 
         self.replace_current_block(branched_to_block);
@@ -239,40 +247,64 @@ impl WipFunction {
     // creates a new subscope for the true branch
     pub(crate) fn conditional_branch_from_current(
         &mut self,
-        loc: sourceloc::SourceLoc,
+        // TODO: this is getting a bit out of hand
+        branch_loc: sourceloc::SourceLoc,
+        true_data: ir::block_manager::BranchTarget,
+        false_data: ir::block_manager::BranchTarget, // TODO: make this an option to support true-only branch conditioning
+        after_loc: sourceloc::SourceLoc,
         condition: ir::lowered::operands::JumpCondition,
         parent_scope_def_path: symtab::ScopePath,
-        true_scope_def_path: symtab::ScopePath,
-        false_scope_def_path: symtab::ScopePath,
     ) {
         trace::debug!("create conditional branch from current block");
+
+        let desc = ir::block_manager::BranchDesc {
+            from: self.current_block,
+            loc: branch_loc,
+            after: after_loc,
+        };
 
         let true_block = self
             .block_manager
             .create_conditional_branch(
-                self.current_block,
-                loc,
+                desc,
                 condition,
+                true_data,
+                false_data,
                 parent_scope_def_path,
-                true_scope_def_path,
-                false_scope_def_path,
             )
             .unwrap();
 
         self.replace_current_block(true_block);
     }
 
+    /// # Arguments
+    /// * `loc` - the source location at which the entire loop starts
+    /// * `top_loc` - the source location at which the top of the body of the loop starts
+    /// * `bottom_loc` - the source location at which the body of the loop ends
+    /// * `after_loc` - the first source location after the loop
+    /// * `parent_scope_def_path` - defpath of the scope which owns the loop (narrowest declaration scope which the condition check may reference)
+    /// * `loop_scope_def_path` - defpath of the scope which owns the body of the loop, the widest into which body declarations will be made
     pub(crate) fn create_loop(
         &mut self,
         loc: sourceloc::SourceLoc,
+        top_loc: sourceloc::SourceLoc,
+        bottom_loc: sourceloc::SourceLoc,
+        after_loc: sourceloc::SourceLoc,
         parent_scope_def_path: symtab::ScopePath,
         loop_scope_def_path: symtab::ScopePath,
     ) -> Result<usize, ir::block_manager::BranchError> {
         trace::debug!("create loop");
 
-        let (loop_top_block, after_loop_label) = self.block_manager.create_loop(
-            self.current_block,
+        let desc = ir::block_manager::BranchDesc {
+            from: self.current_block,
             loc,
+            after: after_loc,
+        };
+
+        let (loop_top_block, after_loop_label) = self.block_manager.create_loop(
+            desc,
+            top_loc,
+            bottom_loc,
             parent_scope_def_path,
             loop_scope_def_path,
         )?;
@@ -303,15 +335,19 @@ impl WipFunction {
     pub(crate) fn create_switch(
         &mut self,
         loc: sourceloc::SourceLoc,
+        after_loc: sourceloc::SourceLoc,
         parent_scope_def_path: symtab::ScopePath,
         switch_scope_def_path: symtab::ScopePath,
     ) -> Result<(), ir::block_manager::BranchError> {
-        let switch_block = self.block_manager.create_switch(
-            self.current_block,
+        let desc = ir::block_manager::BranchDesc {
+            from: self.current_block,
             loc,
-            parent_scope_def_path,
-            switch_scope_def_path,
-        )?;
+            after: after_loc,
+        };
+
+        let switch_block =
+            self.block_manager
+                .create_switch(desc, parent_scope_def_path, switch_scope_def_path)?;
 
         self.replace_current_block(switch_block);
 
@@ -322,10 +358,11 @@ impl WipFunction {
     pub(crate) fn create_switch_case(
         &mut self,
         case_scope_def_path: symtab::ScopePath,
+        loc: sourceloc::SourceLoc,
     ) -> Result<usize, ir::block_manager::BranchError> {
-        let case_label = self
-            .block_manager
-            .create_switch_case(self.current_block, case_scope_def_path)?;
+        let case_label =
+            self.block_manager
+                .create_switch_case(self.current_block, case_scope_def_path, loc)?;
 
         let _ = self.replace_current_block(case_label);
 
@@ -377,10 +414,13 @@ impl WipFunction {
         }
     }
 
-    pub(crate) fn finish(self) -> Result<symtab::values::Function, ir::block_manager::BranchError> {
+    pub(crate) fn finish(
+        self,
+        loc: sourceloc::SourceLoc,
+    ) -> Result<symtab::values::Function, ir::block_manager::BranchError> {
         self.block_manager.ensure_finished()?;
 
-        let cf = self.block_manager.take(self.current_block);
+        let cf = self.block_manager.take(self.current_block, loc);
 
         Ok(symtab::values::Function::new(self.prototype, Some(cf)))
     }

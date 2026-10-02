@@ -5,18 +5,15 @@ use serde::{Deserialize, Serialize};
 #[derive(
     Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]
-pub(crate) struct SourcePoint {
-    pub line: u32,
-    pub col: u32,
+pub struct SourcePoint {
+    line: u32,
+    col: u32,
 }
 
 impl SourcePoint {
-    pub(crate) fn new(line: u32, col: u32) -> Self {
+    #[must_use]
+    pub fn new(line: u32, col: u32) -> Self {
         Self { line, col }
-    }
-
-    pub(crate) fn valid(self) -> bool {
-        self.line != 0 && self.col != 0
     }
 }
 
@@ -33,23 +30,9 @@ pub struct SourceLoc {
 }
 
 impl SourceLoc {
-    // TODO: this is a smell. just use options elsewhere instead of constructing none/invalid points
     #[must_use]
-    pub fn none() -> Self {
-        Self {
-            file: String::new(),
-            point: SourcePoint::default(),
-        }
-    }
-
-    pub(crate) fn new(file: String, point: SourcePoint) -> Self {
+    pub fn new(file: String, point: SourcePoint) -> Self {
         Self { file, point }
-    }
-
-    // TODO: this is a smell. just use options elsewhere instead of constructing none/invalid points
-    #[must_use]
-    pub fn valid(&self) -> bool {
-        !self.file.is_empty() && self.point.valid()
     }
 }
 
@@ -87,12 +70,22 @@ impl SourceSpan {
     }
 
     #[must_use]
-    pub fn start(self) -> SourceLoc {
+    pub fn start(&self) -> SourceLoc {
+        SourceLoc::new(self.file.clone(), self.start)
+    }
+
+    #[must_use]
+    pub fn end(&self) -> SourceLoc {
+        SourceLoc::new(self.file.clone(), self.end)
+    }
+
+    #[must_use]
+    pub fn into_start(self) -> SourceLoc {
         SourceLoc::new(self.file, self.start)
     }
 
     #[must_use]
-    pub fn end(self) -> SourceLoc {
+    pub fn into_end(self) -> SourceLoc {
         SourceLoc::new(self.file, self.end)
     }
 
@@ -109,6 +102,17 @@ impl SourceSpan {
         self.start = SourcePoint::min(self.start, other.start);
         self.end = SourcePoint::max(self.end, other.end);
         Ok(self)
+    }
+
+    /// # Panics
+    /// 1. when `point` comes from a different file than `self`
+    /// 2. when `point` is before the span
+    /// 3. when `point` is within the span (does not extend the end of the span)
+    pub fn extend(&mut self, loc: &SourceLoc) {
+        assert_eq!(&self.file, &loc.file);
+        assert!(self.start >= loc.point);
+        assert!(self.end <= loc.point);
+        self.end = SourcePoint::max(self.end, loc.point);
     }
 }
 

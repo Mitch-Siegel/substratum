@@ -118,6 +118,7 @@ where
         self,
         mut ctx: PathedCtx<UnpathedLinearizeCtx, P>,
     ) -> LinearizeResult<Self::Data, UnpathedLinearizeCtx> {
+        let span = self.loc();
         let declared_prototype;
         (declared_prototype, ctx) = self.prototype.linearize(ctx)?;
         let function_name = declared_prototype.name.clone();
@@ -129,13 +130,18 @@ where
             .map(|arg| function_path.clone().with_child_value(arg.name.clone()))
             .collect();
 
-        let unpathed_function_ctx =
-            UnpathedFunctionLinearizeCtx::new(ctx, declared_prototype, &arg_def_paths);
+        let unpathed_function_ctx = UnpathedFunctionLinearizeCtx::new(
+            ctx,
+            declared_prototype,
+            &arg_def_paths,
+            span.start(),
+            span.end(),
+        );
 
         let function_ctx = unpathed_function_ctx.into_pathed_ctx(function_path);
         let (return_value_id, function_ctx) = self.body.linearize(function_ctx)?;
 
-        function_ctx.finalize(return_value_id)
+        function_ctx.finalize(span.end(), return_value_id)
 
         // let function_ctx = FunctionLinearizeCtx::new()
         // ctx.create_function(declared_prototype).unwrap();

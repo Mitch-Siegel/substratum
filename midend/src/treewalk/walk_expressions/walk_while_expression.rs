@@ -30,7 +30,10 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         let parent_scope_def_path = ctx.path().clone();
         let loop_scope_def_path = ctx.reserve_subscope();
         let loop_done_label = ctx.create_loop(
-            loc.clone().start(),
+            loc.start(),
+            self.body.loc().start(),
+            self.body.loc().end(),
+            self.loc().end(),
             parent_scope_def_path,
             loop_scope_def_path,
         );
@@ -58,13 +61,14 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
 
         let parent_def_path = ctx.path().clone();
         ctx.unconditional_branch_from_current(
-            loc.clone().end(),
+            loc.start(),
+            loc.end(),
             parent_def_path.clone(),
             parent_def_path,
         );
         let (_, mut ctx) = self.body.linearize(ctx)?;
 
-        ctx.finish_branch(loc.clone().end());
+        ctx.finish_branch(loc.end());
 
         ctx.finish_loop(loc.end(), Vec::new());
 

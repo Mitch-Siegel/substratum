@@ -124,7 +124,8 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         let switch_scope_def_path = ctx.reserve_subscope();
 
         ctx.create_switch(
-            match_loc.clone().start(),
+            match_loc.start(),
+            self.loc().end(),
             parent_scope_def_path,
             switch_scope_def_path,
         );
@@ -145,7 +146,7 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
             let arm_loc = arm.loc();
 
             let case_scope_def_path = ctx.reserve_subscope();
-            let arm_label = ctx.create_switch_case(case_scope_def_path);
+            let arm_label = ctx.create_switch_case(case_scope_def_path, arm.loc().start());
 
             let (pattern, result_value);
             ((pattern, result_value), ctx) = arm.linearize(ctx)?;
@@ -160,7 +161,7 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         }
 
         ctx.append_statement_to_current_block(ir::IrLine::new_match(
-            match_loc.clone().start(),
+            match_loc.start(),
             scrutinee_value,
             arm_values,
         ));

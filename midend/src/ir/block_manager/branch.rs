@@ -5,40 +5,61 @@ use crate::ir::{
     block_manager::{BlockManager, Branch, BranchError, BranchKind, ConvergenceResult, ir, symtab},
 };
 
+/// describes the source code location and scope defpath of the target of a branch
+pub(crate) struct BranchTarget {
+    pub loc: sourceloc::SourceLoc,
+    pub path: symtab::ScopePath,
+}
+
+impl BranchTarget {
+    pub(crate) fn new(loc: sourceloc::SourceLoc, path: symtab::ScopePath) -> Self {
+        Self { loc, path }
+    }
+}
+
+pub(crate) struct BranchDesc {
+    /// the labe of the block being branched from
+    pub from: usize,
+    /// the location of the branch itself
+    pub loc: sourceloc::SourceLoc,
+    /// the first source location after anything relevant to the branch
+    pub after: sourceloc::SourceLoc,
+}
+
 /// Conditional and unconditional branches
 impl BlockManager {
     // returns (branch_target, after_branch)
     pub(crate) fn create_unconditional_branch(
         &mut self,
-        from: usize,
-        loc: sourceloc::SourceLoc,
+        desc: BranchDesc,
         parent_def_path: symtab::ScopePath,
         true_def_path: symtab::ScopePath,
     ) -> Result<usize, BranchError> {
         self.max_block += 2;
-        let true_block = ir::BasicBlock::new(self.max_block - 1, true_def_path);
-        let after_branch = ir::BasicBlock::new(self.max_block, parent_def_path);
+        let true_block = ir::BasicBlock::new(self.max_block - 1, true_def_path, desc.loc.clone());
+        let after_branch = ir::BasicBlock::new(self.max_block, parent_def_path, desc.after);
         let after_branch_label = after_branch.label;
 
-        self.convergences.rename_source(from, after_branch.label);
+        self.convergences
+            .rename_source(desc.from, after_branch.label);
         self.convergences.add(&[true_block.label], after_branch)?;
 
         self.open_branch_path
-            .push(Branch::new(from, BranchKind::Unconditional));
+            .push(Branch::new(desc.from, BranchKind::Unconditional));
 
         trace::trace!(
             "unconditional branch from block {} - true block: {}, after branch: {}",
-            from,
+            desc.from,
             true_block.label,
             after_branch_label
         );
 
         let unconditional_jump = ir::IrLine::new_jump(
-            loc,
+            desc.loc,
             true_block.label,
             ir::lowered::operands::JumpCondition::Unconditional,
         );
-        let from_block = self.get_mut(from).unwrap();
+        let from_block = self.get_mut(desc.from).unwrap();
         from_block.push(unconditional_jump);
 
         let true_block_label = true_block.label;
@@ -49,43 +70,53 @@ impl BlockManager {
     // returns the label of the true branch or BranchError
     pub(crate) fn create_conditional_branch(
         &mut self,
-        from: usize,
-        loc: sourceloc::SourceLoc,
+        desc: BranchDesc,
         jump_condition: ir::lowered::operands::JumpCondition,
+        true_data: BranchTarget,
+        false_data: BranchTarget, // TODO: make this an option to support true-only branch conditioning
         parent_def_path: symtab::ScopePath,
-        true_def_path: symtab::ScopePath,
-        false_def_path: symtab::ScopePath,
     ) -> Result<usize, BranchError> {
         self.max_block += 3;
-        let true_block = ir::BasicBlock::new(self.max_block - 2, true_def_path);
-        let false_block = ir::BasicBlock::new(self.max_block - 1, false_def_path);
-        let convergence_block = ir::BasicBlock::new(self.max_block, parent_def_path);
+
+        let BranchTarget {
+            loc: true_loc,
+            path: true_path,
+        } = true_data;
+        let BranchTarget {
+            loc: false_loc,
+            path: false_path,
+        } = false_data;
+
+        let true_block = ir::BasicBlock::new(self.max_block - 2, true_path, true_loc);
+        let false_block = ir::BasicBlock::new(self.max_block - 1, false_path, false_loc);
+        let convergence_block = ir::BasicBlock::new(self.max_block, parent_def_path, desc.after);
 
         trace::trace!(
             "create conditional branch from block {} - true block: {}, false block: {}, after branch: {}",
-            from,
+            desc.from,
             true_block.label,
             false_block.label,
             convergence_block.label
         );
 
-        let conditional_jump = ir::IrLine::new_jump(loc.clone(), true_block.label, jump_condition);
-        let from_block = self.get_mut(from).unwrap();
+        let conditional_jump =
+            ir::IrLine::new_jump(desc.loc.clone(), true_block.label, jump_condition);
+        let from_block = self.get_mut(desc.from).unwrap();
         from_block.push(conditional_jump);
         let unconditional_jump = ir::IrLine::new_jump(
-            loc,
+            desc.loc,
             false_block.label,
             ir::lowered::operands::JumpCondition::Unconditional,
         );
         from_block.push(unconditional_jump);
 
         self.convergences
-            .rename_source(from, convergence_block.label);
+            .rename_source(desc.from, convergence_block.label);
         self.convergences
             .add(&[true_block.label, false_block.label], convergence_block)?;
 
         self.open_branch_path.push(Branch::new(
-            from,
+            desc.from,
             BranchKind::ConditionalTrue(Box::new(false_block)),
         ));
 
@@ -110,6 +141,7 @@ impl BlockManager {
                 vec![BranchKind::ConditionalTrue(Box::new(BasicBlock::new(
                     0,
                     def_path.clone(),
+                    loc.clone(),
                 )))],
             )),
         }?;
@@ -121,7 +153,6 @@ impl BlockManager {
 
         self.open_branch_path
             .push(Branch::new(branched_from, BranchKind::ConditionalFalse));
-
         let false_label = false_block.label;
         self.blocks.insert(false_label, *false_block);
         Ok(false_label)
@@ -162,19 +193,21 @@ impl BlockManager {
     // returns (loop_top, loop_bottom, after_loop)
     pub(crate) fn create_loop(
         &mut self,
-        before_loop: usize,
-        loc: sourceloc::SourceLoc,
+        desc: BranchDesc,
+        top_loc: sourceloc::SourceLoc,
+        bottom_loc: sourceloc::SourceLoc,
         parent_def_path: symtab::ScopePath,
         loop_def_path: symtab::ScopePath,
     ) -> Result<(usize, usize), BranchError> {
         self.max_block += 3;
-        let loop_top = ir::BasicBlock::new(self.max_block - 2, loop_def_path.clone());
-        let mut loop_bottom = ir::BasicBlock::new(self.max_block - 1, loop_def_path);
-        let after_loop = ir::BasicBlock::new(self.max_block, parent_def_path);
+        let loop_top = ir::BasicBlock::new(self.max_block - 2, loop_def_path.clone(), top_loc);
+        let mut loop_bottom =
+            ir::BasicBlock::new(self.max_block - 1, loop_def_path, bottom_loc.clone());
+        let after_loop = ir::BasicBlock::new(self.max_block, parent_def_path, desc.after);
 
         trace::trace!(
             "create loop from block {} - loop top: {}, loop bottom: {}, after loop: {}",
-            before_loop,
+            desc.from,
             loop_top.label,
             loop_bottom.label,
             after_loop.label,
@@ -186,33 +219,25 @@ impl BlockManager {
             kind: BranchKind::Loop,
         });
 
+        // transfer control flow unconditionally to the top of the loop
         let loop_entry = ir::IrLine::new_jump(
-            loc.clone(),
+            desc.loc.clone(),
             loop_top.label,
             ir::lowered::operands::JumpCondition::Unconditional,
         );
-        let before_loop_block = self.get_mut(before_loop).unwrap();
+        let before_loop_block = self.get_mut(desc.from).unwrap();
         before_loop_block.push(loop_entry);
 
         let loop_jump = ir::IrLine::new_jump(
-            loc.clone(),
+            bottom_loc,
             loop_top.label,
             ir::lowered::operands::JumpCondition::Unconditional,
         );
 
         loop_bottom.push(loop_jump);
 
-        // transfer control flow unconditionally to the top of the loop
-        let loop_entry_jump = ir::IrLine::new_jump(
-            loc,
-            loop_top.label,
-            ir::lowered::operands::JumpCondition::Unconditional,
-        );
-        before_loop_block.push(loop_entry_jump);
-
         // now the current block should be the loop's top
-        self.convergences
-            .rename_source(before_loop, after_loop.label);
+        self.convergences.rename_source(desc.from, after_loop.label);
 
         let after_loop_label = after_loop.label;
 
@@ -307,14 +332,14 @@ impl BlockManager {
     /// will be evaluated
     pub(crate) fn create_switch(
         &mut self,
-        before_switch: usize,
-        loc: sourceloc::SourceLoc,
+        desc: BranchDesc,
         parent_def_path: symtab::ScopePath,
         switch_def_path: symtab::ScopePath,
     ) -> Result<usize, BranchError> {
         self.max_block += 2;
-        let switch_block = ir::BasicBlock::new(self.max_block - 1, switch_def_path);
-        let convergence_block = ir::BasicBlock::new(self.max_block, parent_def_path);
+        let switch_block =
+            ir::BasicBlock::new(self.max_block - 1, switch_def_path, desc.loc.clone());
+        let convergence_block = ir::BasicBlock::new(self.max_block, parent_def_path, desc.after);
 
         trace::trace!(
             "create switch block {} - after switch: {}",
@@ -323,20 +348,20 @@ impl BlockManager {
         );
 
         let unconditional_jump = ir::IrLine::new_jump(
-            loc,
+            desc.loc,
             switch_block.label,
             ir::lowered::operands::JumpCondition::Unconditional,
         );
-        let before_switch_block = self.get_mut(before_switch).unwrap();
+        let before_switch_block = self.get_mut(desc.from).unwrap();
         before_switch_block.push(unconditional_jump);
 
         self.convergences
-            .rename_source(before_switch, convergence_block.label);
+            .rename_source(desc.from, convergence_block.label);
         self.convergences
             .add(&[switch_block.label], convergence_block)?;
 
         self.open_branch_path.push(Branch::new(
-            before_switch,
+            desc.from,
             BranchKind::Switch(switch_block.label),
         ));
 
@@ -351,6 +376,7 @@ impl BlockManager {
         &mut self,
         switch_label: usize,
         case_def_path: symtab::ScopePath,
+        case_loc: sourceloc::SourceLoc,
     ) -> Result<usize, BranchError> {
         // verify that we are in the correct state to create a new arm
         match &self.last_branch()?.kind {
@@ -372,7 +398,7 @@ impl BlockManager {
         }?;
 
         self.max_block += 1;
-        let case_block = BasicBlock::new(self.max_block, case_def_path);
+        let case_block = BasicBlock::new(self.max_block, case_def_path, case_loc);
         let after_switch_label = self
             .convergences
             .convergence_label_of_block(switch_label)
