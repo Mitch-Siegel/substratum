@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
-use crate::midend::{
-    idfa::{idfa_base, IdfaImplementor},
+use crate::{
+    idfa::{IdfaImplementor, idfa_base},
     ir,
 };
 
@@ -17,7 +17,7 @@ impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
     fn f_transfer(facts: &mut BlockFacts, to_transfer: BTreeSet<Fact>) -> BTreeSet<Fact> {
         let mut transferred = BTreeSet::<Fact>::new();
 
-        for gen_fact in &facts.gen {
+        for gen_fact in &facts.gen_ {
             if !facts.kill.contains(gen_fact) {
                 transferred.insert(*gen_fact);
             }
@@ -50,7 +50,7 @@ impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
                     block_facts.kill.insert(read);
                 }
                 for write in statement.write_value_ids() {
-                    block_facts.gen.insert(write);
+                    block_facts.gen_.insert(write);
                 }
             }
         }
@@ -100,11 +100,11 @@ impl std::fmt::Display for ReachingDefs<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for block in self.idfa.blocks() {
             let label = block.label;
-            let facts = self.idfa.facts.for_label(label).unwrap();
+            let facts = self.idfa.facts.for_label(label);
             write!(f, "{label}:")?;
 
             write!(f, "\tGEN:")?;
-            for gen_fact in &facts.gen {
+            for gen_fact in &facts.gen_ {
                 write!(f, "{gen_fact} ")?;
             }
             writeln!(f)?;

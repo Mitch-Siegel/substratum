@@ -14,6 +14,19 @@ pub(crate) enum Semantic {
     UserDefined { id: usize },
 }
 
+impl Semantic {
+    pub(crate) fn size(&self) -> usize {
+        match self {
+            Self::Unit => 0,
+            Self::U8 | Self::I8 => 1,
+            Self::U16 | Self::I16 => 2,
+            Self::U32 | Self::I32 => 4,
+            Self::U64 | Self::I64 => 8,
+            Self::UserDefined { id: _ } => unimplemented!(),
+        }
+    }
+}
+
 impl std::fmt::Display for Semantic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

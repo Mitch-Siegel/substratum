@@ -40,7 +40,10 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         let function_operand;
         (function_operand, ctx) = self.function_operand.linearize(ctx)?;
 
-        let return_value_to = ctx.values_mut().next_temp();
+        let return_value_to = ctx.values_mut().next_temp(
+            #[cfg(feature = "value_locs")]
+            frontend::here!(),
+        );
 
         // //TODO: error handling and checking
         // assert!(called_method.arguments.len() == params.len());

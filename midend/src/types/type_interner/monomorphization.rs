@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{symtab, types};
+use crate::types;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum GenericParam {
@@ -21,6 +21,7 @@ pub(crate) type GenericParamsList = Vec<GenericParam>;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub(crate) enum ParamSubst {
+    #[allow(unused)]
     Concrete(types::Semantic),
     Dependent(GenericParam),
 }
@@ -39,6 +40,7 @@ pub(crate) struct ParamSubstMap {
     pub substitutions: BTreeMap<GenericParam, ParamSubst>,
 }
 
+#[allow(unused)]
 impl ParamSubstMap {
     pub(crate) fn new(substitutions: impl Iterator<Item = (GenericParam, ParamSubst)>) -> Self {
         Self {
@@ -139,42 +141,29 @@ impl std::fmt::Debug for ParamSubstMap {
 
 #[derive(Debug)]
 pub(crate) struct InstanceSet {
-    underlying_definition: symtab::types::TypeDecl,
+    #[allow(unused)]
+    generic_params: GenericParamsList,
     instances: HashSet<ParamSubstMap>,
 }
 
+#[allow(unused)]
 impl InstanceSet {
-    pub(crate) fn new(underlying_definition: symtab::types::TypeDecl) -> Self {
+    pub(crate) fn new(generic_params: Vec<GenericParam>) -> Self {
         // special case for non-generic types. We must still be able to call get_underlying, which
         // requires lookup to succeed (only) when an empty substitution map is passed
-        let instances = if underlying_definition.generic_params().is_empty() {
+        let instances = if generic_params.is_empty() {
             std::iter::once(ParamSubstMap::empty()).collect()
         } else {
             HashSet::new()
         };
         Self {
-            underlying_definition,
+            generic_params,
             instances,
         }
     }
 
     pub(crate) fn insert(&mut self, params: ParamSubstMap) -> bool {
         self.instances.insert(params)
-    }
-
-    pub(crate) fn get_underlying(
-        &self,
-        params: &ParamSubstMap,
-    ) -> Result<&symtab::types::TypeDecl, String> {
-        trace::trace!(
-            "get underlying type definition {} for generic params {}",
-            self.underlying_definition.syntactic(),
-            params
-        );
-        match self.instances.get(params) {
-            Some(_) => Ok(&self.underlying_definition),
-            _ => Err("no instance recorded for given params".into()),
-        }
     }
 
     pub(crate) fn instance_iter(&self) -> impl Iterator<Item = &ParamSubstMap> {

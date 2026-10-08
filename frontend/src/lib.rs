@@ -13,7 +13,6 @@ pub mod types;
 /// # Panics
 ///
 /// when any error is generated during parsing
-#[allow(clippy::unnecessary_wraps)]
 #[must_use]
 pub fn parse_crate(
     crate_name: &str,

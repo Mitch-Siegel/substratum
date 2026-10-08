@@ -2,7 +2,10 @@ use std::fmt;
 
 use serde::Serialize;
 
-use crate::ir::{IrOperation, OperandTypeInference, TypeInferenceContext, ValueId, lowered};
+use crate::{
+    ir::{IrOperation, ValueId, lowered},
+    types,
+};
 
 pub(crate) mod operands;
 pub(crate) use operands::*;
@@ -14,11 +17,11 @@ pub(crate) enum Operation {
     BinaryArithmetic(BinaryArithmeticExpressionOperands),
     BinaryComparison(BinaryComparisonExpressionOperands),
     Jump(JumpOperands),
-    FunctionCall(CallParams),
     Call(CallOperands),
     Load(LoadOperands),
     Store(StoreOperands),
     ComputeFieldAddress(FieldAddressOperands),
+    #[allow(unused)]
     Switch(SwitchOperands),
 }
 
@@ -39,7 +42,7 @@ impl IrOperation for Operation {
                 match &jump.condition {
                     lowered::operands::JumpCondition::Conditional(condition) => {
                         operands.push(condition.sources.lhs);
-                        operands.push(condition.sources.lhs);
+                        operands.push(condition.sources.rhs);
                     }
                     lowered::operands::JumpCondition::Unconditional => {}
                 }
@@ -48,8 +51,13 @@ impl IrOperation for Operation {
                 }
                 operands
             }
-            Self::FunctionCall(function_call) => function_call.arguments.clone(),
-            Self::Call(call) => call.params.arguments.clone(),
+            Self::Call(call) => call
+                .params
+                .arguments
+                .clone()
+                .into_iter()
+                .chain(std::iter::once(call.function_operand))
+                .collect(),
             Self::Load(load) => {
                 vec![load.pointer]
             }
@@ -66,13 +74,6 @@ impl IrOperation for Operation {
             Self::Assignment(assignment) => vec![assignment.destination],
             Self::BinaryArithmetic(arithmetic) => vec![arithmetic.destination],
             Self::BinaryComparison(comparison) => vec![comparison.destination],
-            Self::FunctionCall(function_call) => {
-                if let Some(retval) = &function_call.return_value_to {
-                    vec![*retval]
-                } else {
-                    vec![]
-                }
-            }
             Self::Call(call) => {
                 let inner_function_call = &call;
                 if let Some(retval) = &inner_function_call.params.return_value_to {
@@ -93,16 +94,82 @@ impl IrOperation for Operation {
             }
         }
     }
+
+    fn read_value_ids_mut(&mut self) -> Vec<&mut ValueId> {
+        match self {
+            Self::Assignment(source_dest) => vec![&mut source_dest.source],
+            Self::BinaryArithmetic(arithmetic) => {
+                let sources = &mut arithmetic.arithmetic.sources;
+                vec![&mut sources.lhs, &mut sources.rhs]
+            }
+            Self::BinaryComparison(comparison) => {
+                let sources = &mut comparison.comparison.sources;
+                vec![&mut sources.lhs, &mut sources.rhs]
+            }
+            Self::Jump(jump) => {
+                let mut operands = Vec::new();
+                match &mut jump.condition {
+                    lowered::operands::JumpCondition::Conditional(condition) => {
+                        operands.push(&mut condition.sources.lhs);
+                        operands.push(&mut condition.sources.rhs);
+                    }
+                    lowered::operands::JumpCondition::Unconditional => {}
+                }
+                for arg in jump.block_args.values_mut() {
+                    operands.push(arg);
+                }
+                operands
+            }
+            Self::Call(call) => call
+                .params
+                .arguments
+                .iter_mut()
+                .chain(std::iter::once(&mut call.function_operand))
+                .collect(),
+            Self::Load(load) => {
+                vec![&mut load.pointer]
+            }
+            Self::Store(store) => {
+                vec![&mut store.source]
+            }
+            Self::ComputeFieldAddress(field_address) => vec![&mut field_address.receiver],
+            Self::Switch(switch) => vec![&mut switch.scrutinee],
+        }
+    }
+
+    fn write_value_ids_mut(&mut self) -> Vec<&mut ValueId> {
+        match self {
+            Self::Assignment(assignment) => vec![&mut assignment.destination],
+            Self::BinaryArithmetic(arithmetic) => vec![&mut arithmetic.destination],
+            Self::BinaryComparison(comparison) => vec![&mut comparison.destination],
+            Self::Call(call) => {
+                if let Some(retval) = &mut call.params.return_value_to {
+                    vec![retval]
+                } else {
+                    vec![]
+                }
+            }
+            Self::ComputeFieldAddress(field_address) => vec![&mut field_address.receiver],
+            Self::Load(load) => {
+                vec![&mut load.destination]
+            }
+            Self::Store(store) => {
+                vec![&mut store.pointer]
+            }
+            Self::Jump(_) | Self::Switch(_) => {
+                vec![]
+            }
+        }
+    }
 }
 
-impl OperandTypeInference for Operation {
-    fn infer_types(&mut self, ctx: &TypeInferenceContext) -> bool {
+impl types::Inference for Operation {
+    fn infer_types(&mut self, ctx: &mut types::inference::Ctx) -> types::inference::Output {
         match self {
             Self::Assignment(a) => a.infer_types(ctx),
             Self::BinaryArithmetic(ba) => ba.infer_types(ctx),
             Self::BinaryComparison(bc) => bc.infer_types(ctx),
             Self::Jump(j) => j.infer_types(ctx),
-            Self::FunctionCall(fc) => fc.infer_types(ctx),
             Self::Call(c) => c.infer_types(ctx),
             Self::Load(l) => l.infer_types(ctx),
             Self::Store(s) => s.infer_types(ctx),
@@ -121,7 +188,6 @@ impl fmt::Display for Operation {
             Self::BinaryArithmetic(arithmetic) => write!(f, "{arithmetic}"),
             Self::BinaryComparison(comparison) => write!(f, "{comparison}"),
             Self::Jump(jump) => write!(f, "{jump}"),
-            Self::FunctionCall(function_call) => write!(f, "{function_call}"),
             Self::Call(call) => write!(f, "{call}"),
             Self::Load(load) => write!(f, "{} = *{}", load.destination, load.pointer),
             Self::Store(store) => write!(f, "*{} = {}", store.pointer, store.source),

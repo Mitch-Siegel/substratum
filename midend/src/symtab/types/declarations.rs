@@ -42,6 +42,7 @@ pub(crate) struct TypeDecl {
     pub generic_params: types::GenericParamsList,
 }
 
+#[allow(unused)]
 impl TypeDecl {
     pub(crate) fn syntactic(&self) -> types::Syntactic {
         match &self.declared_type {

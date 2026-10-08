@@ -39,6 +39,7 @@ pub(crate) struct StructRepr {
     alignment: Option<usize>,
 }
 
+#[allow(unused)]
 impl StructRepr {
     pub(crate) fn new(
         name: String,

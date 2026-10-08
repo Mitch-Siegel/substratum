@@ -41,10 +41,6 @@ impl Ast for GenericParamsListTree {
 }
 
 impl GenericParamsListTree {
-    pub(crate) fn into_vec(self) -> Vec<IdentifierTree> {
-        self.params.into_iter().map(|param| param.name).collect()
-    }
-
     #[must_use]
     pub fn into_vec_with_locs(self) -> Vec<(IdentifierTree, sourceloc::SourceSpan)> {
         self.params

@@ -3,6 +3,7 @@ use crate::{
     types,
 };
 
+#[allow(unused)]
 #[derive(Clone, Debug)]
 pub(crate) enum BuiltinType {
     Unit,
@@ -17,6 +18,7 @@ pub(crate) enum BuiltinType {
 }
 
 impl BuiltinType {
+    #[allow(unused)]
     pub(crate) fn syntactic(&self) -> types::Syntactic {
         match self {
             Self::Unit => types::Syntactic::Unit,
@@ -31,6 +33,7 @@ impl BuiltinType {
         }
     }
 
+    #[allow(unused)]
     pub(crate) fn generic_params(&self) -> Option<&types::GenericParamsList> {
         None
     }

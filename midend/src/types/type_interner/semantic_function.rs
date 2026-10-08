@@ -1,9 +1,6 @@
-use crate::{
-    symtab,
-    symtab::Symtab,
-    types::{ParamSubstMap, Semantic, Syntactic},
-};
+use crate::types::{Semantic, Syntactic};
 
+#[allow(unused)]
 pub(crate) enum SemanticFunctionError {
     UnresolvableType(Syntactic),
     NonFunction(Syntactic),
@@ -32,6 +29,7 @@ pub(crate) struct SemanticFunction {
     pub return_value: Semantic,
 }
 
+#[allow(unused)]
 impl SemanticFunction {
     pub(crate) fn new(
         syntactic: Syntactic,
@@ -46,45 +44,45 @@ impl SemanticFunction {
     }
 }
 
-impl
-    TryFrom<(
-        Syntactic,
-        ParamSubstMap,
-        &symtab::RawPath,
-        &symtab::SymbolTable,
-    )> for SemanticFunction
-{
-    type Error = SemanticFunctionError;
-    fn try_from(
-        value: (
-            Syntactic,
-            ParamSubstMap,
-            &symtab::RawPath,
-            &symtab::SymbolTable,
-        ),
-    ) -> Result<Self, Self::Error> {
-        let (syntactic, generic_params, def_path, symtab) = value;
+// impl
+//     TryFrom<(
+//         Syntactic,
+//         ParamSubstMap,
+//         &symtab::RawPath,
+//         &symtab::SymbolTable,
+//     )> for SemanticFunction
+// {
+//     type Error = SemanticFunctionError;
+//     fn try_from(
+//         value: (
+//             Syntactic,
+//             ParamSubstMap,
+//             &symtab::RawPath,
+//             &symtab::SymbolTable,
+//         ),
+//     ) -> Result<Self, Self::Error> {
+//         let (syntactic, generic_params, def_path, symtab) = value;
 
-        match &syntactic {
-            Syntactic::Function { args, ret_ty } => {
-                let mut semantic_args = Vec::<Semantic>::new();
-                for arg in args {
-                    match symtab.semantic_type_for_syntactic(def_path, generic_params.clone(), arg)
-                    {
-                        Ok(ty_) => semantic_args.push(ty_),
-                        _ => Err(SemanticFunctionError::UnresolvableType(arg.clone()))?,
-                    }
-                }
+//         match &syntactic {
+//             Syntactic::Function { args, ret_ty } => {
+//                 let mut semantic_args = Vec::<Semantic>::new();
+//                 for arg in args {
+//                     match symtab.semantic_type_for_syntactic(def_path, generic_params.clone(), arg)
+//                     {
+//                         Ok(ty_) => semantic_args.push(ty_),
+//                         _ => Err(SemanticFunctionError::UnresolvableType(arg.clone()))?,
+//                     }
+//                 }
 
-                let semantic_return_type =
-                    match symtab.semantic_type_for_syntactic(def_path, generic_params, ret_ty) {
-                        Ok(ty_) => ty_,
-                        _ => Err(SemanticFunctionError::UnresolvableType(*ret_ty.clone()))?,
-                    };
+//                 let semantic_return_type =
+//                     match symtab.semantic_type_for_syntactic(def_path, generic_params, ret_ty) {
+//                         Ok(ty_) => ty_,
+//                         _ => Err(SemanticFunctionError::UnresolvableType(*ret_ty.clone()))?,
+//                     };
 
-                Ok(Self::new(syntactic, semantic_args, semantic_return_type))
-            }
-            _ => Err(SemanticFunctionError::NonFunction(syntactic)),
-        }
-    }
-}
+//                 Ok(Self::new(syntactic, semantic_args, semantic_return_type))
+//             }
+//             _ => Err(SemanticFunctionError::NonFunction(syntactic)),
+//         }
+//     }
+// }

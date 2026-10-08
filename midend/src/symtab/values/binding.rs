@@ -29,6 +29,7 @@ impl fmt::Display for Variable {
     }
 }
 
+#[allow(unused)]
 impl Variable {
     pub(crate) fn new(name: String, type_: Option<types::Syntactic>) -> Self {
         Self { name, type_ }
@@ -43,10 +44,20 @@ impl Variable {
     }
 }
 
+#[allow(unused)]
 #[derive(Clone, Debug)]
 pub(crate) enum LocalBinding {
     FunctionParam(Variable),
     Let(Variable),
+}
+
+impl LocalBinding {
+    pub(crate) fn syntactic(&self) -> &types::Syntactic {
+        match self {
+            Self::FunctionParam(fp) => fp.type_().unwrap(),
+            Self::Let(var) => var.type_().unwrap(),
+        }
+    }
 }
 
 impl Symbol for LocalBinding {

@@ -125,11 +125,7 @@ fn _create_enum_variant_constructor(
     ctx.declare_value(String::from(variant_name))
         .expect("Duplicate enum variant constructor");
 
-    let (mut block_mgr, current_block) = ir::BlockManager::new(
-        ctx.semantic_type_for_syntactic(&types::Syntactic::Unit)
-            .unwrap(),
-        &ctor_function_path,
-    );
+    let (mut block_mgr, current_block) = ir::BlockManager::new(&ctor_function_path);
 
     // define a variable for the object we are building
     let constructed_object =
@@ -140,7 +136,11 @@ fn _create_enum_variant_constructor(
         ))
         .unwrap();
 
-    let constructed_object_value = block_mgr.values_mut().id_for_path(&constructed_object_path);
+    let constructed_object_value = block_mgr.values_mut().id_for_path(
+        &constructed_object_path,
+        #[cfg(feature = "value_locs")]
+        frontend::here!(),
+    );
 
     /*
      * for each argument:
@@ -153,8 +153,15 @@ fn _create_enum_variant_constructor(
         let arg_binding =
             symtab::Value::LocalBinding(symtab::values::LocalBinding::FunctionParam(arg.clone()));
         let arg_def_path = ctx.define_value(arg_binding).unwrap();
-        let arg_value = block_mgr.values_mut().id_for_path(&arg_def_path);
-        let field_temp = block_mgr.values_mut().next_temp();
+        let arg_value = block_mgr.values_mut().id_for_path(
+            &arg_def_path,
+            #[cfg(feature = "value_locs")]
+            frontend::here!(),
+        );
+        let field_temp = block_mgr.values_mut().next_temp(
+            #[cfg(feature = "value_locs")]
+            frontend::here!(),
+        );
         let field_get_line = ir::IrLine::new_get_field_pointer(
             loc.clone(),
             constructed_object_value,
@@ -235,7 +242,13 @@ where
 
 impl Collect<symtab::TypePath> for ast::items::EnumDefinitionTree {
     fn collect_inner(&self, mut ctx: TypeCollectCtx) -> CollectResult {
-        let _enum_path = ctx.declare_type(self.name.value.clone())?;
+        let params = if self.generic_params.maybe_params.is_some() {
+            unimplemented!("get generic params for enum");
+        } else {
+            types::GenericParamsList::new()
+        };
+
+        let _enum_path = ctx.declare_type(self.name.value.clone(), params)?;
         ctx = ctx.with_child_type(self.name.value.clone());
 
         ctx = self.generic_params.collect_symbols(ctx)?;

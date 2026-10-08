@@ -1,7 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
-use crate::types as midend_types;
-
 pub(crate) use errors::*;
 
 mod def_path;
@@ -21,6 +19,7 @@ pub(crate) use types::Type;
 pub(crate) use values::Value;
 pub(crate) use visitor::*;
 
+#[allow(unused)]
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum UseBinding {
     OriginalName,
@@ -54,6 +53,7 @@ pub(crate) struct UseDeclaration {
     local_binding: UseBinding,
 }
 
+#[allow(unused)]
 impl UseDeclaration {
     pub(crate) fn new_original_name(target_path: impl Path) -> Self {
         Self {
@@ -80,6 +80,7 @@ pub(crate) trait SymtabBase {
 
     fn lookup_at_mut(&mut self, path: &RawPath) -> Result<Option<&mut SymbolDef>, SymbolError>;
 
+    #[allow(unused)]
     fn insert_use_declaration(&mut self, path: RawPath, use_declaration: UseDeclaration);
 
     fn get_use_declarations_at(&self, path: &RawPath) -> Option<&BTreeSet<UseDeclaration>>;
@@ -95,6 +96,7 @@ mod private {
 
     impl<T: SymtabBase> SymtabBaseInternal for T {}
 
+    #[allow(unused)]
     pub(crate) trait SymtabBaseInternal: SymtabBase {
         /// declare 'path' to exist
         fn declare(&mut self, path: RawPath) -> Result<RawPath, SymbolError> {
@@ -109,7 +111,7 @@ mod private {
                 SymbolDef::Value(_) => assert!(path.is_value()),
                 SymbolDef::Impl(_) => assert!(path.is_impl()),
             }
-            println!("{path:?}");
+            trace::debug!("declare {path:?}: {symbol}");
             assert_eq!(*path.last(), symbol.path_segment());
 
             match path.last() {
@@ -233,11 +235,20 @@ mod private {
     }
 }
 
-// TODO: pub(in crate::midend)
+#[allow(unused)]
 pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
     // ===== Declaration =====
-    fn declare_type(&mut self, path: TypePath) -> Result<TypePath, SymbolError> {
-        self.declare(path.0).map(TypePath::from)
+    fn declare_type(
+        &mut self,
+        path: TypePath,
+        generic_params: crate::types::GenericParamsList,
+        types: &mut crate::types::Interner,
+    ) -> Result<TypePath, SymbolError> {
+        let tp = self.declare(path.0).map(TypePath::from)?;
+
+        types.insert_type(tp.clone(), generic_params).unwrap();
+
+        Ok(tp)
     }
 
     fn declare_value(&mut self, path: ValuePath) -> Result<ValuePath, SymbolError> {
@@ -250,9 +261,22 @@ pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
         &mut self,
         parent_path: impl TypeOwner,
         symbol: Type,
+        types: &mut crate::types::Interner,
     ) -> Result<TypePath, SymbolError> {
-        self.define(parent_path.into(), SymbolDef::Type(symbol))
-            .map(TypePath::from)
+        let maybe_intern = match &symbol {
+            Type::Decl(d) => Some(d.generic_params.clone()),
+            _ => None,
+        };
+
+        let tp = self
+            .define(parent_path.into(), SymbolDef::Type(symbol))
+            .map(TypePath::from)?;
+
+        if let Some(intern_params) = maybe_intern {
+            types.insert_type(tp.clone(), intern_params).unwrap();
+        }
+
+        Ok(tp)
     }
 
     // define 'symbol' at 'path', returning path or error
@@ -368,6 +392,13 @@ pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
         }
     }
 
+    fn lookup_value_at(&self, path: &ValuePath) -> Result<&Value, SymbolError> {
+        match self.lookup_def_at(&path.clone().into())? {
+            SymbolDef::Value(v) => Ok(v),
+            _ => Err(SymbolError::Undeclared(path.clone().into())),
+        }
+    }
+
     fn lookup_value_at_mut(&mut self, path: &ValuePath) -> Result<&mut Value, SymbolError> {
         match self.lookup_def_at_mut(&path.clone().into())? {
             SymbolDef::Value(v) => Ok(v),
@@ -383,34 +414,23 @@ pub(crate) trait Symtab: SymtabBase + private::SymtabBaseInternal {
         impl_for_path: TypePath,
     ) -> Result<ImplPath, SymbolError>;
 
-    fn semantic_type_for_syntactic(
-        &self,
-        search_def_path: &impl Path,
-        generic_params: midend_types::ParamSubstMap,
-        ty_: &midend_types::Syntactic,
-    ) -> Result<midend_types::Semantic, SymbolError>;
+    // fn semantic_type_for_syntactic(
+    //     &self,
+    //     search_def_path: &impl Path,
+    //     generic_params: midend_types::ParamSubstMap,
+    //     ty_: &midend_types::Syntactic,
+    // ) -> Result<midend_types::Semantic, SymbolError>;
 }
 
+#[derive(Default)]
 pub struct SymbolTable {
-    pub(crate) types: midend_types::Interner,
     // mapping of symbols to declarations (None) or definitions (Some)
     symbols: BTreeMap<RawPath, Option<SymbolDef>>,
     children: BTreeMap<RawPath, HashSet<RawPath>>,
     // mapping from type definitions to implementations that match them
+    #[allow(unused)]
     impls: BTreeMap<TypePath, HashSet<ImplPath>>,
     use_declarations: BTreeMap<RawPath, BTreeSet<UseDeclaration>>,
-}
-
-impl Default for SymbolTable {
-    fn default() -> Self {
-        Self {
-            types: midend_types::Interner::new(),
-            symbols: BTreeMap::new(),
-            children: BTreeMap::new(),
-            impls: BTreeMap::new(),
-            use_declarations: BTreeMap::new(),
-        }
-    }
 }
 
 impl std::fmt::Debug for SymbolTable {
@@ -433,6 +453,7 @@ impl SymbolTable {
         Self::default()
     }
 
+    #[allow(unused)]
     pub(crate) fn children(&self, def_path: &RawPath) -> HashSet<&RawPath> {
         match self.children.get(def_path) {
             Some(paths) => paths.iter().collect(),
@@ -547,46 +568,46 @@ impl Symtab for SymbolTable {
         unimplemented!();
     }
 
-    fn semantic_type_for_syntactic(
-        &self,
-        search_path: &impl Path,
-        generic_params: midend_types::ParamSubstMap,
-        ty_: &midend_types::Syntactic,
-    ) -> Result<midend_types::Semantic, SymbolError> {
-        match ty_ {
-            midend_types::Syntactic::Unit => Ok(midend_types::Semantic::Unit),
-            midend_types::Syntactic::U8 => Ok(midend_types::Semantic::U8),
-            midend_types::Syntactic::U16 => Ok(midend_types::Semantic::U16),
-            midend_types::Syntactic::U32 => Ok(midend_types::Semantic::U32),
-            midend_types::Syntactic::U64 => Ok(midend_types::Semantic::U64),
-            midend_types::Syntactic::I8 => Ok(midend_types::Semantic::I8),
-            midend_types::Syntactic::I16 => Ok(midend_types::Semantic::I16),
-            midend_types::Syntactic::I32 => Ok(midend_types::Semantic::I32),
-            midend_types::Syntactic::I64 => Ok(midend_types::Semantic::I64),
-            midend_types::Syntactic::GenericParam(name) | midend_types::Syntactic::Named(name) => {
-                let path = self.lookup_type_decl(search_path, TypeSegment(name.clone()))?;
-                trace::trace!(
-                    "found definition of syntactic type {} at defpath {}",
-                    ty_,
-                    path
-                );
-                Ok(self
-                    .types
-                    .semantic_for_defpath(path, generic_params)
-                    .unwrap())
-            }
-            midend_types::Syntactic::_Self => unimplemented!("semantic type for Self"),
-            midend_types::Syntactic::Reference(_, _) => {
-                unimplemented!("semantic type for reference")
-            }
-            midend_types::Syntactic::Pointer(_, _) => unimplemented!("semantic type for pointer"),
-            midend_types::Syntactic::Tuple(_) => unimplemented!("semantic type for tuple"),
-            midend_types::Syntactic::Function {
-                args: _args,
-                ret_ty: _ret_ty,
-            } => unimplemented!("semantic type for function"),
-        }
-    }
+    // fn semantic_type_for_syntactic(
+    //     &self,
+    //     search_path: &impl Path,
+    //     generic_params: midend_types::ParamSubstMap,
+    //     ty_: &midend_types::Syntactic,
+    // ) -> Result<midend_types::Semantic, SymbolError> {
+    //     match ty_ {
+    //         midend_types::Syntactic::Unit => Ok(midend_types::Semantic::Unit),
+    //         midend_types::Syntactic::U8 => Ok(midend_types::Semantic::U8),
+    //         midend_types::Syntactic::U16 => Ok(midend_types::Semantic::U16),
+    //         midend_types::Syntactic::U32 => Ok(midend_types::Semantic::U32),
+    //         midend_types::Syntactic::U64 => Ok(midend_types::Semantic::U64),
+    //         midend_types::Syntactic::I8 => Ok(midend_types::Semantic::I8),
+    //         midend_types::Syntactic::I16 => Ok(midend_types::Semantic::I16),
+    //         midend_types::Syntactic::I32 => Ok(midend_types::Semantic::I32),
+    //         midend_types::Syntactic::I64 => Ok(midend_types::Semantic::I64),
+    //         midend_types::Syntactic::GenericParam(name) | midend_types::Syntactic::Named(name) => {
+    //             let path = self.lookup_type_decl(search_path, TypeSegment(name.clone()))?;
+    //             trace::trace!(
+    //                 "found definition of syntactic type {} at defpath {}",
+    //                 ty_,
+    //                 path
+    //             );
+    //             Ok(self
+    //                 .types
+    //                 .semantic_for_defpath(path, generic_params)
+    //                 .unwrap())
+    //         }
+    //         midend_types::Syntactic::_Self => unimplemented!("semantic type for Self"),
+    //         midend_types::Syntactic::Reference(_, _) => {
+    //             unimplemented!("semantic type for reference")
+    //         }
+    //         midend_types::Syntactic::Pointer(_, _) => unimplemented!("semantic type for pointer"),
+    //         midend_types::Syntactic::Tuple(_) => unimplemented!("semantic type for tuple"),
+    //         midend_types::Syntactic::Function {
+    //             args: _args,
+    //             ret_ty: _ret_ty,
+    //         } => unimplemented!("semantic type for function"),
+    //     }
+    // }
 }
 
 #[cfg(test)]

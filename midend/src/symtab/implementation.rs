@@ -3,6 +3,7 @@ use crate::{
     types,
 };
 
+#[allow(unused)]
 #[derive(Debug)]
 pub(crate) struct Implementation {
     pub id: ImplId,
@@ -13,6 +14,7 @@ pub(crate) struct Implementation {
 }
 
 impl Implementation {
+    #[allow(unused)]
     pub(crate) fn new(id: ImplId, self_ty: types::Syntactic) -> Self {
         Self {
             id,

@@ -1,9 +1,6 @@
 use frontend::sourceloc;
 
-use crate::{
-    ir::{OperandTypeInference, Serialize, TypeInferenceContext, ValueId},
-    treewalk,
-};
+use crate::{ir::ValueId, treewalk, types};
 
 pub(crate) mod operands;
 use operands::{DiscriminantOperands, FieldPointerOperands, MatchArm, MatchOperands};
@@ -30,8 +27,8 @@ impl Lowerable for Operation {
     }
 }
 
-impl OperandTypeInference for Operation {
-    fn infer_types(&mut self, ctx: &TypeInferenceContext) -> bool {
+impl types::Inference for Operation {
+    fn infer_types(&mut self, ctx: &mut types::inference::Ctx) -> types::inference::Output {
         match self {
             Self::Match(m) => m.infer_types(ctx),
             Self::Discriminant(d) => d.infer_types(ctx),
@@ -56,11 +53,19 @@ impl std::fmt::Display for Operation {
 
 impl Operation {
     pub(crate) fn read_value_ids(&self) -> Vec<ValueId> {
-        vec![]
+        unreachable!();
     }
 
     pub(crate) fn write_value_ids(&self) -> Vec<ValueId> {
-        vec![]
+        unreachable!();
+    }
+
+    pub(crate) fn read_value_ids_mut(&self) -> Vec<&mut ValueId> {
+        unreachable!();
+    }
+
+    pub(crate) fn write_value_ids_mut(&self) -> Vec<&mut ValueId> {
+        unreachable!();
     }
 }
 

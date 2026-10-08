@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::{
     symtab::{self, Path},
@@ -37,13 +37,15 @@ impl std::fmt::Debug for DefPathWithParamSubsts {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub(crate) struct Interner {
+    #[allow(unused)]
     id_mappings: HashMap<Semantic, DefPathWithParamSubsts>,
     reverse_id_mappings: HashMap<DefPathWithParamSubsts, Semantic>,
     generic_instances: HashMap<symtab::TypePath, monomorphization::InstanceSet>,
 }
 
+#[allow(unused)]
 impl Interner {
     pub(crate) fn new() -> Self {
         Self {
@@ -62,7 +64,7 @@ impl Interner {
     pub(crate) fn insert_type(
         &mut self,
         def_path: symtab::TypePath,
-        definition: symtab::types::TypeDecl,
+        params_list: GenericParamsList,
     ) -> Result<Semantic, symtab::SymbolError> {
         let next_id = self.next_id();
         // Ensure that we never overwrite any type
@@ -76,7 +78,7 @@ impl Interner {
         assert!(self.reverse_id_mappings.insert(no_subst, next_id).is_none());
 
         self.generic_instances
-            .insert(def_path, InstanceSet::new(definition));
+            .insert(def_path, InstanceSet::new(params_list));
 
         Ok(next_id)
     }
@@ -90,6 +92,21 @@ impl Interner {
         self.reverse_id_mappings
             .get(&DefPathWithParamSubsts::new(def_path, param_substs))
             .copied()
+    }
+
+    pub(crate) fn lookup(&self, syntactic: &Syntactic, symtab: &symtab::SymbolTable) -> Semantic {
+        match syntactic {
+            Syntactic::Unit => Semantic::Unit,
+            Syntactic::U8 => Semantic::U8,
+            Syntactic::U16 => Semantic::U16,
+            Syntactic::U32 => Semantic::U32,
+            Syntactic::U64 => Semantic::U64,
+            Syntactic::I8 => Semantic::I8,
+            Syntactic::I16 => Semantic::I16,
+            Syntactic::I32 => Semantic::I32,
+            Syntactic::I64 => Semantic::I64,
+            _ => unimplemented!("{:?}", syntactic),
+        }
     }
 
     #[trace::instrument(skip(self), level = "debug")]
@@ -131,58 +148,58 @@ impl Interner {
         }
     }
 
-    #[trace::instrument(skip(self))]
-    pub(crate) fn get_type_definition(
-        &self,
-        id: &Semantic,
-    ) -> Result<&symtab::types::TypeDecl, String> {
-        let path_with_params = self.id_mappings.get(id).ok_or("no type mapping for ID")?;
-        trace::trace!("semantic type {} maps to {:?}", id, path_with_params);
-        let instance_set = self
-            .generic_instances
-            .get(&path_with_params.def_path)
-            .ok_or(format!(
-                "no instance set exists for type {} (id {}) and params {:?}",
-                path_with_params.def_path.last(),
-                id,
-                path_with_params.param_substs
-            ))?;
-        instance_set.get_underlying(&path_with_params.param_substs)
-    }
+    // #[trace::instrument(skip(self))]
+    // pub(crate) fn get_type_definition(
+    //     &self,
+    //     id: &Semantic,
+    // ) -> Result<&symtab::types::TypeDecl, String> {
+    //     let path_with_params = self.id_mappings.get(id).ok_or("no type mapping for ID")?;
+    //     trace::trace!("semantic type {} maps to {:?}", id, path_with_params);
+    //     let instance_set = self
+    //         .generic_instances
+    //         .get(&path_with_params.def_path)
+    //         .ok_or(format!(
+    //             "no instance set exists for type {} (id {}) and params {:?}",
+    //             path_with_params.def_path.last(),
+    //             id,
+    //             path_with_params.param_substs
+    //         ))?;
+    //     instance_set.get_underlying(&path_with_params.param_substs)
+    // }
 
-    pub(crate) fn get_syntactic(&self, id: &Semantic) -> Result<Syntactic, String> {
-        Ok(self.get_type_definition(id)?.syntactic())
-    }
+    // pub(crate) fn get_syntactic(&self, id: &Semantic) -> Result<Syntactic, String> {
+    //     Ok(self.get_type_definition(id)?.syntactic())
+    // }
 
-    pub(crate) fn all_monomorphizations(
-        &self,
-    ) -> HashMap<symtab::TypePath, HashSet<Vec<&ParamSubst>>> {
-        let mut instances = HashMap::<symtab::TypePath, HashSet<Vec<&ParamSubst>>>::new();
+    // pub(crate) fn all_monomorphizations(
+    //     &self,
+    // ) -> HashMap<symtab::TypePath, HashSet<Vec<&ParamSubst>>> {
+    //     let mut instances = HashMap::<symtab::TypePath, HashSet<Vec<&ParamSubst>>>::new();
 
-        for (path, instance_set) in &self.generic_instances {
-            let mut queue = Vec::new();
-            for fundamental_instance in instance_set.instance_iter() {
-                queue.push(fundamental_instance);
-            }
+    //     for (path, instance_set) in &self.generic_instances {
+    //         let mut queue = Vec::new();
+    //         for fundamental_instance in instance_set.instance_iter() {
+    //             queue.push(fundamental_instance);
+    //         }
 
-            while let Some(instance_params_map) = queue.pop() {
-                if instance_params_map.is_concrete() {
-                    let generic_params = instance_set
-                        .get_underlying(instance_params_map)
-                        .unwrap()
-                        .generic_params();
+    //         while let Some(instance_params_map) = queue.pop() {
+    //             if instance_params_map.is_concrete() {
+    //                 let generic_params = instance_set
+    //                     .get_underlying(instance_params_map)
+    //                     .unwrap()
+    //                     .generic_params();
 
-                    let substs = instance_params_map
-                        .substitutions_in_order(generic_params)
-                        .unwrap();
+    //                 let substs = instance_params_map
+    //                     .substitutions_in_order(generic_params)
+    //                     .unwrap();
 
-                    instances.entry(path.clone()).or_default().insert(substs);
-                } else {
-                    panic!("somehow got a non-concrete instance");
-                }
-            }
-        }
+    //                 instances.entry(path.clone()).or_default().insert(substs);
+    //             } else {
+    //                 panic!("somehow got a non-concrete instance");
+    //             }
+    //         }
+    //     }
 
-        instances
-    }
+    //     instances
+    // }
 }

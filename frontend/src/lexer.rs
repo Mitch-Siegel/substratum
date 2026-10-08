@@ -72,7 +72,7 @@ impl<'a> Lexer<'a> {
         };
 
         #[cfg(feature = "loud_lexing")]
-        println!("Lexer::peek() -> {:?}", peeked);
+        println!("Lexer::peek() -> {peeked:?}");
 
         Ok(peeked)
     }
@@ -200,7 +200,7 @@ impl Lexer<'_> {
         };
 
         #[cfg(feature = "loud_lexing")]
-        println!("Lexer::match_kw_or_ident: matched {:?}", matched);
+        println!("Lexer::match_kw_or_ident: matched {matched:?}");
 
         matched
     }
@@ -213,8 +213,7 @@ impl Lexer<'_> {
     ) -> Token {
         #[cfg(feature = "loud_lexing")]
         println!(
-            "Lexer::match_next_char_for_token_or: expected: {}, true: {}, false: {}",
-            expected, tok_true, tok_false
+            "Lexer::match_next_char_for_token_or: expected: {expected}, true: {tok_true}, false: {tok_false}",
         );
 
         match self.peek_char() {
@@ -374,7 +373,7 @@ impl Lexer<'_> {
         match token {
             Ok(tok) => {
                 #[cfg(feature = "loud_lexing")]
-                println!("Lexer::lex(): lexed '{}'@{}", tok.name(), match_start);
+                println!("Lexer::lex(): lexed '{tok}'@{match_start}");
                 Ok((
                     tok,
                     SourceSpan::new(self.cur_file.clone(), match_start, match_end),
@@ -382,7 +381,7 @@ impl Lexer<'_> {
             }
             Err(e) => {
                 #[cfg(feature = "loud_lexing")]
-                println!("Lexer::lex(): lexing error {}", e);
+                println!("Lexer::lex(): lexing error {e}");
                 Err(e)
             }
         }

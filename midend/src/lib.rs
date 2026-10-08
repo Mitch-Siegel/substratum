@@ -1,26 +1,27 @@
 use std::collections::BTreeSet;
 
+pub(crate) mod idfa;
 pub(crate) mod ir;
 pub(crate) mod optimization;
 pub(crate) mod ssa_gen;
 pub(crate) mod symtab;
 pub(crate) mod treewalk;
 pub(crate) mod types;
-// pub(crate) mod idfa;
 
 fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
     let _ = symtab::Visitor::visit_with_starting_data(
         symtab,
-        |_path, symbol, suffix| {
+        |_symtab, path, symbol, suffix| {
             if let symtab::SymbolDef::Value(symtab::Value::Function(f)) = symbol {
-                if let Some(cf) = &f.control_flow {
+                if let Some(cf) = &*f.control_flow.borrow() {
                     {
                         use std::io::Write;
                         let path_string = format!("graphviz/{}{}.gv", f.name(), suffix);
                         let filepath = std::path::Path::new(&path_string);
                         std::fs::create_dir_all(filepath.parent().unwrap()).unwrap();
                         let mut file = std::fs::File::create(filepath).unwrap();
-                        file.write_all(cf.graphviz_string().as_bytes()).unwrap();
+                        file.write_all(cf.graphviz_string(&format!("Value {path}")).as_bytes())
+                            .unwrap();
                     }
                 } else {
                     panic!();
@@ -38,21 +39,21 @@ pub fn symbol_table_from_modules(
     let _ = trace::span_auto!(trace::Level::DEBUG, "Generate symbol table from AST");
 
     tracing::debug!("Walk AST");
-    let mut symtab = treewalk::walk(modules, crate_name);
+    let (mut symtab, types) = treewalk::walk(modules, crate_name);
 
     functions_to_graphviz(&symtab, "_unlowered".into());
 
+    dbg!("Symtab decls (post linearize):");
     for path in symtab.decls() {
-        println!("{path}");
+        println!("\t{path}");
     }
 
-    for (path, instances) in symtab.types.all_monomorphizations() {
-        println!("{path}");
-        for i in instances {
-            println!("\t{i:?}");
-        }
-    }
-    println!("done printing instances");
+    // for (path, instances) in symtab.types.all_monomorphizations() {
+    //     println!("{path}");
+    //     for i in instances {
+    //         println!("\t{i:?}");
+    //     }
+    // }
 
     /*
     let all_arguments = symtab::Visitor::visit(&symtab, get_all_function_arguments);
@@ -60,19 +61,23 @@ pub fn symbol_table_from_modules(
     monomorphization::monomorphize_generics(&mut symtab);
     assign_types_to_function_arguments(&mut symtab, all_arguments);
     */
-    symtab = ir::lowering::lower_symtab(symtab);
+
+    symtab = ir::lowering::lower_symtab(symtab, &types);
     ir::lowering::assert_lowered(&symtab);
 
-    functions_to_graphviz(&symtab, String::new());
+    functions_to_graphviz(&symtab, "_lowered".into());
 
-    //tracing::debug!("collapse scopes");
-    //symtab.collapse_scopes();
+    let types = types::infer_types(&symtab, types);
 
-    //tracing::debug!("convert IR to SSA");
-    //ssa_gen::convert_functions_to_ssa(&mut symtab);
+    functions_to_graphviz(&symtab, "_typeinferred".into());
+
+    dbg!(types);
+
+    tracing::debug!("convert IR to SSA");
+    ssa_gen::convert_functions_to_ssa(&mut symtab);
+    functions_to_graphviz(&symtab, "_ssa".into());
 
     // optimization::optimize_functions(&mut symtab.functions);
-    //
 
     //tracing::debug!("convert IR back from SSA");
     //ssa_gen::remove_ssa_from_functions(&mut symtab);

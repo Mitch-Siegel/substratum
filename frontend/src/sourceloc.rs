@@ -1,8 +1,10 @@
-use std::fmt::Display;
+use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
 pub(crate) struct SourcePoint {
     pub line: u32,
     pub col: u32,
@@ -18,7 +20,7 @@ impl SourcePoint {
     }
 }
 
-impl Display for SourcePoint {
+impl fmt::Display for SourcePoint {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}", self.line, self.col)
     }
@@ -60,7 +62,7 @@ impl From<&'static std::panic::Location<'static>> for SourceLoc {
     }
 }
 
-impl Display for SourceLoc {
+impl fmt::Display for SourceLoc {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}", self.file, self.point)
     }
@@ -124,4 +126,33 @@ impl From<SourceLoc> for SourceSpan {
             end: value.point,
         }
     }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct StaticSourceLoc {
+    file: &'static str,
+    point: SourcePoint,
+}
+
+impl StaticSourceLoc {
+    #[must_use]
+    pub fn new(file: &'static str, line: u32, col: u32) -> Self {
+        Self {
+            file,
+            point: SourcePoint::new(line, col),
+        }
+    }
+}
+
+impl fmt::Debug for StaticSourceLoc {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.file, self.point)
+    }
+}
+
+#[macro_export]
+macro_rules! here {
+    () => {
+        $crate::sourceloc::StaticSourceLoc::new(file!(), line!(), column!())
+    };
 }

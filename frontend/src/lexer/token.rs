@@ -119,64 +119,6 @@ impl PartialEq for Token {
 
 impl Eq for Token {}
 
-impl Token {
-    pub(crate) fn name(&self) -> &str {
-        match self {
-            Self::U8 => "u8",
-            Self::U16 => "u16",
-            Self::U32 => "u32",
-            Self::U64 => "u64",
-            Self::I8 => "i8",
-            Self::I16 => "i16",
-            Self::I32 => "i32",
-            Self::I64 => "i64",
-            Self::SelfLower => "self",
-            Self::SelfUpper => "Self",
-            Self::Reference => "&",
-            Self::Mut => "mut",
-            Self::Plus => "+",
-            Self::Minus => "-",
-            Self::Star => "*",
-            Self::FSlash => "/",
-            Self::GThan => ">",
-            Self::GThanE => ">=",
-            Self::LThan => "<",
-            Self::LThanE => "<=",
-            Self::Equals => "==",
-            Self::NotEquals => "!=",
-            Self::Assign => "=",
-            Self::Mod => "mod",
-            Self::Fn_ => "fun",
-            Self::Let => "let",
-            Self::If => "if",
-            Self::Else => "else",
-            Self::Match => "match",
-            Self::While => "while",
-            Self::Pub => "pub",
-            Self::Struct => "struct",
-            Self::Enum => "enum",
-            Self::Impl => "impl",
-            Self::LParen => "(",
-            Self::RParen => ")",
-            Self::Arrow => "->",
-            Self::FatArrow => "=>",
-            Self::LCurly => "{",
-            Self::RCurly => "}",
-            Self::LBracket => "[",
-            Self::RBracket => "]",
-            Self::Comma => ",",
-            Self::Dot => ".",
-            Self::Semicolon => ";",
-            Self::Colon => ":",
-            Self::PathSep => "::",
-            Self::Super => "super",
-            Self::Identifier(_) => "identifier",
-            Self::UnsignedDecimalConstant(_) => "unsigned decimal constant",
-            Self::Eof => "EOF",
-        }
-    }
-}
-
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

@@ -37,7 +37,11 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         let if_condition = ir::lowered::operands::JumpCondition::Conditional(
             ir::lowered::operands::BinaryComparisonOperands::new(
                 condition_value,
-                *ctx.values_mut().id_for_constant(0),
+                ctx.values_mut().id_for_constant(
+                    0,
+                    #[cfg(feature = "value_locs")]
+                    frontend::here!(),
+                ),
                 ir::lowered::operands::BinaryComparisonKind::NE,
             ),
         );
@@ -59,12 +63,15 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         (if_value_id, ctx) = self.true_block.linearize(ctx)?;
 
         // create a separate, mutable value which contains the true result
-        let result_value_id = if_value_id;
+        let mut result_value = if_value_id;
 
-        // if a false block exists AND the 'if' value exists
+        // if a false block exists
         if self.false_block.is_some() {
             // we need to copy the 'if' result to the common result_value at the end of the 'if' block
-            let result_value = ctx.values_mut().next_temp();
+            result_value = ctx.values_mut().next_temp(
+                #[cfg(feature = "value_locs")]
+                frontend::here!(),
+            );
             let assign_if_result_line =
                 ir::IrLine::new_assignment(true_loc.start(), result_value, if_value_id);
             ctx.append_statement_to_current_block(assign_if_result_line);
@@ -81,12 +88,12 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
             // if the 'else' value exists (have already passed check to assert types are the same)
             // copy the 'else' result to the common result_value at the end of the 'else' block
             let assign_else_result_line =
-                ir::IrLine::new_assignment(else_loc.end(), result_value_id, else_value_id);
+                ir::IrLine::new_assignment(else_loc.end(), result_value, else_value_id);
             ctx.append_statement_to_current_block(assign_else_result_line);
         }
 
         ctx.finish_branch(if_loc.end());
 
-        ctx.into_result(result_value_id)
+        ctx.into_result(result_value)
     }
 }

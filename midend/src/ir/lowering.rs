@@ -1,4 +1,4 @@
-use crate::symtab;
+use crate::{symtab, types};
 
 mod function;
 use function::lower_function;
@@ -7,6 +7,7 @@ use function::lower_function;
 struct FunctionsToLower(Vec<symtab::ValuePath>);
 
 fn check_symbol_for_lowering(
+    _symtab: &symtab::SymbolTable,
     def_path: &symtab::RawPath,
     symbol: &symtab::SymbolDef,
     to_lower: &mut FunctionsToLower,
@@ -16,17 +17,25 @@ fn check_symbol_for_lowering(
     }
 }
 
-pub(crate) fn lower_symtab(mut symtab: symtab::SymbolTable) -> symtab::SymbolTable {
+pub(crate) fn lower_symtab(
+    mut symtab: symtab::SymbolTable,
+    types: &types::Interner,
+) -> symtab::SymbolTable {
     let functions_to_lower = symtab::Visitor::visit(&symtab, check_symbol_for_lowering);
 
     for to_lower in functions_to_lower.0 {
-        symtab = lower_function(&to_lower, symtab);
+        symtab = lower_function(&to_lower, symtab, types);
     }
 
     symtab
 }
 
-fn assert_symbol_lowered(def_path: &symtab::RawPath, symbol: &symtab::SymbolDef, _: &mut ()) {
+fn assert_symbol_lowered(
+    _symtab: &symtab::SymbolTable,
+    def_path: &symtab::RawPath,
+    symbol: &symtab::SymbolDef,
+    _: &mut (),
+) {
     if let symtab::SymbolDef::Value(symtab::Value::Function(function)) = symbol {
         assert!(
             function.is_lowered(),

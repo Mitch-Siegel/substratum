@@ -163,6 +163,7 @@ mod path_walk {
 
             let mut built_data_path = context_path.clone();
             let mut built_walked_path = symtab::MaybeEmptyPath::new();
+
             for (segment, maybe_data) in self
                 .walked_segments
                 .into_iter()
@@ -185,27 +186,24 @@ mod path_walk {
                 symtab::PathSegment::Value(segment_name.clone()),
             );
 
-            let macro_path = symtab::RawPath::new(
+            let _macro_path = symtab::RawPath::new(
                 built_walked_path.into(),
                 symtab::PathSegment::Macro(segment_name.clone()),
             );
 
             let type_path: Option<symtab::TypePath> =
-                match symtab.lookup_decl(context_path.clone().into(), type_path.clone()) {
-                    Ok(_) => Some(type_path.into()),
+                match symtab.lookup_decl(context_path.clone().into(), type_path) {
+                    Ok(real_type_path) => Some(real_type_path.into()),
                     Err(_) => None,
                 };
 
             let value_path: Option<symtab::ValuePath> =
-                match symtab.lookup_decl(context_path.clone().into(), value_path.clone()) {
-                    Ok(_) => Some(value_path.into()),
+                match symtab.lookup_decl(context_path.clone().into(), value_path) {
+                    Ok(real_value_path) => Some(real_value_path.into()),
                     Err(_) => None,
                 };
 
-            let macro_path: Option<symtab::MacroPath> = match symtab.lookup_at(&macro_path) {
-                Ok(_) => Some(macro_path.into()),
-                Err(_) => None,
-            };
+            let macro_path: Option<symtab::MacroPath> = None;
 
             FinishedPathWalk {
                 loc: loc.clone(),
@@ -267,7 +265,6 @@ where
             self.loc,
         ))?;
         let data = Self::handle_last_segment_data(self.pathed_data, &path, self.last_segment_data);
-
         Ok(PathWithSegmentData { path, data })
     }
 
@@ -407,7 +404,7 @@ where
         let mut segments = self.segments.into_iter();
 
         while let Some(segment) = segments.next() {
-            dbg!(&walk_state);
+            trace::trace!("{:?}", &walk_state);
             let segment_loc = segment.loc();
             path_span = path_span.merge(&segment_loc).unwrap();
             let action: PathSegmentAction<T>;
@@ -418,10 +415,9 @@ where
                     action,
                     segments.size_hint().0,
                     &segment_loc,
-                    ctx.unpathed(),
+                    ctx.unpathed().symtab(),
                 )
                 .unwrap();
-            dbg!(&walk_state);
         }
 
         let finished = walk_state.finish().unwrap();
@@ -442,5 +438,6 @@ where
     last_segment_data: Option<T>,
     type_path: Option<symtab::TypePath>,
     value_path: Option<symtab::ValuePath>,
+    #[allow(unused)]
     macro_path: Option<symtab::MacroPath>,
 }

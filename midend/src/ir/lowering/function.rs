@@ -1,8 +1,12 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::DerefMut,
+};
 
 use crate::{
     ir::ControlFlow,
     symtab::{self, Path, Symtab},
+    types,
 };
 
 pub(crate) fn find_unlowered_irs(cf: &ControlFlow) -> HashMap<usize, HashSet<usize>> {
@@ -23,18 +27,19 @@ pub(crate) fn find_unlowered_irs(cf: &ControlFlow) -> HashMap<usize, HashSet<usi
 pub(crate) fn lower_function(
     def_path: &symtab::ValuePath,
     mut symtab: symtab::SymbolTable,
+    _types: &types::Interner,
 ) -> symtab::SymbolTable {
     let _span = trace::span_auto_debug!("Lower function ", "{}", def_path.last());
 
     #[allow(clippy::never_loop)]
     loop {
-        let (mut cf, unlowered, _function_name) = {
+        let (_cf, _unlowered, _function_name) = {
             let symtab::Value::Function(function) = symtab.lookup_value_at_mut(def_path).unwrap()
             else {
                 panic!("expected {def_path:?} to be a function")
             };
 
-            if let Some(cf) = &mut function.control_flow {
+            if let Some(cf) = function.control_flow.borrow_mut().deref_mut() {
                 trace::trace!("run type inference");
 
                 let unlowered = find_unlowered_irs(cf);
@@ -53,11 +58,11 @@ pub(crate) fn lower_function(
             }
         };
 
-        cf.infer_types(&mut symtab);
+        // cf.infer_types(&symtab, types);
 
-        trace::trace!("the following statements need lowering: {:?}", unlowered);
+        // trace::trace!("the following statements need lowering: {:?}", unlowered);
 
-        unimplemented!();
+        // unimplemented!();
 
         /*
         let mut manager: BlockManager = cf.into();

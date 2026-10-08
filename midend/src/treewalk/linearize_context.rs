@@ -1,10 +1,10 @@
 use frontend::{ast, sourceloc};
 
-use crate::treewalk::{
-    BTreeSet, PathedCtx, PathedCtxTrait, UnpathedCtxTrait, ir, symtab, treewalk, types,
+use crate::{
+    ir, symtab,
+    treewalk::{self, PathedCtx, PathedCtxTrait, UnpathedCtxTrait},
+    types,
 };
-
-use std::collections::HashSet;
 
 pub(crate) mod function_linearize_context;
 
@@ -12,6 +12,7 @@ pub(crate) use function_linearize_context::UnpathedFunctionLinearizeCtx;
 
 pub(crate) struct UnpathedLinearizeCtx {
     symtab: symtab::SymbolTable,
+    types: types::Interner,
 }
 
 impl UnpathedCtxTrait for UnpathedLinearizeCtx {
@@ -21,26 +22,27 @@ impl UnpathedCtxTrait for UnpathedLinearizeCtx {
             path,
         }
     }
+
+    fn symtab(&self) -> &impl symtab::Symtab {
+        &self.symtab
+    }
+
+    fn symtab_mut(&mut self) -> &mut impl symtab::Symtab {
+        &mut self.symtab
+    }
+
+    fn symtab_and_types(&mut self) -> (&mut impl symtab::Symtab, &mut types::Interner) {
+        (&mut self.symtab, &mut self.types)
+    }
 }
 
 impl UnpathedLinearizeCtx {
-    pub(crate) fn new(symtab: symtab::SymbolTable) -> Self {
-        Self { symtab }
+    pub(crate) fn new(symtab: symtab::SymbolTable, types: types::Interner) -> Self {
+        Self { symtab, types }
     }
 
-    pub(crate) fn from_existing(
-        _symtab: symtab::SymbolTable,
-        _definition_path: symtab::RawPath,
-        _manager: ir::BlockManager,
-        _block: usize,
-    ) -> Self {
-        unimplemented!();
-
-        // Self { symtab }
-    }
-
-    pub(crate) fn take(self) -> symtab::SymbolTable {
-        self.symtab
+    pub(crate) fn take(self) -> (symtab::SymbolTable, types::Interner) {
+        (self.symtab, self.types)
     }
 }
 
@@ -139,14 +141,7 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
         self.unpathed.reserve_subscope(path)
     }
 
-    pub(crate) fn with_child_scope(mut self) -> Self {
-        let path = self.reserve_subscope();
-        Self {
-            unpathed: self.unpathed,
-            path,
-        }
-    }
-
+    #[allow(unused)]
     pub(crate) fn self_variable(&self) -> Result<symtab::ValuePath, symtab::SymbolError> {
         unimplemented!();
         /*
@@ -157,6 +152,7 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
     }
 
     // resolves a string type name to either a defined type or a generic param
+    #[allow(unused)]
     pub(crate) fn disambiguate_named_type(
         &self,
         _name: &str,
@@ -233,77 +229,8 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
     }
 }
 
-impl symtab::SymtabBase for UnpathedLinearizeCtx {
-    fn insert(
-        &mut self,
-        path: symtab::RawPath,
-        maybe_symbol: Option<symtab::SymbolDef>,
-    ) -> Result<symtab::RawPath, symtab::SymbolError> {
-        self.symtab.insert(path, maybe_symbol)
-    }
-
-    fn lookup_at(
-        &self,
-        path: &symtab::RawPath,
-    ) -> Result<Option<&symtab::SymbolDef>, symtab::SymbolError> {
-        self.symtab.lookup_at(path)
-    }
-
-    fn lookup_at_mut(
-        &mut self,
-        path: &symtab::RawPath,
-    ) -> Result<Option<&mut symtab::SymbolDef>, symtab::SymbolError> {
-        self.symtab.lookup_at_mut(path)
-    }
-
-    fn insert_use_declaration(
-        &mut self,
-        path: symtab::RawPath,
-        use_declaration: symtab::UseDeclaration,
-    ) {
-        self.symtab.insert_use_declaration(path, use_declaration);
-    }
-
-    fn get_use_declarations_at(
-        &self,
-        path: &symtab::RawPath,
-    ) -> Option<&BTreeSet<symtab::UseDeclaration>> {
-        self.symtab.get_use_declarations_at(path)
-    }
-
-    fn children_of_path(&self, path: &impl symtab::Path) -> BTreeSet<symtab::RawPath> {
-        self.symtab.children_of_path(path)
-    }
-}
-
-impl symtab::Symtab for UnpathedLinearizeCtx {
-    fn get_impls_for(
-        &self,
-        path: &symtab::TypePath,
-    ) -> Result<&HashSet<symtab::ImplPath>, symtab::SymbolError> {
-        self.symtab.get_impls_for(path)
-    }
-
-    fn create_impl(
-        &mut self,
-        impl_parent_path: symtab::RawPath,
-        impl_for_path: symtab::TypePath,
-    ) -> Result<symtab::ImplPath, symtab::SymbolError> {
-        self.symtab.create_impl(impl_parent_path, impl_for_path)
-    }
-
-    fn semantic_type_for_syntactic(
-        &self,
-        search_def_path: &impl symtab::Path,
-        generic_params: crate::types::ParamSubstMap,
-        ty_: &crate::types::Syntactic,
-    ) -> Result<crate::types::Semantic, symtab::SymbolError> {
-        self.symtab
-            .semantic_type_for_syntactic(search_def_path, generic_params, ty_)
-    }
-}
-
 #[derive(Debug)]
+#[allow(unused)]
 pub(crate) enum LinearizeError {
     Symbol(symtab::SymbolError),
     DisallowedInferredType(sourceloc::SourceSpan),
@@ -330,7 +257,9 @@ impl FunctionLinearizeCtx {
     }
 }
 
+#[allow(unused)]
 pub(crate) type ValueLinearizeCtx = LinearizeCtx<symtab::ValuePath>;
+#[allow(unused)]
 pub(crate) type ImplLinearizeCtx = LinearizeCtx<symtab::ImplPath>;
 
 pub(crate) type LinearizeResult<D, U> = Result<(D, U), LinearizeError>;
@@ -408,11 +337,12 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
             .finish_true_branch_switch_to_false(loc, &path);
     }
 
-    pub(crate) fn values(&self) -> &ir::ValueInterner {
+    #[allow(unused)]
+    pub(crate) fn values(&self) -> &ir::ValueInterner<Option<types::Syntactic>> {
         self.unpathed.function().values()
     }
 
-    pub(crate) fn values_mut(&mut self) -> &mut ir::ValueInterner {
+    pub(crate) fn values_mut(&mut self) -> &mut ir::ValueInterner<Option<types::Syntactic>> {
         self.unpathed.function_mut().values_mut()
     }
 
@@ -476,6 +406,7 @@ where
 {
     fn new(unpathed: Self::Unpathed, path: Self::Path) -> Self;
 
+    #[allow(unused)]
     fn into_unpathed(self) -> Self::Unpathed;
 
     fn into_result<R>(self, data: R) -> LinearizeResult<R, Self::Unpathed>;

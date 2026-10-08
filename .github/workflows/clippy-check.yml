@@ -26,6 +26,5 @@ jobs:
       - name: lint imports 
         run: cargo run --bin import-linter frontend midend backend import-linter
         
-        
-      
-  
+        run: cargo xtask check
+

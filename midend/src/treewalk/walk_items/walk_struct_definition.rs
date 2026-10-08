@@ -28,7 +28,13 @@ where
 
 impl Collect<symtab::TypePath> for ast::items::StructDefinitionTree {
     fn collect_inner(&self, mut ctx: TypeCollectCtx) -> CollectResult {
-        let _struct_path = ctx.declare_type(self.name.value.clone())?;
+        let params = if self.generic_params.maybe_params.is_some() {
+            unimplemented!("get generic params for struct");
+        } else {
+            types::GenericParamsList::new()
+        };
+
+        let _struct_path = ctx.declare_type(self.name.value.clone(), params)?;
 
         let struct_ctx = ctx.with_child_type(self.name.value.clone());
 

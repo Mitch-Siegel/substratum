@@ -11,7 +11,6 @@ pub(crate) enum BranchError {
     MissingFalseBlock(usize),               // missing false block on branch (from_label)
     SwitchBlockMismatch(usize, usize), // (expected, found) where expected switch block label didn't match the one at the end of the open branch path
     LoopInsideNotDone(usize),
-    ScopeHandling,
 }
 
 impl From<ConvergenceError> for BranchError {

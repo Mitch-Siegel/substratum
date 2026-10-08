@@ -1,11 +1,12 @@
 use frontend::ast::{self, Ast};
 
 use crate::{
-    symtab,
+    ir, symtab,
     treewalk::{
         Collect, CollectResult, FunctionLinearizeCtx, Linearize, LinearizeResult,
-        UnpathedFunctionLinearizeCtx, ValueCollectCtx, ir,
+        UnpathedFunctionLinearizeCtx, ValueCollectCtx,
     },
+    types,
 };
 
 impl Collect<symtab::ValuePath> for ast::expressions::AssignmentTree {
@@ -29,7 +30,10 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
                 let field_loc = field_expression_tree.loc();
                 let (receiver, field);
                 ((receiver, field), ctx) = field_expression_tree.linearize(ctx)?;
-                let field_pointer_temp = ctx.values_mut().next_temp();
+                let field_pointer_temp = ctx.values_mut().next_temp(
+                    #[cfg(feature = "value_locs")]
+                    frontend::here!(),
+                );
 
                 let field_pointer_line = ir::IrLine::new_get_field_pointer(
                     field_loc.start(),
@@ -57,6 +61,6 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
 
         ctx.append_statement_to_current_block(assignment_ir);
 
-        ctx.into_result(ir::ValueInterner::unit_value_id())
+        ctx.into_result(ir::ValueInterner::<types::Syntactic>::unit_value_id())
     }
 }

@@ -1,7 +1,4 @@
-#![allow(unused_imports, unused_macros)]
-
 pub use tracing::Level;
-pub(crate) use tracing_print::Print;
 
 pub use tracing;
 pub use tracing::event;

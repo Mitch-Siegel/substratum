@@ -1,19 +1,24 @@
-use std::collections::{BTreeSet, HashMap, VecDeque};
+use std::{
+    collections::{BTreeSet, HashMap, VecDeque},
+    ops,
+};
 
 use frontend::sourceloc;
 use ooo_iter::{HashMapOOOIter, HashMapOOOIterMut};
 
-use crate::ir::{
-    BasicBlock, OperandTypeInference, Operation, TypeInferenceContext, ValueInterner, ir, lowered,
-    symtab, unlowered,
+use crate::{
+    ir::{self, BasicBlock, Operation, ValueInterner, lowered, unlowered},
+    symtab,
+    types::{self, Inference},
 };
 
 #[derive(Debug, Clone)]
 pub(crate) struct ControlFlow {
     blocks: HashMap<usize, BasicBlock>,
     successors: HashMap<usize, BTreeSet<usize>>,
+    #[allow(unused)]
     predecessors: HashMap<usize, BTreeSet<usize>>,
-    values: ValueInterner,
+    values: ValueInterner<Option<types::Syntactic>>,
 }
 
 #[allow(unused)]
@@ -31,7 +36,10 @@ impl<T> Iterator for ControlFlowIntoIter<T> {
 
 // TODO: are the postorder and reverse postorder named opposite right now? Need to actually check this...
 impl ControlFlow {
-    pub(crate) fn new(blocks: HashMap<usize, BasicBlock>, values: ValueInterner) -> Self {
+    pub(crate) fn new(
+        blocks: HashMap<usize, BasicBlock>,
+        values: ValueInterner<Option<types::Syntactic>>,
+    ) -> Self {
         let mut successors = HashMap::<usize, BTreeSet<usize>>::new();
         let mut predecessors = HashMap::<usize, BTreeSet<usize>>::new();
 
@@ -85,7 +93,12 @@ impl ControlFlow {
         }
     }
 
-    pub(crate) fn take(self) -> (HashMap<usize, BasicBlock>, ValueInterner) {
+    pub(crate) fn take(
+        self,
+    ) -> (
+        HashMap<usize, BasicBlock>,
+        ValueInterner<Option<types::Syntactic>>,
+    ) {
         (self.blocks, self.values)
     }
 
@@ -93,6 +106,7 @@ impl ControlFlow {
         self.successors.get(&label)
     }
 
+    #[allow(unused)]
     pub(crate) fn predecessors(&self, label: usize) -> Option<&BTreeSet<usize>> {
         self.predecessors.get(&label)
     }
@@ -124,24 +138,28 @@ impl ControlFlow {
         postorder_stack
     }
 
+    #[allow(unused)]
     pub(crate) fn blocks_postorder(&self) -> HashMapOOOIter<'_, usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
         HashMapOOOIter::new(&self.blocks, rpo_stack.into_iter().rev())
     }
 
+    #[allow(unused)]
     pub(crate) fn blocks_postorder_mut(&mut self) -> HashMapOOOIterMut<'_, usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
         HashMapOOOIterMut::new(&mut self.blocks, rpo_stack.into_iter().rev())
     }
 
+    #[allow(unused)]
     pub(crate) fn blocks_reverse_postorder(&self) -> HashMapOOOIter<'_, usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
         HashMapOOOIter::new(&self.blocks, rpo_stack.into_iter())
     }
 
+    #[allow(unused)]
     pub(crate) fn blocks_reverse_postorder_mut(
         &mut self,
     ) -> HashMapOOOIterMut<'_, usize, ir::BasicBlock> {
@@ -151,14 +169,26 @@ impl ControlFlow {
     }
 
     #[allow(clippy::format_push_string)]
-    pub(crate) fn graphviz_string(&self) -> String {
+    pub(crate) fn graphviz_string(&self, parent_path: &str) -> String {
+        let mut value_names_by_id = HashMap::<ir::ValueId, String>::new();
+
+        for id in self.values.ids() {
+            let value = self.values.ssa_value_for_id(id).unwrap();
+            let pretty = value
+                .pretty_print(&self.values)
+                .replace(&format!("{parent_path}::"), "");
+            value_names_by_id.insert(id, pretty);
+        }
+
         let mut graphviz_string = String::from("digraph {\n");
 
+        // WOW!
         let values_str = self
             .values
             .ids()
-            .map(|(value, id)| format!("{id}:{value}"))
-            .collect::<Vec<String>>()
+            .by_ref()
+            .map(|id| format!("{id}:{:?}", self.values.ssa_value_for_id(id).unwrap()))
+            .collect::<Vec<_>>()
             .join("\n");
         graphviz_string += &format!("values[label=\"{values_str}\"]");
 
@@ -171,9 +201,21 @@ impl ControlFlow {
                 .next()
                 .unwrap_or(&loc_none);
 
-            graphviz_string += &format!("{label}[label=\"{label}\n{block_loc}\n");
+            graphviz_string += &format!("{label}[label=\"{label}\nloc:{block_loc}\n");
             for statement in block {
-                graphviz_string += &format!("{statement}\n");
+                let mut printed_statement = format!("{statement}\n");
+                for used in statement
+                    .read_value_ids()
+                    .into_iter()
+                    .chain(statement.write_value_ids()) // get all value IDs used in the statements
+                    .collect::<BTreeSet<ir::ValueId>>() // sort it
+                    .into_iter() // go from largest to smallest value ID to replace longer strings first
+                    .rev()
+                {
+                    printed_statement = printed_statement
+                        .replace(&format!("{used}"), value_names_by_id.get(&used).unwrap());
+                }
+                graphviz_string += &printed_statement;
             }
             graphviz_string += "\"];\n";
 
@@ -187,34 +229,97 @@ impl ControlFlow {
         graphviz_string
     }
 
-    pub(crate) fn values(&self) -> &ValueInterner {
+    #[allow(unused)]
+    pub(crate) fn values(&self) -> &ValueInterner<Option<types::Syntactic>> {
         &self.values
     }
 
-    pub(crate) fn values_mut(&mut self) -> &mut ValueInterner {
+    #[allow(unused)]
+    pub(crate) fn values_mut(&mut self) -> &mut ValueInterner<Option<types::Syntactic>> {
         &mut self.values
     }
 }
 
 impl ControlFlow {
-    pub(crate) fn infer_types(&mut self, symtab: &mut symtab::SymbolTable) -> bool {
-        let mut block_order: BTreeSet<usize> = self
+    pub(crate) fn infer_types(
+        &mut self,
+        symtab: &symtab::SymbolTable,
+        types: &types::Interner,
+    ) -> bool {
+        let block_order: BTreeSet<usize> = self
             .generate_reverse_postorder_stack()
             .into_iter()
             .collect();
 
         let (values, blocks) = (&mut self.values, &mut self.blocks);
-        let ctx = TypeInferenceContext::new(symtab, values);
-        loop {
-            let old_size = block_order.len();
+        let mut ctx = types::inference::Ctx::new(symtab, types, values);
 
-            block_order.retain(|label| blocks.get_mut(label).unwrap().infer_types(&ctx));
-            if old_size == block_order.len() {
-                break;
+        // map of block -> set of statement indices that need to be reinferred
+        let mut reinfer_statements = HashMap::<usize, BTreeSet<usize>>::new();
+
+        for label in &block_order {
+            let block = blocks.get(label).unwrap();
+            let reinfer_at_block = (0..block.len()).collect();
+            reinfer_statements.insert(*label, reinfer_at_block);
+        }
+
+        while !reinfer_statements.is_empty() {
+            let mut missing_ids = BTreeSet::new();
+
+            let start_stmt_count: usize = reinfer_statements.values().map(BTreeSet::len).sum();
+            for label in &block_order {
+                let block = blocks.get_mut(label).unwrap();
+
+                let mut reinfer_at_block = BTreeSet::new();
+
+                for (idx, stmt) in block.into_iter().enumerate() {
+                    match stmt.infer_types(&mut ctx) {
+                        ops::ControlFlow::Continue(_) => {
+                            // FUTURE: use this to build dependency graphs for type inference
+                        }
+                        ops::ControlFlow::Break(reason) => {
+                            // FUTURE: use this to build dependency graphs for type inference
+                            if let types::inference::BreakReason::Stalled(id) = reason {
+                                missing_ids.insert(id);
+                                reinfer_at_block.insert(idx);
+                            }
+                        }
+                    }
+                }
+
+                if reinfer_at_block.is_empty() {
+                    reinfer_statements.remove(label);
+                } else {
+                    reinfer_statements.insert(*label, reinfer_at_block);
+                }
             }
+
+            let end_stmt_count: usize = reinfer_statements.values().map(BTreeSet::len).sum();
+            if start_stmt_count == end_stmt_count {
+                dbg!(&reinfer_statements);
+            }
+            assert_ne!(
+                start_stmt_count, end_stmt_count,
+                "type inference reached unexpected fixed point"
+            );
         }
 
         block_order.is_empty()
+    }
+
+    pub(crate) fn blocks_postorder_mut_with_values(
+        &mut self,
+    ) -> (
+        impl Iterator<Item = &mut BasicBlock>,
+        &mut ir::ValueInterner<Option<types::Syntactic>>,
+    ) {
+        let rpo_stack = self.generate_reverse_postorder_stack();
+
+        let Self { blocks, values, .. } = self;
+
+        let postorder_mut = HashMapOOOIterMut::new(blocks, rpo_stack.into_iter().rev());
+
+        (postorder_mut.map(|(_label, block)| block), values)
     }
 }
 

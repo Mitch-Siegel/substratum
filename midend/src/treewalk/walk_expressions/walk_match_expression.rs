@@ -133,7 +133,10 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         (scrutinee_value, ctx) = self.scrutinee_expression.linearize(ctx)?;
 
         // TODO: consolidate each arm's result into result_value
-        let result_value = ctx.values_mut().next_temp();
+        let result_value = ctx.values_mut().next_temp(
+            #[cfg(feature = "value_locs")]
+            frontend::here!(),
+        );
 
         let mut arm_values = Vec::new();
 

@@ -1,8 +1,7 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    ir,
-    ir::{IrLine, OperandTypeInference, TypeInferenceContext, ValueId},
+    ir::{self, IrLine, ValueId},
     symtab,
 };
 
@@ -11,8 +10,6 @@ pub(crate) struct BasicBlock {
     pub label: usize,
     def_path: symtab::ScopePath,
     statements: Vec<IrLine>,
-    // lines which may not have had any type propagation done on their ValueIds
-    unpropagated_lines: BTreeSet<usize>,
     pub arguments: BTreeSet<ValueId>,
 }
 
@@ -22,22 +19,6 @@ impl BasicBlock {
             label,
             def_path,
             statements: Vec::new(),
-            unpropagated_lines: BTreeSet::new(),
-            arguments: BTreeSet::new(),
-        }
-    }
-
-    pub(crate) fn with_statements(
-        label: usize,
-        def_path: symtab::ScopePath,
-        statements: Vec<ir::IrLine>,
-    ) -> Self {
-        let unpropagated_lines: BTreeSet<usize> = (0..statements.len()).collect();
-        Self {
-            label,
-            def_path,
-            statements,
-            unpropagated_lines,
             arguments: BTreeSet::new(),
         }
     }
@@ -48,10 +29,8 @@ impl BasicBlock {
 
     /// split the block at statement with specified index, returning vec of that statement and any
     /// following it
+    #[allow(unused)]
     pub(crate) fn split_at(&mut self, idx: usize) -> Vec<IrLine> {
-        for no_longer_unpropagated in idx..self.statements.len() {
-            self.unpropagated_lines.remove(&no_longer_unpropagated);
-        }
         self.statements.split_off(idx)
     }
 
@@ -59,25 +38,22 @@ impl BasicBlock {
         self.statements.push(line);
     }
 
+    #[allow(unused)]
     pub(crate) fn append(&mut self, others: &mut Vec<IrLine>) {
         self.statements.append(others);
     }
 
+    #[allow(unused)]
     pub(crate) fn statements(&self) -> impl Iterator<Item = &IrLine> {
         self.statements.iter()
     }
-}
 
-impl OperandTypeInference for BasicBlock {
-    /// do type inference on the block, returning whether any line in the block still has un-inferred types
-    fn infer_types(&mut self, ctx: &TypeInferenceContext) -> bool {
-        self.unpropagated_lines = self
-            .unpropagated_lines
-            .iter()
-            .filter(|line_idx| self.statements[**line_idx].infer_types(ctx))
-            .copied()
-            .collect();
-        self.unpropagated_lines.is_empty()
+    pub(crate) fn statements_mut(&mut self) -> impl Iterator<Item = &mut IrLine> {
+        self.statements.iter_mut()
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.statements.len()
     }
 }
 

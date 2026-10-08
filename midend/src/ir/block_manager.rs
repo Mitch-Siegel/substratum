@@ -1,14 +1,8 @@
-use std::collections::BTreeSet;
-
 use frontend::sourceloc;
 
 use crate::{
-    ir,
-    ir::{
-        BasicBlock, ControlFlow, IrLine, OperandTypeInference, TypeInferenceContext, ValueInterner,
-    },
-    symtab,
-    symtab::ValueOwner,
+    ir::{self, BasicBlock, ControlFlow, IrLine, ValueInterner},
+    symtab::{self, ValueOwner},
     types,
 };
 
@@ -35,6 +29,7 @@ pub(crate) enum BranchKind {
     SwitchCase(usize), // within a switch and inside one of its cases - owns the
     // label of the switch block
     Loop,
+    #[allow(unused)]
     BlockSplit(Vec<IrLine>), // a block has been split into two. The statements after the split
                              // (not including the statement which was split on) are owned by
                              // the BlockSplit.
@@ -60,16 +55,13 @@ pub(crate) struct BlockManager {
     // branch path of basic block labels targeted by the branches which got us to current_block
     open_branch_path: Vec<Branch>,
     blocks: HashMap<usize, BasicBlock>,
-    values: ValueInterner,
+    values: ValueInterner<Option<types::Syntactic>>,
 }
 
 impl BlockManager {
     // returns (Self, start_block)
     // where start_block is the first basic block in the function
-    pub(crate) fn new(
-        unit_type: types::Semantic,
-        parent_def_path: &symtab::ValuePath,
-    ) -> (Self, usize) {
+    pub(crate) fn new(parent_def_path: &symtab::ValuePath) -> (Self, usize) {
         // set up the initlal convergence - must always end up at the end_block
         let start_block_path = parent_def_path.clone().with_scope(symtab::ScopeId(0));
         let end_block_path = parent_def_path.clone().with_scope(symtab::ScopeId(1));
@@ -85,7 +77,7 @@ impl BlockManager {
                 max_block: 1,
                 open_branch_path: Vec::new(),
                 blocks: vec![(start_block.label, start_block)].into_iter().collect(),
-                values: ValueInterner::new(unit_type),
+                values: ValueInterner::new(Some(types::Syntactic::Unit), frontend::here!()),
             },
             start_label,
         )
@@ -114,7 +106,7 @@ impl BlockManager {
 
     pub(crate) fn with_existing_blocks(
         blocks: HashMap<usize, BasicBlock>,
-        existing_values: ValueInterner,
+        existing_values: ValueInterner<Option<types::Syntactic>>,
     ) -> Self {
         let mut max_block = 0;
         for label in blocks.keys() {
@@ -130,11 +122,12 @@ impl BlockManager {
         }
     }
 
-    pub(crate) fn values(&self) -> &ValueInterner {
+    #[allow(unused)]
+    pub(crate) fn values(&self) -> &ValueInterner<Option<types::Syntactic>> {
         &self.values
     }
 
-    pub(crate) fn values_mut(&mut self) -> &mut ValueInterner {
+    pub(crate) fn values_mut(&mut self) -> &mut ValueInterner<Option<types::Syntactic>> {
         &mut self.values
     }
 
@@ -191,6 +184,7 @@ impl BlockManager {
 
 /// implementation of manipulation functions such as splitting
 impl BlockManager {
+    #[allow(unused)]
     pub(crate) fn finish_block_split(
         &mut self,
         split_end_label: usize,
@@ -209,20 +203,6 @@ impl BlockManager {
                 wrong,
                 vec![BranchKind::BlockSplit(Vec::new())],
             )),
-        }
-    }
-}
-
-/// Implementation of type inference machinery
-impl BlockManager {
-    pub(crate) fn infer_types(&mut self, symtab: &mut symtab::SymbolTable) {
-        let (values, blocks) = (&mut self.values, &mut self.blocks);
-
-        let ctx = TypeInferenceContext::new(symtab, values);
-        let mut require_reanalysis: BTreeSet<usize> = blocks.keys().copied().collect();
-
-        while !require_reanalysis.is_empty() {
-            require_reanalysis.retain(|label| blocks.get_mut(label).unwrap().infer_types(&ctx));
         }
     }
 }

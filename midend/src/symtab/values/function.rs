@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use crate::{
     ir,
     symtab::{PathSegment, Symbol, SymbolDef, Value, values},
@@ -7,14 +9,14 @@ use crate::{
 #[derive(Debug, Clone)]
 pub(crate) struct Function {
     pub prototype: FunctionPrototype,
-    pub control_flow: Option<ir::ControlFlow>,
+    pub control_flow: RefCell<Option<ir::ControlFlow>>,
 }
 
 impl Function {
     pub(crate) fn new(prototype: FunctionPrototype, control_flow: Option<ir::ControlFlow>) -> Self {
         Self {
             prototype,
-            control_flow,
+            control_flow: RefCell::new(control_flow),
         }
     }
 
@@ -23,7 +25,7 @@ impl Function {
     }
 
     pub(crate) fn is_lowered(&self) -> bool {
-        if let Some(cf) = &self.control_flow {
+        if let Some(cf) = &*self.control_flow.borrow() {
             for block in cf {
                 for statement in block {
                     match statement.operation {
@@ -59,7 +61,7 @@ impl std::fmt::Display for Function {
             f,
             "{} - has cf? {}",
             self.prototype,
-            self.control_flow.is_some()
+            self.control_flow.borrow().is_some()
         )
     }
 }

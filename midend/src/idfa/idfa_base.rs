@@ -3,7 +3,7 @@ use std::{
     fmt::Display,
 };
 
-use crate::{midend::ir, trace};
+use crate::ir;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -16,7 +16,7 @@ pub(crate) enum IdfaAnalysisDirection {
 pub(crate) struct BlockFacts<T> {
     pub in_: BTreeSet<T>,
     pub out: BTreeSet<T>,
-    pub gen: BTreeSet<T>,
+    pub gen_: BTreeSet<T>,
     pub kill: BTreeSet<T>,
 }
 
@@ -25,7 +25,7 @@ impl<T> Default for BlockFacts<T> {
         Self {
             in_: BTreeSet::<T>::new(),
             out: BTreeSet::<T>::new(),
-            gen: BTreeSet::<T>::new(),
+            gen_: BTreeSet::<T>::new(),
             kill: BTreeSet::<T>::new(),
         }
     }
@@ -49,12 +49,13 @@ where
         }
     }
 
-    // return facts for a given label
-    // requires &mut self in case of missing entry needing or_default()
-    pub(crate) fn for_label(&self, label: usize) -> Option<&BlockFacts<T>> {
-        self.facts.get(&label)
+    // return facts for a given label, assuming they exist (panic if not)
+    pub(crate) fn for_label(&self, label: usize) -> &BlockFacts<T> {
+        self.facts.get(&label).unwrap()
     }
 
+    // return facts for a given label
+    // requires &mut self in case of missing entry needing or_default()
     pub(crate) fn for_label_mut(&mut self, label: usize) -> &mut BlockFacts<T> {
         self.facts.entry(label).or_default()
     }
@@ -115,8 +116,9 @@ where
         let label = block.label;
         let mut new_in_facts = BTreeSet::<T>::new();
 
-        for predecessor in self.predecessors(block).copied() {
-            new_in_facts = (self.f_meet)(new_in_facts, &self.facts.for_label_mut(predecessor).out);
+        for predecessor in self.predecessors(block) {
+            let out_facts = &self.facts.for_label(*predecessor).out;
+            new_in_facts = (self.f_meet)(new_in_facts, out_facts);
         }
 
         self.facts

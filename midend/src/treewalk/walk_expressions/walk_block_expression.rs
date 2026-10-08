@@ -1,11 +1,12 @@
 use frontend::ast;
 
 use crate::{
-    symtab,
+    ir, symtab,
     treewalk::{
         Collect, CollectResult, FunctionLinearizeCtx, Linearize, LinearizeResult, PathedCtxTrait,
-        UnpathedFunctionLinearizeCtx, ValueCollectCtx, ir,
+        UnpathedFunctionLinearizeCtx, ValueCollectCtx,
     },
+    types,
 };
 
 impl Collect<symtab::ValuePath> for ast::expressions::BlockExpressionTree {
@@ -43,9 +44,10 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
             Some(statement_tree) => {
                 let maybe_value;
                 (maybe_value, ctx) = statement_tree.linearize(ctx)?;
-                maybe_value.unwrap_or(ir::ValueInterner::unit_value_id())
+                maybe_value
+                    .unwrap_or(ir::ValueInterner::<Option<types::Syntactic>>::unit_value_id())
             }
-            None => ir::ValueInterner::unit_value_id(),
+            None => ir::ValueInterner::<Option<types::Syntactic>>::unit_value_id(),
         };
 
         ctx.finish_branch(self.close_brace_loc.end());

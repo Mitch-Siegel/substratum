@@ -6,6 +6,7 @@ use crate::{
         Collect, CollectResult, FunctionLinearizeCtx, Linearize, LinearizeResult, PathedCtxTrait,
         UnpathedFunctionLinearizeCtx, ValueCollectCtx,
     },
+    types,
 };
 
 impl Collect<symtab::ValuePath> for ast::expressions::WhileExpressionTree {
@@ -43,7 +44,11 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
             ir::lowered::operands::JumpCondition::Conditional(
                 ir::lowered::operands::BinaryComparisonOperands::new(
                     condition,
-                    *ctx.values_mut().id_for_constant(0),
+                    ctx.values_mut().id_for_constant(
+                        0,
+                        #[cfg(feature = "value_locs")]
+                        frontend::here!(),
+                    ),
                     ir::lowered::operands::BinaryComparisonKind::EQ,
                 ),
             ),
@@ -63,6 +68,6 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
 
         ctx.finish_loop(loc.end(), Vec::new());
 
-        ctx.into_result(ir::ValueInterner::unit_value_id())
+        ctx.into_result(ir::ValueInterner::<Option<types::Syntactic>>::unit_value_id())
     }
 }

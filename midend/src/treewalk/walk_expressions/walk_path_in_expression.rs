@@ -35,7 +35,11 @@ impl
         let walk_path::PathWithSegmentData { path, data: _data } =
             finished_walk.into_value().unwrap();
 
-        let value = ctx.values_mut().id_for_path(&path);
+        let value = ctx.values_mut().id_for_path(
+            &path,
+            #[cfg(feature = "value_locs")]
+            frontend::here!(),
+        );
         ctx.into_result(value)
     }
 }
