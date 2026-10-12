@@ -5,6 +5,7 @@ use syn::{spanned::Spanned, visit::Visit};
 struct ImportVisitor {
     file_path: path::PathBuf,
     mod_path: Vec<String>,
+    use_path: Vec<String>,
     mod_worklist: Vec<(Vec<String>, String)>,
     has_errors: bool,
     imports_checked: usize,
@@ -19,26 +20,73 @@ impl ImportVisitor {
 
 impl<'a> syn::visit::Visit<'a> for ImportVisitor {
     fn visit_use_tree(&mut self, i: &'a syn::UseTree) {
-                match i {
-        syn::UseTree::Path(p) => self.visit_use_path(p),
-        syn::UseTree::Name(n) => (),
-        syn::UseTree::Rename(r) => (),
-        syn::UseTree::Glob(gl) => self.visit_use_glob(gl),
-        syn::UseTree::Group(gr) => (),
+        match i {
+            syn::UseTree::Path(p) => self.visit_use_path(p),
+            syn::UseTree::Name(n) => self.visit_use_name(n),
+            syn::UseTree::Rename(r) => self.visit_use_rename(r),
+            syn::UseTree::Glob(gl) => self.visit_use_glob(gl),
+            syn::UseTree::Group(gr) => self.visit_use_group(gr),
+        }
+
+        syn::visit::visit_use_tree(self, i);
+    }
+
+    fn visit_use_path(&mut self, i: &'a syn::UsePath) {
+        let ident = i.ident.to_string();
+        self.use_path.push(ident.clone());
+
+        syn::visit::visit_use_path(self, i);
+        assert_eq!(self.use_path.pop().unwrap(), ident);
+    }
+
+    fn visit_use_name(&mut self, i: &'a syn::UseName) {
+        // eprintln!("{} {}", self.use_path.join(" "), i.ident);
+
+        let name = i.ident.to_string().to_lowercase();
+
+        for segment in &self.use_path {
+            // eprintln!("test segment {} against {}", segment, name);
+            if segment.to_lowercase().contains(&name) {
+                let span = i.span();
+                let start = span.start();
+                let end = span.end();
+                eprintln!("imported name '{}' is substring of existing import path ('{}')", i.ident.to_string(), self.use_path.join("::"));
+                eprintln!("\t{}:{}:{}", self.file_path.to_string_lossy(), end.line, end.column);
+            }
         }
 
 
-        syn::visit::visit_use_tree(self, i);    
+        syn::visit::visit_use_name(self, i);
+    }
+    fn visit_use_rename(&mut self, i: &'a syn::UseRename) {
+        // eprintln!("{} -> {}", i.ident, i.rename);
+
+        syn::visit::visit_use_rename(self, i);
+    }
+    fn visit_use_glob(&mut self, i: &'a syn::UseGlob) {
+        // eprintln!("{:?}", i.star_token);
+
+        syn::visit::visit_use_glob(self, i);
+    }
+    fn visit_use_group(&mut self, i: &'a syn::UseGroup) {
+        // eprintln!("{i:?}");
+
+        syn::visit::visit_use_group(self, i);
     }
 
     fn visit_item_use(&mut self, node: &'a syn::ItemUse) {
         let mut pass = true;
         self.imports_checked += 1;
         let start = node.span().start();
-        eprintln!("{}:{}:{}", self.file_path.display(), start.line, start.column);
+        eprintln!(
+            "{}:{}:{}",
+            self.file_path.display(),
+            start.line,
+            start.column
+        );
         match &node.tree {
-            syn::UseTree::Path(syn::UsePath { ident, tree, ..}) => {
-                eprintln!("\t you are here");
+            syn::UseTree::Path(syn::UsePath { ident, tree, .. }) => {
+                // eprintln!("\t you are here");
                 let root_segment = ident.to_string();
 
                 if root_segment == "super" || root_segment == "self" {
@@ -124,13 +172,14 @@ pub(crate) fn lint_from_root(root_path: &path::Path) {
     let visitor = ImportVisitor {
         file_path: root_path.into(),
         mod_path: vec![],
+        use_path: vec![],
         mod_worklist: vec![],
         has_errors: false,
         imports_checked: 0,
         imports_passed: 0,
     };
     let content = fs::read_to_string(root_path).unwrap();
-            eprintln!("{}", root_path.display());
+    eprintln!("{}", root_path.display());
     root_errors |= try_visit_file_content(
         &mut mod_worklist,
         &content,
@@ -164,13 +213,12 @@ pub(crate) fn lint_from_root(root_path: &path::Path) {
             let visitor = ImportVisitor {
                 file_path: path,
                 mod_path: visitor_mod_root_path,
+                use_path: vec![],
                 mod_worklist: vec![],
                 has_errors: false,
                 imports_checked: 0,
                 imports_passed: 0,
             };
-
-
 
             root_errors |= try_visit_file_content(
                 &mut mod_worklist,
