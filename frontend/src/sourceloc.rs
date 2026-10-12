@@ -77,44 +77,43 @@ impl std::fmt::Debug for SourceLoc {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SourceSpan {
     file: String,
-    start: SourcePoint,
-    end: SourcePoint,
+    points: PointSpan,
 }
 
 impl SourceSpan {
-    pub(crate) fn new(file: String, start: SourcePoint, end: SourcePoint) -> Self {
-        Self { file, start, end }
+    pub(crate) fn new(file: String, points: PointSpan) -> Self {
+        Self { file, points }
     }
 
     #[must_use]
     pub fn start(self) -> SourceLoc {
-        SourceLoc::new(self.file, self.start)
+        SourceLoc::new(self.file, self.points.start)
     }
 
     #[must_use]
     pub fn end(self) -> SourceLoc {
-        SourceLoc::new(self.file, self.end)
+        SourceLoc::new(self.file, self.points.end)
     }
 
     /// # Errors
     ///
     /// If source files do not match, returns string error of mismatch
-    pub fn merge(mut self, other: &Self) -> Result<Self, String> {
+    pub fn merge(self, other: &Self) -> Result<Self, String> {
         if self.file != other.file {
             return Err(format!(
                 "mismatched files in SourceSpan::merge({} and {})",
                 self.file, other.file
             ));
         }
-        self.start = SourcePoint::min(self.start, other.start);
-        self.end = SourcePoint::max(self.end, other.end);
+
+        self.points.merge(other.points);
         Ok(self)
     }
 }
 
 impl std::fmt::Display for SourceSpan {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}:{}", self.file, self.start, self.end)
+        write!(f, "{} {}", self.file, self.points)
     }
 }
 
@@ -122,9 +121,42 @@ impl From<SourceLoc> for SourceSpan {
     fn from(value: SourceLoc) -> Self {
         Self {
             file: value.file,
-            start: value.point,
-            end: value.point,
+            points: value.point.into(),
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PointSpan {
+    start: SourcePoint,
+    end: SourcePoint,
+}
+
+impl PointSpan {
+    pub(crate) fn new(start: SourcePoint, end: SourcePoint) -> Self {
+        Self { start, end }
+    }
+
+    pub(crate) fn merge(self, other: Self) -> Self {
+        Self {
+            start: self.start.min(other.start),
+            end: other.end.max(other.end),
+        }
+    }
+}
+
+impl From<SourcePoint> for PointSpan {
+    fn from(value: SourcePoint) -> Self {
+        Self {
+            start: value,
+            end: value,
+        }
+    }
+}
+
+impl fmt::Display for PointSpan {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}-{}", self.start, self.end)
     }
 }
 

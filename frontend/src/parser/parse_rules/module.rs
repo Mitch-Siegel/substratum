@@ -15,9 +15,9 @@ pub(crate) struct ModuleResult {
 impl ModuleParser<'_, '_> {
     pub(crate) fn parse_module_contents(
         &mut self,
-        mod_keyword_loc: sourceloc::SourceSpan,
+        maybe_mod_keyword_and_name: Option<(sourceloc::SourceSpan, ast::IdentifierTree)>,
+        name: String,
         module_path: &std::path::Path,
-        name: ast::IdentifierTree,
         crate_name: Option<&String>,
     ) -> Result<ModuleResult, ParseError> {
         let (_start_loc, _span) = self.start_parsing("module contents")?;
@@ -61,13 +61,13 @@ impl ModuleParser<'_, '_> {
             module_path
                 .iter()
                 .map(|path_component| path_component.to_str().unwrap().into())
-                .chain(std::iter::once(name.value.clone())),
+                .chain(std::iter::once(name.clone())),
         )
         .collect();
 
         let module_tree = ast::ModuleTree {
             module_path: module_path_vec,
-            mod_keyword_loc,
+            maybe_mod_keyword_and_name,
             name,
             items,
         };

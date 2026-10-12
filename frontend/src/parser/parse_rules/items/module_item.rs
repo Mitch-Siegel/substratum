@@ -22,11 +22,12 @@ impl ItemParser<'_, '_> {
         let mod_keyword_loc = self.expect_token(Token::Mod)?;
 
         let name = self.parse_identifier()?;
+        let name_raw = name.value.clone();
         self.expect_token(Token::LCurly)?;
         let module_result = self.module_parser().parse_module_contents(
-            mod_keyword_loc,
+            Some((mod_keyword_loc, name)),
+            name_raw,
             parent_module_path,
-            name,
             crate_name,
         )?;
         self.expect_token(Token::RCurly)?;

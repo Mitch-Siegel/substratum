@@ -322,7 +322,7 @@ pub(crate) fn walk(
     for module in &program {
         let (maybe_prefix_segments, _) = module_path(module).split_last();
         let collect_ctx = UnpathedCollectCtx::new(symtab);
-        symtab = if module.name.value == crate_name {
+        symtab = if module.name == crate_name {
             walk_items::walk_module::collect_from_crate_root(module, collect_ctx)
                 .unwrap()
                 .take()
@@ -362,7 +362,7 @@ pub(crate) fn walk(
 
     for module in program {
         let linearize_ctx = UnpathedLinearizeCtx::new(symtab, types);
-        if module.name.value == crate_name {
+        if module.name == crate_name {
             let ((), unpathed) = walk_items::walk_module::linearize_from_crate_root(
                 module,
                 linearize_ctx,

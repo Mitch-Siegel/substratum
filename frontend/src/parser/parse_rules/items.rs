@@ -29,7 +29,7 @@ impl ItemParser<'_, '_> {
 
     pub(crate) fn parse_item(
         &mut self,
-        module_name: ast::IdentifierTree,
+        module_name: String,
         module_path: &std::path::Path,
         crate_name: Option<&String>,
     ) -> Result<(ast::ItemTree, Option<BTreeSet<WorklistItem>>), ParseError> {
@@ -40,7 +40,7 @@ impl ItemParser<'_, '_> {
             Token::Impl => Ok((self.parse_implementation_item()?, None)),
             // TODO: break out to separate routine
             Token::Mod => {
-                let current_parsing_module_path = module_path.join(module_name.value);
+                let current_parsing_module_path = module_path.join(module_name);
                 match self.lookahead_token(2)? {
                     Token::LCurly => {
                         let parse_rules::module::ModuleResult {
