@@ -4,22 +4,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ast::{Ast, Expression, expressions},
-    sourceloc,
+    loc,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WhileExpressionTree {
-    pub(crate) while_keyword_loc: sourceloc::SourceSpan,
+    pub(crate) while_keyword: loc::Span,
     pub condition: Expression,
     pub body: expressions::BlockExpressionTree,
 }
 
 impl Ast for WhileExpressionTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.while_keyword_loc
-            .clone()
-            .merge(&self.body.loc())
-            .unwrap()
+    fn span(&self) -> loc::Span {
+        self.while_keyword.clone().merge(&self.body.span()).unwrap()
     }
 }
 

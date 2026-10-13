@@ -9,11 +9,11 @@ impl ExpressionParser<'_, '_> {
         &mut self,
         _allow_self: bool,
     ) -> Result<ast::expressions::calls::CallParamsTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("call params")?;
+        let (_start, _span) = self.start_parsing("call params")?;
 
         let mut params = Vec::new();
 
-        let open_paren_loc = self.expect_token(Token::LParen)?;
+        let open_paren = self.expect_token(Token::LParen)?;
         while self.peek_token()? != Token::RParen {
             params.push(self.parse_expression()?);
             if self.peek_token()? == Token::Comma {
@@ -26,12 +26,12 @@ impl ExpressionParser<'_, '_> {
                 break;
             }
         }
-        let close_paren_loc = self.expect_token(Token::RParen)?;
+        let close_paren = self.expect_token(Token::RParen)?;
 
         let params_tree = ast::expressions::calls::CallParamsTree {
-            open_paren_loc,
+            open_paren,
             params,
-            close_paren_loc,
+            close_paren,
         };
         self.finish_parsing(params_tree)
     }
@@ -40,7 +40,7 @@ impl ExpressionParser<'_, '_> {
         &mut self,
         function_operand: ast::Expression,
     ) -> Result<ast::Expression, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("method call expression")?;
+        let (_start, _span) = self.start_parsing("method call expression")?;
 
         let params = self.parse_call_params(true)?;
 

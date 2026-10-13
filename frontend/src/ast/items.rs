@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{
     ast::{Ast, module},
-    sourceloc,
+    loc,
 };
 
 pub mod enum_definition;
@@ -23,19 +23,19 @@ pub enum ItemTree {
     EnumDefinition(EnumDefinitionTree),
     Implementation(ImplementationTree),
     // TODO: make this an enum
-    Module(Result<module::ModuleTree, (sourceloc::SourceSpan, String)>),
+    Module(Result<module::ModuleTree, (loc::Span, String)>),
 }
 
 impl Ast for ItemTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         match self {
-            Self::FunctionDeclaration(fdecl) => fdecl.loc(),
-            Self::FunctionDefinition(fdef) => fdef.loc(),
-            Self::StructDefinition(sd) => sd.loc(),
-            Self::EnumDefinition(ed) => ed.loc(),
-            Self::Implementation(i) => i.loc(),
+            Self::FunctionDeclaration(fdecl) => fdecl.span(),
+            Self::FunctionDefinition(fdef) => fdef.span(),
+            Self::StructDefinition(sd) => sd.span(),
+            Self::EnumDefinition(ed) => ed.span(),
+            Self::Implementation(i) => i.span(),
             Self::Module(module) => match module {
-                Ok(module_tree) => module_tree.loc(),
+                Ok(module_tree) => module_tree.span(),
                 Err((loc, _)) => loc.clone(),
             },
         }

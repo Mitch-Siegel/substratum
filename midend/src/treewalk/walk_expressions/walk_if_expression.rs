@@ -29,8 +29,8 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         mut ctx: FunctionLinearizeCtx,
     ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
         // FUTURE: optimize condition walk to use different jumps
-        let condition_loc = self.condition.loc();
-        let if_loc = self.loc();
+        let condition_loc = self.condition.span();
+        let if_loc = self.span();
         let condition_value;
         (condition_value, ctx) = self.condition.linearize(ctx)?;
 
@@ -58,7 +58,7 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
             false_scope_def_path,
         );
 
-        let true_loc = self.true_block.loc();
+        let true_loc = self.true_block.span();
         let if_value_id;
         (if_value_id, ctx) = self.true_block.linearize(ctx)?;
 
@@ -81,7 +81,7 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
 
         // handle branch linearization and assignment to the result value
         if let Some(else_block) = self.false_block {
-            let else_loc = else_block.loc();
+            let else_loc = else_block.span();
             let else_value_id;
             (else_value_id, ctx) = else_block.linearize(ctx)?;
 

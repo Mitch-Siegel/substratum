@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ast::{Ast, Expression},
-    sourceloc,
+    loc,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -24,8 +24,8 @@ impl ArithmeticDualOperands {
 }
 
 impl Ast for ArithmeticDualOperands {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.e1.loc().merge(&self.e2.loc()).unwrap()
+    fn span(&self) -> loc::Span {
+        self.e1.span().merge(&self.e2.span()).unwrap()
     }
 }
 
@@ -40,14 +40,14 @@ pub enum ComparisonExpressionTree {
 }
 
 impl Ast for ComparisonExpressionTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         match self {
             Self::LThan(operands)
             | Self::GThan(operands)
             | Self::LThanE(operands)
             | Self::GThanE(operands)
             | Self::Equals(operands)
-            | Self::NotEquals(operands) => operands.loc(),
+            | Self::NotEquals(operands) => operands.span(),
         }
     }
 }
@@ -74,9 +74,9 @@ pub enum ArithmeticExpressionTree {
 }
 
 impl Ast for ArithmeticExpressionTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         match self {
-            Self::Add(o) | Self::Subtract(o) | Self::Multiply(o) | Self::Divide(o) => o.loc(),
+            Self::Add(o) | Self::Subtract(o) | Self::Multiply(o) | Self::Divide(o) => o.span(),
         }
     }
 }

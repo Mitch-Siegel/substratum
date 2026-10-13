@@ -2,8 +2,8 @@ use std::{collections::BTreeSet, path};
 
 pub mod ast;
 pub(crate) mod lexer;
+pub mod loc;
 pub(crate) mod parser;
-pub mod sourceloc;
 
 pub(crate) use lexer::Lexer;
 

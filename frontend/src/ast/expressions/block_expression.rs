@@ -4,21 +4,21 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ast::{Ast, StatementTree},
-    sourceloc,
+    loc,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockExpressionTree {
-    pub open_brace_loc: sourceloc::SourceSpan,
+    pub open_brace: loc::Span,
     pub statements: Vec<StatementTree>,
-    pub close_brace_loc: sourceloc::SourceSpan,
+    pub close_brace: loc::Span,
 }
 
 impl Ast for BlockExpressionTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.open_brace_loc
+    fn span(&self) -> loc::Span {
+        self.open_brace
             .clone()
-            .merge(&self.close_brace_loc.clone())
+            .merge(&self.close_brace.clone())
             .unwrap()
     }
 }

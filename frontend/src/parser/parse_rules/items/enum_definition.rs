@@ -8,9 +8,9 @@ impl ItemParser<'_, '_> {
     fn parse_tuple_enum_variant(
         &mut self,
     ) -> Result<ast::items::enum_definition::EnumVariantDataTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("tuple enum variant")?;
+        let (_start, _span) = self.start_parsing("tuple enum variant")?;
 
-        let open_paren_loc = self.expect_token(Token::LParen)?;
+        let open_paren = self.expect_token(Token::LParen)?;
         let mut element_types = Vec::new();
         loop {
             element_types.push(self.type_parser().parse_type()?);
@@ -24,13 +24,13 @@ impl ItemParser<'_, '_> {
                 _ => self.unexpected_token(&[Token::Comma, Token::RParen])?,
             }
         }
-        let close_paren_loc = self.expect_token(Token::RParen)?;
+        let close_paren = self.expect_token(Token::RParen)?;
 
         let tuple_data = ast::items::enum_definition::EnumVariantDataTree::TupleData(
             ast::items::enum_definition::TupleDataTree {
-                open_paren_loc,
+                open_paren,
                 element_types,
-                close_paren_loc,
+                close_paren,
             },
         );
 
@@ -40,7 +40,7 @@ impl ItemParser<'_, '_> {
     fn parse_enum_variant_data(
         &mut self,
     ) -> Result<Option<ast::items::enum_definition::EnumVariantDataTree>, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("enum variant data")?;
+        let (_start, _span) = self.start_parsing("enum variant data")?;
 
         let variant_data = match self.peek_token()? {
             Token::LParen => Some(self.parse_tuple_enum_variant()?),
@@ -53,7 +53,7 @@ impl ItemParser<'_, '_> {
     pub(crate) fn parse_enum_variant(
         &mut self,
     ) -> Result<ast::items::enum_definition::EnumVariantTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("enum variant")?;
+        let (_start, _span) = self.start_parsing("enum variant")?;
 
         let name = self.parse_identifier()?;
         let data = self.parse_enum_variant_data()?;
@@ -66,9 +66,9 @@ impl ItemParser<'_, '_> {
     pub(crate) fn parse_enum_definition(
         &mut self,
     ) -> Result<ast::items::enum_definition::EnumDefinitionTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("enum definition")?;
+        let (_start, _span) = self.start_parsing("enum definition")?;
 
-        let enum_keyword_loc = self.expect_token(Token::Enum)?;
+        let enum_keyword = self.expect_token(Token::Enum)?;
         let name = self.parse_identifier()?;
         let generic_params = self.try_parse_generic_params_list()?;
         self.expect_token(Token::LCurly)?;
@@ -94,7 +94,7 @@ impl ItemParser<'_, '_> {
         self.expect_token(Token::RCurly)?;
 
         let enum_definition_tree = ast::items::enum_definition::EnumDefinitionTree {
-            enum_keyword_loc,
+            enum_keyword,
             name,
             generic_params,
             variants,

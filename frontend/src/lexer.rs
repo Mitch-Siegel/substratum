@@ -1,4 +1,4 @@
-use crate::sourceloc::{PointSpan, SourcePoint};
+use crate::loc::{Point, PointSpan};
 
 mod char_source;
 pub(crate) mod errors;
@@ -15,18 +15,18 @@ use char_source::CharSource;
 
 mod loc_source {
     use super::char_source::CharSource;
-    use crate::sourceloc::SourcePoint;
+    use crate::loc::Point;
 
     #[derive(Debug)]
     pub(super) struct CharPointSource<'a> {
         char_source: CharSource<'a>,
         // line, col at which peek() returns a char from
-        peek_char: Option<(char, SourcePoint)>,
+        peek_char: Option<(char, Point)>,
     }
 
     impl<'a> CharPointSource<'a> {
         pub(super) fn new(mut char_source: CharSource<'a>) -> Self {
-            let first_char = char_source.next().map(|c| (c, SourcePoint::new(1, 1)));
+            let first_char = char_source.next().map(|c| (c, Point::new(1, 1)));
 
             Self {
                 char_source,
@@ -34,22 +34,22 @@ mod loc_source {
             }
         }
 
-        fn calc_new_point(old: SourcePoint, c: char) -> SourcePoint {
-            let SourcePoint { mut line, mut col } = old;
+        fn calc_new_point(old: Point, c: char) -> Point {
+            let Point { mut line, mut col } = old;
             if c == '\n' {
                 line += 1;
                 col = 1;
             } else {
                 col += 1;
             }
-            SourcePoint::new(line, col)
+            Point::new(line, col)
         }
 
-        pub(super) fn peek(&self) -> Option<(char, SourcePoint)> {
+        pub(super) fn peek(&self) -> Option<(char, Point)> {
             self.peek_char
         }
 
-        pub(super) fn advance(&mut self) -> Option<(char, SourcePoint)> {
+        pub(super) fn advance(&mut self) -> Option<(char, Point)> {
             let (c, point) = self.peek_char?;
 
             self.peek_char = self
@@ -67,7 +67,7 @@ use loc_source::CharPointSource;
 #[derive(Debug)]
 pub(crate) struct Lexer<'a> {
     char_source: CharPointSource<'a>,
-    last_consumed_point: Option<SourcePoint>,
+    last_consumed_point: Option<Point>,
     current_token: Option<(Token, PointSpan)>,
 }
 
@@ -108,8 +108,8 @@ impl<'a> Lexer<'a> {
     }
 
     // returns the position to which the input has been read
-    pub(crate) fn last_consumed_point(&self) -> SourcePoint {
-        self.last_consumed_point.unwrap_or(SourcePoint::new(0, 0))
+    pub(crate) fn last_consumed_point(&self) -> Point {
+        self.last_consumed_point.unwrap_or(Point::new(0, 0))
     }
 
     pub(crate) fn next(&mut self) -> Result<(Token, PointSpan), LexError> {
@@ -159,7 +159,7 @@ impl Lexer<'_> {
         c.map(|(c, _)| c)
     }
 
-    fn advance_char(&mut self) -> SourcePoint {
+    fn advance_char(&mut self) -> Point {
         let (_, point) = self.char_source.advance().unwrap();
         self.last_consumed_point.replace(point);
         // #[cfg(feature = "loud_lexing")]
@@ -167,7 +167,7 @@ impl Lexer<'_> {
         point
     }
 
-    fn match_kw_or_ident(&mut self) -> Option<(Token, SourcePoint)> {
+    fn match_kw_or_ident(&mut self) -> Option<(Token, Point)> {
         #[cfg(feature = "loud_lexing")]
         println!("Lexer::match_kw_or_ident");
 
@@ -229,8 +229,8 @@ impl Lexer<'_> {
         &mut self,
         expected: char,
         tok_true: Token,
-        false_output: (Token, SourcePoint),
-    ) -> (Token, SourcePoint) {
+        false_output: (Token, Point),
+    ) -> (Token, Point) {
         #[cfg(feature = "loud_lexing")]
         println!(
             "Lexer::match_next_char_for_token_or: expected: {expected}, true: {tok_true}, false: {}@{}",
@@ -249,7 +249,7 @@ impl Lexer<'_> {
         }
     }
 
-    fn trim_whitespace(&mut self) -> SourcePoint {
+    fn trim_whitespace(&mut self) -> Point {
         let mut ret = self.last_consumed_point();
         while let Some(c) = self.peek_char() {
             if c.is_whitespace() {
@@ -267,7 +267,7 @@ impl Lexer<'_> {
         println!("Lexer::lex()");
 
         self.trim_whitespace();
-        let match_start = self.char_source.peek().unwrap().1;
+        let match_start = self.char_source.peek().map(|(_, p)| p);
 
         let (tok, match_end) = if let Some(peeked_char) = self.peek_char() {
             match peeked_char {
@@ -296,7 +296,7 @@ impl Lexer<'_> {
                 '!' => {
                     let end = self.advance_char();
                     match self.peek_char() {
-                        None => Err(LexError::unexpected_eof(match_start)),
+                        None => Err(LexError::unexpected_eof(match_start.unwrap())),
                         Some(character) => {
                             if character == '=' {
                                 Ok((Token::NotEquals, self.advance_char()))
@@ -323,7 +323,7 @@ impl Lexer<'_> {
                 }
                 '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
                     let mut constant_string = String::new();
-                    let mut end: SourcePoint = match_start;
+                    let mut end: Point = match_start.unwrap();
                     while let Some(c) = self.peek_char()
                         && c.is_numeric()
                     {
@@ -353,7 +353,13 @@ impl Lexer<'_> {
         self.trim_whitespace();
 
         #[cfg(feature = "loud_lexing")]
-        println!("Lexer::lex(): lexed '{tok}'@{match_start}");
-        Ok((tok, PointSpan::new(match_start, match_end)))
+        println!(
+            "Lexer::lex(): lexed '{tok}'@{}",
+            match_start.unwrap_or(match_end)
+        );
+        Ok((
+            tok,
+            PointSpan::new(match_start.unwrap_or(match_end), match_end),
+        ))
     }
 }

@@ -8,7 +8,7 @@ impl ExpressionParser<'_, '_> {
     fn parse_matched_pattern(
         &mut self,
     ) -> Result<ast::expressions::match_expression::PatternTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("pattern")?;
+        let (_start, _span) = self.start_parsing("pattern")?;
 
         let pattern_tree = match self.peek_token()? {
             // TODO: PathInExpression
@@ -19,7 +19,7 @@ impl ExpressionParser<'_, '_> {
                         self.expect_token(Token::LParen)?;
                         // only support single destructuring for now
                         let single_tuple_contents = self.parse_identifier()?;
-                        let close_paren_loc = self.expect_token(Token::RParen)?;
+                        let close_paren = self.expect_token(Token::RParen)?;
                         ast::expressions::match_expression::PatternTree::TupleStruct(
                             ast::expressions::match_expression::TupleStructTree {
                                 name,
@@ -28,7 +28,7 @@ impl ExpressionParser<'_, '_> {
                                         single_tuple_contents,
                                     ),
                                 ],
-                                close_paren_loc,
+                                close_paren,
                             },
                         )
                     }
@@ -52,9 +52,9 @@ impl ExpressionParser<'_, '_> {
     pub(crate) fn parse_match_expression(
         &mut self,
     ) -> Result<ast::expressions::MatchExpressionTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("match expression")?;
+        let (_start, _span) = self.start_parsing("match expression")?;
 
-        let match_keyword_loc = self.expect_token(Token::Match)?;
+        let match_keyword = self.expect_token(Token::Match)?;
         let scrutinee_expression = self.parse_expression()?;
         self.expect_token(Token::LCurly)?;
 
@@ -69,13 +69,13 @@ impl ExpressionParser<'_, '_> {
                 self.parse_block_expression()?
             } else {
                 let single_expression = self.parse_expression()?;
-                let dummy_loc = single_expression.loc();
+                let dummy = single_expression.span();
                 ast::expressions::BlockExpressionTree {
-                    open_brace_loc: dummy_loc.clone(),
+                    open_brace: dummy.clone(),
                     statements: vec![ast::statements::StatementTree::Expression(
                         single_expression,
                     )],
-                    close_brace_loc: dummy_loc,
+                    close_brace: dummy,
                 }
             };
             arms.push(ast::expressions::match_expression::MatchArmTree {
@@ -95,7 +95,7 @@ impl ExpressionParser<'_, '_> {
         self.expect_token(Token::RCurly)?;
 
         let match_expression = ast::expressions::match_expression::MatchExpressionTree {
-            match_keyword_loc,
+            match_keyword,
             scrutinee_expression,
             arms,
         };

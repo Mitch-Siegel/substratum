@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ast::{Ast, Display, Expression, GenericArgsListTree, path, sourceloc},
+    ast::{Ast, Display, Expression, GenericArgsListTree, loc, path},
     types,
 };
 
@@ -11,9 +11,9 @@ pub enum TypeTree {
 }
 
 impl Ast for TypeTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         match self {
-            Self::TypeNoBounds(tnb) => tnb.loc(),
+            Self::TypeNoBounds(tnb) => tnb.span(),
         }
     }
 }
@@ -28,17 +28,14 @@ impl std::fmt::Display for TypeTree {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ParenthesizedTypeTree {
-    pub(crate) open_paren_loc: sourceloc::SourceSpan,
+    pub(crate) open_paren: loc::Span,
     pub inner_type: Box<TypeTree>,
-    pub(crate) close_paren_loc: sourceloc::SourceSpan,
+    pub(crate) close_paren: loc::Span,
 }
 
 impl Ast for ParenthesizedTypeTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.open_paren_loc
-            .clone()
-            .merge(&self.close_paren_loc)
-            .unwrap()
+    fn span(&self) -> loc::Span {
+        self.open_paren.clone().merge(&self.close_paren).unwrap()
     }
 }
 
@@ -50,17 +47,14 @@ impl std::fmt::Display for ParenthesizedTypeTree {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TupleTypeTree {
-    pub(crate) open_paren_loc: sourceloc::SourceSpan,
+    pub(crate) open_paren: loc::Span,
     pub members: Vec<TypeTree>,
-    pub(crate) close_paren_loc: sourceloc::SourceSpan,
+    pub(crate) close_paren: loc::Span,
 }
 
 impl Ast for TupleTypeTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.open_paren_loc
-            .clone()
-            .merge(&self.close_paren_loc)
-            .unwrap()
+    fn span(&self) -> loc::Span {
+        self.open_paren.clone().merge(&self.close_paren).unwrap()
     }
 }
 
@@ -83,12 +77,12 @@ impl std::fmt::Display for TupleTypeTree {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InferredTypeTree {
-    loc: sourceloc::SourceSpan,
+    span: loc::Span,
 }
 
 impl Ast for InferredTypeTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.loc.clone()
+    fn span(&self) -> loc::Span {
+        self.span.clone()
     }
 }
 
@@ -103,14 +97,14 @@ pub enum TypeNoBoundsTree {
 }
 
 impl Ast for TypeNoBoundsTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         match self {
-            Self::ParenthesizedType(inner) => inner.loc(),
-            Self::TypePath(path) => path.loc(),
-            Self::TupleType(tuple) => tuple.loc(),
-            Self::ReferenceType(reference) => reference.loc(),
-            Self::ArrayType(array) => array.loc(),
-            Self::InferredType(inferred) => inferred.loc(),
+            Self::ParenthesizedType(inner) => inner.span(),
+            Self::TypePath(path) => path.span(),
+            Self::TupleType(tuple) => tuple.span(),
+            Self::ReferenceType(reference) => reference.span(),
+            Self::ArrayType(array) => array.span(),
+            Self::InferredType(inferred) => inferred.span(),
         }
     }
 }
@@ -135,10 +129,10 @@ pub enum TypePath {
 }
 
 impl Ast for TypePath {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         match self {
-            Self::Primitive(p) => p.loc(),
-            Self::ItemPath(i) => i.loc(),
+            Self::Primitive(p) => p.span(),
+            Self::ItemPath(i) => i.span(),
         }
     }
 }
@@ -154,13 +148,13 @@ impl std::fmt::Display for TypePath {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PrimitiveTypePathTree {
-    pub(crate) loc: sourceloc::SourceSpan,
+    pub(crate) span: loc::Span,
     pub type_: types::Syntactic,
 }
 
 impl Ast for PrimitiveTypePathTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.loc.clone()
+    fn span(&self) -> loc::Span {
+        self.span.clone()
     }
 }
 
@@ -176,9 +170,9 @@ pub enum TypePathSegmentData {
 }
 
 impl Ast for TypePathSegmentData {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         match self {
-            Self::GenericArgs(g) => g.loc(),
+            Self::GenericArgs(g) => g.span(),
         }
     }
 }
@@ -197,8 +191,8 @@ pub struct TypeItemPathTree {
 }
 
 impl Ast for TypeItemPathTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.underlying_path.loc()
+    fn span(&self) -> loc::Span {
+        self.underlying_path.span()
     }
 }
 
@@ -210,16 +204,16 @@ impl std::fmt::Display for TypeItemPathTree {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReferenceTypeTree {
-    pub(crate) reference_token_loc: sourceloc::SourceSpan,
+    pub(crate) reference_token: loc::Span,
     pub mutability: types::Mutability,
     pub type_: Box<TypeNoBoundsTree>,
 }
 
 impl Ast for ReferenceTypeTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.reference_token_loc
+    fn span(&self) -> loc::Span {
+        self.reference_token
             .clone()
-            .merge(&self.type_.loc())
+            .merge(&self.type_.span())
             .unwrap()
     }
 }
@@ -232,14 +226,14 @@ impl std::fmt::Display for ReferenceTypeTree {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArrayTypeTree {
-    pub(crate) open_bracket_loc: sourceloc::SourceSpan,
+    pub(crate) open_bracket: loc::Span,
     pub inner_type: Box<TypeTree>,
     pub array_size: Expression,
-    pub(crate) close_bracket_loc: sourceloc::SourceSpan,
+    pub(crate) close_bracket: loc::Span,
 }
 
 impl Ast for ArrayTypeTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         unimplemented!();
     }
 }

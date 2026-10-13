@@ -35,7 +35,7 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         self,
         mut ctx: FunctionLinearizeCtx,
     ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
-        let call_start = self.loc().start();
+        let call_start = self.span().start();
 
         let function_operand;
         (function_operand, ctx) = self.function_operand.linearize(ctx)?;

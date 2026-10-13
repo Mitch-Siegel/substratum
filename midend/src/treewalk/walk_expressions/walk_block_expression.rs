@@ -30,7 +30,7 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         let parent_def_path = ctx.path().clone();
         let true_scope_def_path = ctx.reserve_subscope();
         ctx.unconditional_branch_from_current(
-            self.open_brace_loc.start(),
+            self.open_brace.start(),
             parent_def_path,
             true_scope_def_path,
         );
@@ -50,7 +50,7 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
             None => ir::ValueInterner::<Option<types::Syntactic>>::unit_value_id(),
         };
 
-        ctx.finish_branch(self.close_brace_loc.end());
+        ctx.finish_branch(self.close_brace.end());
 
         ctx.into_result(last_statement_value)
     }

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ast::{Ast, Expression, ItemTree},
-    sourceloc,
+    loc,
 };
 
 pub mod let_statement;
@@ -19,11 +19,11 @@ pub enum StatementTree {
 }
 
 impl Ast for StatementTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         match self {
-            Self::Item(item) => item.loc(),
-            Self::Let(let_tree) => let_tree.loc(),
-            Self::Expression(expr_tree) => expr_tree.loc(),
+            Self::Item(item) => item.span(),
+            Self::Let(let_tree) => let_tree.span(),
+            Self::Expression(expr_tree) => expr_tree.span(),
         }
     }
 }

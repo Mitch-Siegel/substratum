@@ -3,7 +3,7 @@ use std::{
     ops,
 };
 
-use frontend::sourceloc;
+use frontend::loc;
 use ooo_iter::{HashMapOOOIter, HashMapOOOIterMut};
 
 use crate::{
@@ -193,7 +193,7 @@ impl ControlFlow {
         graphviz_string += &format!("values[label=\"{values_str}\"]");
 
         for (label, block) in self.blocks() {
-            let loc_none = sourceloc::SourceLoc::none();
+            let loc_none = loc::Loc::none();
             let block_loc = block
                 .into_iter()
                 .filter(|&statement| statement.loc.valid())

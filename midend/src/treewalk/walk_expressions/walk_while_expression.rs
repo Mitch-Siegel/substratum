@@ -25,7 +25,7 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         self,
         mut ctx: FunctionLinearizeCtx,
     ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
-        let loc = self.loc();
+        let loc = self.span();
 
         let parent_scope_def_path = ctx.path().clone();
         let loop_scope_def_path = ctx.reserve_subscope();
@@ -35,7 +35,7 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
             loop_scope_def_path,
         );
 
-        let condition_loc = self.condition.loc();
+        let condition_loc = self.condition.span();
         let condition;
         (condition, ctx) = self.condition.linearize(ctx)?;
         let loop_condition_jump = ir::IrLine::new_jump(

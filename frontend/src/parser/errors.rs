@@ -1,6 +1,6 @@
 use crate::{
     lexer::{LexError, token::Token},
-    sourceloc::SourceLoc,
+    loc::Loc,
 };
 
 #[derive(Clone)]
@@ -52,12 +52,12 @@ impl std::fmt::Debug for ParseError {
 
 #[derive(Debug, Clone, Eq)]
 pub(crate) struct UnexpectedTokenError {
-    pub loc: SourceLoc,
+    pub loc: Loc,
     pub got: Token,
     pub expected: Vec<Token>,
     pub while_parsing: String,
-    pub while_parsing_start: SourceLoc,
-    pub parser_source_location: SourceLoc,
+    pub while_parsing_start: Loc,
+    pub parser_source_location: Loc,
 }
 
 impl PartialEq for UnexpectedTokenError {
@@ -72,12 +72,12 @@ impl PartialEq for UnexpectedTokenError {
 
 impl ParseError {
     pub(crate) fn unexpected_token(
-        loc: SourceLoc,
+        loc: Loc,
         got: Token,
         expected: &[Token],
         while_parsing: String,
-        while_parsing_start: SourceLoc,
-        parser_source_location: SourceLoc,
+        while_parsing_start: Loc,
+        parser_source_location: Loc,
     ) -> Self {
         Self::UnexpectedToken(Box::new(UnexpectedTokenError {
             loc,

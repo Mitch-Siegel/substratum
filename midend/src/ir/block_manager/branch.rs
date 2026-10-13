@@ -1,4 +1,4 @@
-use frontend::sourceloc;
+use frontend::loc;
 
 use crate::ir::{
     BasicBlock,
@@ -11,7 +11,7 @@ impl BlockManager {
     pub(crate) fn create_unconditional_branch(
         &mut self,
         from: usize,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         parent_def_path: symtab::ScopePath,
         true_def_path: symtab::ScopePath,
     ) -> Result<usize, BranchError> {
@@ -50,7 +50,7 @@ impl BlockManager {
     pub(crate) fn create_conditional_branch(
         &mut self,
         from: usize,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         jump_condition: ir::lowered::operands::JumpCondition,
         parent_def_path: symtab::ScopePath,
         true_def_path: symtab::ScopePath,
@@ -98,7 +98,7 @@ impl BlockManager {
     pub(crate) fn finish_true_branch_switch_to_false(
         &mut self,
         true_end_label: usize,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         def_path: &symtab::ScopePath,
     ) -> Result<usize, BranchError> {
         let finished_branch = self.pop_last_branch()?;
@@ -130,7 +130,7 @@ impl BlockManager {
     pub(crate) fn finish_branch(
         &mut self,
         branch_end_label: usize,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
     ) -> Result<usize, BranchError> {
         let branched_from = self.last_branch()?.from_label;
         trace::debug!("finish branch from block {}", branched_from);
@@ -163,7 +163,7 @@ impl BlockManager {
     pub(crate) fn create_loop(
         &mut self,
         before_loop: usize,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         parent_def_path: symtab::ScopePath,
         loop_def_path: symtab::ScopePath,
     ) -> Result<(usize, usize), BranchError> {
@@ -233,7 +233,7 @@ impl BlockManager {
     pub(crate) fn finish_loop_1(
         &mut self,
         loop_end_pre_bottom: usize,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
     ) -> Result<usize, BranchError> {
         match &self.last_branch()?.kind {
             BranchKind::Loop => Ok(()),
@@ -257,7 +257,7 @@ impl BlockManager {
     pub(crate) fn finish_loop_2(
         &mut self,
         loop_bottom: usize,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         loop_bottom_actions: Vec<ir::IrLine>,
     ) -> Result<usize, BranchError> {
         let loop_bottom_block = self.get_mut(loop_bottom).unwrap();
@@ -308,7 +308,7 @@ impl BlockManager {
     pub(crate) fn create_switch(
         &mut self,
         before_switch: usize,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         parent_def_path: symtab::ScopePath,
         switch_def_path: symtab::ScopePath,
     ) -> Result<usize, BranchError> {
@@ -395,7 +395,7 @@ impl BlockManager {
     pub(crate) fn finish_switch_case(
         &mut self,
         last_block_label_in_case: usize,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
     ) -> Result<usize, BranchError> {
         let switch_label = match self.pop_last_branch()?.kind {
             BranchKind::SwitchCase(label) => Ok(label),
@@ -418,7 +418,7 @@ impl BlockManager {
     pub(crate) fn finish_switch(
         &mut self,
         switch_label: usize,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
     ) -> Result<usize, BranchError> {
         let last_branch = self.pop_last_branch()?;
 

@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{
     ast::{Ast, IdentifierTree, TypeTree},
-    sourceloc,
+    loc,
 };
 
 use serde::{Deserialize, Serialize};
@@ -13,8 +13,8 @@ pub struct GenericParamTree {
 }
 
 impl Ast for GenericParamTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.name.loc()
+    fn span(&self) -> loc::Span {
+        self.name.span()
     }
 }
 
@@ -26,28 +26,28 @@ impl fmt::Display for GenericParamTree {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GenericParamsListTree {
-    pub(crate) open_angle_bracket_loc: sourceloc::SourceSpan,
+    pub(crate) open_angle_bracket: loc::Span,
     pub params: Vec<GenericParamTree>,
-    pub(crate) close_angle_bracket_loc: sourceloc::SourceSpan,
+    pub(crate) close_angle_bracket: loc::Span,
 }
 
 impl Ast for GenericParamsListTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.open_angle_bracket_loc
+    fn span(&self) -> loc::Span {
+        self.open_angle_bracket
             .clone()
-            .merge(&self.close_angle_bracket_loc)
+            .merge(&self.close_angle_bracket)
             .unwrap()
     }
 }
 
 impl GenericParamsListTree {
     #[must_use]
-    pub fn into_vec_with_locs(self) -> Vec<(IdentifierTree, sourceloc::SourceSpan)> {
+    pub fn into_vec_with_spans(self) -> Vec<(IdentifierTree, loc::Span)> {
         self.params
             .into_iter()
             .map(|param| {
-                let param_loc = param.loc();
-                (param.name, param_loc)
+                let span = param.span();
+                (param.name, span)
             })
             .collect()
     }
@@ -72,16 +72,16 @@ impl fmt::Display for GenericParamsListTree {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OptionalGenericParamsListTree {
-    pub(crate) start_loc: sourceloc::SourceLoc,
+    pub(crate) start: loc::Loc,
     pub maybe_params: Option<GenericParamsListTree>,
 }
 
 impl Ast for OptionalGenericParamsListTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         if let Some(params) = &self.maybe_params {
-            params.loc()
+            params.span()
         } else {
-            self.start_loc.clone().into()
+            self.start.clone().into()
         }
     }
 }
@@ -97,16 +97,16 @@ impl fmt::Display for OptionalGenericParamsListTree {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GenericArgsListTree {
-    pub(crate) open_angle_bracket_loc: sourceloc::SourceSpan,
+    pub(crate) open_angle_bracket: loc::Span,
     pub args: Vec<TypeTree>,
-    pub(crate) close_angle_bracket_loc: sourceloc::SourceSpan,
+    pub(crate) close_angle_bracket: loc::Span,
 }
 
 impl Ast for GenericArgsListTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.open_angle_bracket_loc
+    fn span(&self) -> loc::Span {
+        self.open_angle_bracket
             .clone()
-            .merge(&self.close_angle_bracket_loc)
+            .merge(&self.close_angle_bracket)
             .unwrap()
     }
 }

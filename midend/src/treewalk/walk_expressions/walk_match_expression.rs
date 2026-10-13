@@ -118,7 +118,7 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         self,
         mut ctx: FunctionLinearizeCtx,
     ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
-        let match_loc = self.loc();
+        let match_loc = self.span();
 
         let parent_scope_def_path = ctx.path().clone();
         let switch_scope_def_path = ctx.reserve_subscope();
@@ -142,7 +142,7 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
 
         for arm in self.arms {
             trace::warn!("start arm");
-            let arm_loc = arm.loc();
+            let arm_loc = arm.span();
 
             let case_scope_def_path = ctx.reserve_subscope();
             let arm_label = ctx.create_switch_case(case_scope_def_path);

@@ -8,9 +8,9 @@ impl Parser<'_> {
     pub(crate) fn parse_block_expression(
         &mut self,
     ) -> Result<ast::expressions::BlockExpressionTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("compound statement")?;
+        let (_start, _span) = self.start_parsing("compound statement")?;
 
-        let open_brace_loc = self.expect_token(Token::LCurly)?;
+        let open_brace = self.expect_token(Token::LCurly)?;
         let mut statements: Vec<ast::StatementTree> = Vec::new();
         loop {
             match self.peek_token()? {
@@ -18,12 +18,12 @@ impl Parser<'_> {
                 _ => statements.push(self.statement_parser().parse_statement()?),
             }
         }
-        let close_brace_loc = self.expect_token(Token::RCurly)?;
+        let close_brace = self.expect_token(Token::RCurly)?;
 
         let compound_statement = ast::expressions::BlockExpressionTree {
-            open_brace_loc,
+            open_brace,
             statements,
-            close_brace_loc,
+            close_brace,
         };
 
         self.finish_parsing(compound_statement)

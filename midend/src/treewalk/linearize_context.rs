@@ -1,4 +1,4 @@
-use frontend::{ast, sourceloc};
+use frontend::{ast, loc};
 
 use crate::{
     ir, symtab,
@@ -224,7 +224,7 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
         */
     }
 
-    pub(crate) fn finish_branch(&mut self, loc: sourceloc::SourceLoc) {
+    pub(crate) fn finish_branch(&mut self, loc: loc::Loc) {
         self.unpathed.function_mut().finish_branch(loc).unwrap();
     }
 }
@@ -233,7 +233,7 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
 #[allow(unused)]
 pub(crate) enum LinearizeError {
     Symbol(symtab::SymbolError),
-    DisallowedInferredType(sourceloc::SourceSpan),
+    DisallowedInferredType(loc::Span),
 }
 
 impl From<symtab::SymbolError> for LinearizeError {
@@ -300,7 +300,7 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
 
     pub(crate) fn conditional_branch_from_current(
         &mut self,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         condition: ir::lowered::JumpCondition,
         parent_scope_def_path: symtab::ScopePath,
         true_scope_def_path: symtab::ScopePath,
@@ -319,7 +319,7 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
 
     pub(crate) fn unconditional_branch_from_current(
         &mut self,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         parent_def_path: symtab::ScopePath,
         true_scope_def_path: symtab::ScopePath,
     ) {
@@ -329,7 +329,7 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
             .unconditional_branch_from_current(loc, parent_def_path, true_scope_def_path);
     }
 
-    pub(crate) fn finish_true_branch_switch_to_false(&mut self, loc: sourceloc::SourceLoc) {
+    pub(crate) fn finish_true_branch_switch_to_false(&mut self, loc: loc::Loc) {
         let path = self.path.clone();
         // TODO: implicitly handle path here
         self.unpathed
@@ -348,7 +348,7 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
 
     pub(crate) fn create_switch(
         &mut self,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         parent_scope_def_path: symtab::ScopePath,
         switch_scope_def_path: symtab::ScopePath,
     ) {
@@ -358,7 +358,7 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
             .unwrap();
     }
 
-    pub(crate) fn finish_switch(&mut self, loc: sourceloc::SourceLoc) {
+    pub(crate) fn finish_switch(&mut self, loc: loc::Loc) {
         self.unpathed.function_mut().finish_switch(loc).unwrap();
     }
 
@@ -369,7 +369,7 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
             .unwrap()
     }
 
-    pub(crate) fn finish_switch_case(&mut self, loc: sourceloc::SourceLoc) {
+    pub(crate) fn finish_switch_case(&mut self, loc: loc::Loc) {
         self.unpathed
             .function_mut()
             .finish_switch_case(loc)
@@ -378,7 +378,7 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
 
     pub(crate) fn create_loop(
         &mut self,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         parent_scope_def_path: symtab::ScopePath,
         loop_scope_def_path: symtab::ScopePath,
     ) -> usize {
@@ -388,11 +388,7 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
             .unwrap()
     }
 
-    pub(crate) fn finish_loop(
-        &mut self,
-        loc: sourceloc::SourceLoc,
-        loop_bottom_actions: Vec<ir::IrLine>,
-    ) {
+    pub(crate) fn finish_loop(&mut self, loc: loc::Loc, loop_bottom_actions: Vec<ir::IrLine>) {
         self.unpathed
             .function_mut()
             .finish_loop(loc, loop_bottom_actions)

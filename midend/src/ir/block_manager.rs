@@ -1,4 +1,4 @@
-use frontend::sourceloc;
+use frontend::loc;
 
 use crate::{
     ir::{self, BasicBlock, ControlFlow, IrLine, ValueInterner},
@@ -84,7 +84,7 @@ impl BlockManager {
     }
 
     pub(crate) fn take(mut self, before_final_block: usize) -> ControlFlow {
-        match self.converge_with_jump(before_final_block, sourceloc::SourceLoc::none()) {
+        match self.converge_with_jump(before_final_block, loc::Loc::none()) {
             Ok(ConvergenceResult::Done(block)) => {
                 self.blocks.insert(block.label, block);
             }
@@ -158,7 +158,7 @@ impl BlockManager {
     fn converge_with_jump(
         &mut self,
         from: usize,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
     ) -> Result<ConvergenceResult, ConvergenceError> {
         let result = self.convergences.converge(from)?;
 
@@ -188,7 +188,7 @@ impl BlockManager {
     pub(crate) fn finish_block_split(
         &mut self,
         split_end_label: usize,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
     ) -> Result<usize, BranchError> {
         let after_split_label = self.finish_branch(split_end_label, loc).unwrap();
 

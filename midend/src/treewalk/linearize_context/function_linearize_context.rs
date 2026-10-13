@@ -1,4 +1,4 @@
-use frontend::sourceloc;
+use frontend::loc;
 
 use crate::{
     ir, symtab,
@@ -188,7 +188,7 @@ impl WipFunction {
 
     pub(crate) fn finish_true_branch_switch_to_false(
         &mut self,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         def_path: &symtab::ScopePath,
     ) {
         assert!(self.def_path.is_prefix_of(def_path));
@@ -204,7 +204,7 @@ impl WipFunction {
 
     pub(crate) fn finish_branch(
         &mut self,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
     ) -> Result<(), ir::block_manager::BranchError> {
         let after_branch = self.block_manager.finish_branch(self.current_block, loc)?;
         self.replace_current_block(after_branch);
@@ -215,7 +215,7 @@ impl WipFunction {
     // block to the target. Inserts the current block (before call) into the current scope
     pub(crate) fn unconditional_branch_from_current(
         &mut self,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         parent_scope_def_path: symtab::ScopePath,
         true_scope_def_path: symtab::ScopePath,
     ) {
@@ -239,7 +239,7 @@ impl WipFunction {
     // creates a new subscope for the true branch
     pub(crate) fn conditional_branch_from_current(
         &mut self,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         condition: ir::lowered::operands::JumpCondition,
         parent_scope_def_path: symtab::ScopePath,
         true_scope_def_path: symtab::ScopePath,
@@ -264,7 +264,7 @@ impl WipFunction {
 
     pub(crate) fn create_loop(
         &mut self,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         parent_scope_def_path: symtab::ScopePath,
         loop_scope_def_path: symtab::ScopePath,
     ) -> Result<usize, ir::block_manager::BranchError> {
@@ -283,7 +283,7 @@ impl WipFunction {
 
     pub(crate) fn finish_loop(
         &mut self,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         loop_bottom_actions: Vec<ir::IrLine>,
     ) -> Result<(), ir::block_manager::BranchError> {
         let loop_bottom = self
@@ -302,7 +302,7 @@ impl WipFunction {
 
     pub(crate) fn create_switch(
         &mut self,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         parent_scope_def_path: symtab::ScopePath,
         switch_scope_def_path: symtab::ScopePath,
     ) -> Result<(), ir::block_manager::BranchError> {
@@ -334,7 +334,7 @@ impl WipFunction {
 
     pub(crate) fn finish_switch_case(
         &mut self,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
     ) -> Result<(), ir::block_manager::BranchError> {
         let switch_label = self
             .block_manager
@@ -346,7 +346,7 @@ impl WipFunction {
 
     pub(crate) fn finish_switch(
         &mut self,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
     ) -> Result<(), ir::block_manager::BranchError> {
         let after_switch = self.block_manager.finish_switch(self.current_block, loc)?;
 

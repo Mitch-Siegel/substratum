@@ -6,25 +6,22 @@ use crate::{
     ast::{
         Ast, IdentifierTree, generics::OptionalGenericParamsListTree, items::FunctionDefinitionTree,
     },
-    sourceloc,
+    loc,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImplementationTree {
-    pub impl_keyword_loc: sourceloc::SourceSpan,
+    pub impl_keyword: loc::Span,
     pub generic_params: OptionalGenericParamsListTree,
     pub for_: IdentifierTree,
     pub implemented_for_generic_params: OptionalGenericParamsListTree,
     pub items: Vec<FunctionDefinitionTree>,
-    pub close_brace_loc: sourceloc::SourceSpan,
+    pub close_brace: loc::Span,
 }
 
 impl Ast for ImplementationTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.impl_keyword_loc
-            .clone()
-            .merge(&self.close_brace_loc)
-            .unwrap()
+    fn span(&self) -> loc::Span {
+        self.impl_keyword.clone().merge(&self.close_brace).unwrap()
     }
 }
 

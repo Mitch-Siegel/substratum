@@ -5,12 +5,12 @@ use serde::{Deserialize, Serialize};
 #[derive(
     Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]
-pub(crate) struct SourcePoint {
+pub(crate) struct Point {
     pub line: u32,
     pub col: u32,
 }
 
-impl SourcePoint {
+impl Point {
     pub(crate) fn new(line: u32, col: u32) -> Self {
         Self { line, col }
     }
@@ -20,29 +20,29 @@ impl SourcePoint {
     }
 }
 
-impl fmt::Display for SourcePoint {
+impl fmt::Display for Point {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}", self.line, self.col)
     }
 }
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SourceLoc {
+pub struct Loc {
     file: String,
-    point: SourcePoint,
+    point: Point,
 }
 
-impl SourceLoc {
+impl Loc {
     // TODO: this is a smell. just use options elsewhere instead of constructing none/invalid points
     #[must_use]
     pub fn none() -> Self {
         Self {
             file: String::new(),
-            point: SourcePoint::default(),
+            point: Point::default(),
         }
     }
 
-    pub(crate) fn new(file: String, point: SourcePoint) -> Self {
+    pub(crate) fn new(file: String, point: Point) -> Self {
         Self { file, point }
     }
 
@@ -53,46 +53,46 @@ impl SourceLoc {
     }
 }
 
-impl From<&'static std::panic::Location<'static>> for SourceLoc {
+impl From<&'static std::panic::Location<'static>> for Loc {
     fn from(location: &'static std::panic::Location<'static>) -> Self {
         Self {
             file: location.file().to_string(),
-            point: SourcePoint::new(location.line(), location.column()),
+            point: Point::new(location.line(), location.column()),
         }
     }
 }
 
-impl fmt::Display for SourceLoc {
+impl fmt::Display for Loc {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}", self.file, self.point)
     }
 }
 
-impl std::fmt::Debug for SourceLoc {
+impl std::fmt::Debug for Loc {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{self}")
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct SourceSpan {
+pub struct Span {
     file: String,
     points: PointSpan,
 }
 
-impl SourceSpan {
+impl Span {
     pub(crate) fn new(file: String, points: PointSpan) -> Self {
         Self { file, points }
     }
 
     #[must_use]
-    pub fn start(self) -> SourceLoc {
-        SourceLoc::new(self.file, self.points.start)
+    pub fn start(self) -> Loc {
+        Loc::new(self.file, self.points.start)
     }
 
     #[must_use]
-    pub fn end(self) -> SourceLoc {
-        SourceLoc::new(self.file, self.points.end)
+    pub fn end(self) -> Loc {
+        Loc::new(self.file, self.points.end)
     }
 
     /// # Errors
@@ -111,14 +111,14 @@ impl SourceSpan {
     }
 }
 
-impl std::fmt::Display for SourceSpan {
+impl std::fmt::Display for Span {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {}", self.file, self.points)
     }
 }
 
-impl From<SourceLoc> for SourceSpan {
-    fn from(value: SourceLoc) -> Self {
+impl From<Loc> for Span {
+    fn from(value: Loc) -> Self {
         Self {
             file: value.file,
             points: value.point.into(),
@@ -128,12 +128,12 @@ impl From<SourceLoc> for SourceSpan {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct PointSpan {
-    start: SourcePoint,
-    end: SourcePoint,
+    start: Point,
+    end: Point,
 }
 
 impl PointSpan {
-    pub(crate) fn new(start: SourcePoint, end: SourcePoint) -> Self {
+    pub(crate) fn new(start: Point, end: Point) -> Self {
         Self { start, end }
     }
 
@@ -145,8 +145,8 @@ impl PointSpan {
     }
 }
 
-impl From<SourcePoint> for PointSpan {
-    fn from(value: SourcePoint) -> Self {
+impl From<Point> for PointSpan {
+    fn from(value: Point) -> Self {
         Self {
             start: value,
             end: value,
@@ -161,22 +161,22 @@ impl fmt::Display for PointSpan {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct StaticSourceLoc {
+pub struct StaticLoc {
     file: &'static str,
-    point: SourcePoint,
+    point: Point,
 }
 
-impl StaticSourceLoc {
+impl StaticLoc {
     #[must_use]
     pub fn new(file: &'static str, line: u32, col: u32) -> Self {
         Self {
             file,
-            point: SourcePoint::new(line, col),
+            point: Point::new(line, col),
         }
     }
 }
 
-impl fmt::Debug for StaticSourceLoc {
+impl fmt::Debug for StaticLoc {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}", self.file, self.point)
     }
@@ -185,6 +185,6 @@ impl fmt::Debug for StaticSourceLoc {
 #[macro_export]
 macro_rules! here {
     () => {
-        $crate::sourceloc::StaticSourceLoc::new(file!(), line!(), column!())
+        $crate::loc::StaticLoc::new(file!(), line!(), column!())
     };
 }

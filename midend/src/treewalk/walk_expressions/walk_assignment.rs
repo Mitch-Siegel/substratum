@@ -23,11 +23,11 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         self,
         mut ctx: FunctionLinearizeCtx,
     ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
-        let assignment_start = self.loc().start();
+        let assignment_start = self.span().start();
 
         let (assignment_ir, mut ctx) =
             if let ast::Expression::Field(field_expression_tree) = *self.assignee {
-                let field_loc = field_expression_tree.loc();
+                let field_loc = field_expression_tree.span();
                 let (receiver, field);
                 ((receiver, field), ctx) = field_expression_tree.linearize(ctx)?;
                 let field_pointer_temp = ctx.values_mut().next_temp(
@@ -50,7 +50,7 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
                     ctx,
                 )
             } else {
-                let assignee_start = self.assignee.loc().start();
+                let assignee_start = self.assignee.span().start();
                 let (assignee, ctx) = self.assignee.linearize(ctx)?;
                 let (stored_value, ctx) = self.value.linearize(ctx)?;
                 (

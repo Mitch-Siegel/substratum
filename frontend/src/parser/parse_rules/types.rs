@@ -1,16 +1,17 @@
 use crate::{
     ast,
     lexer::Token,
+    loc,
     parser::{
         ParseError,
         parse_rules::{Parser, TypeParser},
     },
-    sourceloc, types,
+    types,
 };
 
 impl TypeParser<'_, '_> {
     pub(crate) fn parse_type(&mut self) -> Result<ast::TypeTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("type")?;
+        let (_start, _span) = self.start_parsing("type")?;
 
         let type_tree = ast::TypeTree::TypeNoBounds(self.parse_type_no_bounds()?);
 
@@ -18,7 +19,7 @@ impl TypeParser<'_, '_> {
     }
 
     fn parse_type_no_bounds(&mut self) -> Result<ast::types::TypeNoBoundsTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("type no bounds")?;
+        let (_start, _span) = self.start_parsing("type no bounds")?;
 
         let type_no_bounds = match self.peek_token()? {
             Token::Identifier(_)
@@ -60,24 +61,24 @@ impl TypeParser<'_, '_> {
     fn parse_parenthesized_type_or_tuple(
         &mut self,
     ) -> Result<ast::types::TypeNoBoundsTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("parenthesized type or tuple")?;
+        let (_start, _span) = self.start_parsing("parenthesized type or tuple")?;
 
-        let open_paren_loc = self.expect_token(Token::LParen)?;
+        let open_paren = self.expect_token(Token::LParen)?;
         let inner_type = if self.peek_token()? == Token::RParen {
-            let close_paren_loc = self.expect_token(Token::RParen)?;
+            let close_paren = self.expect_token(Token::RParen)?;
             ast::types::TypeNoBoundsTree::TupleType(ast::types::TupleTypeTree {
-                open_paren_loc,
+                open_paren,
                 members: Vec::new(),
-                close_paren_loc,
+                close_paren,
             })
         } else {
             let following_type = self.parse_type()?;
             match self.peek_token()? {
                 Token::Comma => ast::types::TypeNoBoundsTree::TupleType(
-                    self.parse_tuple_type(open_paren_loc, following_type)?,
+                    self.parse_tuple_type(open_paren, following_type)?,
                 ),
                 Token::RParen => ast::types::TypeNoBoundsTree::ParenthesizedType(
-                    self.parse_parenthesized_type(open_paren_loc, following_type)?,
+                    self.parse_parenthesized_type(open_paren, following_type)?,
                 ),
                 _ => self.unexpected_token(&[Token::Comma, Token::RParen])?,
             }
@@ -88,10 +89,10 @@ impl TypeParser<'_, '_> {
 
     fn parse_tuple_type(
         &mut self,
-        open_paren_loc: sourceloc::SourceSpan,
+        open_paren: loc::Span,
         first_type: ast::TypeTree,
     ) -> Result<ast::types::TupleTypeTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("tuple type")?;
+        let (_start, _span) = self.start_parsing("tuple type")?;
         self.expect_token(Token::Comma)?;
 
         let mut members = vec![first_type];
@@ -105,12 +106,12 @@ impl TypeParser<'_, '_> {
                 self.expect_token(Token::Comma)?;
             }
         }
-        let close_paren_loc = self.expect_token(Token::RParen)?;
+        let close_paren = self.expect_token(Token::RParen)?;
 
         let tuple_type = ast::types::TupleTypeTree {
-            open_paren_loc,
+            open_paren,
             members,
-            close_paren_loc,
+            close_paren,
         };
 
         self.finish_parsing(tuple_type)
@@ -118,25 +119,25 @@ impl TypeParser<'_, '_> {
 
     fn parse_parenthesized_type(
         &mut self,
-        open_paren_loc: sourceloc::SourceSpan,
+        open_paren: loc::Span,
         inner_type: ast::types::TypeTree,
     ) -> Result<ast::types::ParenthesizedTypeTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("parenthesized type")?;
+        let (_start, _span) = self.start_parsing("parenthesized type")?;
 
-        let close_paren_loc = self.expect_token(Token::RParen)?;
+        let close_paren = self.expect_token(Token::RParen)?;
         let parenthesized_type = ast::types::ParenthesizedTypeTree {
-            open_paren_loc,
+            open_paren,
             inner_type: Box::from(inner_type),
-            close_paren_loc,
+            close_paren,
         };
 
         self.finish_parsing(parenthesized_type)
     }
 
     fn parse_reference_type(&mut self) -> Result<ast::types::ReferenceTypeTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("reference type")?;
+        let (_start, _span) = self.start_parsing("reference type")?;
 
-        let reference_token_loc = self.expect_token(Token::Reference)?;
+        let reference_token = self.expect_token(Token::Reference)?;
         let mutability = match self.peek_token()? {
             Token::Mut => {
                 self.expect_token(Token::Mut)?;
@@ -146,7 +147,7 @@ impl TypeParser<'_, '_> {
         };
 
         let reference_tree = ast::types::ReferenceTypeTree {
-            reference_token_loc,
+            reference_token,
             mutability,
             type_: Box::new(self.parse_type_no_bounds()?),
         };
@@ -155,7 +156,7 @@ impl TypeParser<'_, '_> {
     }
 
     fn parse_type_path(&mut self) -> Result<ast::types::TypePath, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("type path")?;
+        let (_start, _span) = self.start_parsing("type path")?;
 
         let type_path = match self.peek_token()? {
             Token::U8
@@ -169,7 +170,7 @@ impl TypeParser<'_, '_> {
             Token::SelfUpper => {
                 let loc = self.expect_token(Token::SelfUpper)?;
                 ast::types::TypePath::Primitive(ast::types::PrimitiveTypePathTree {
-                    loc,
+                    span: loc,
                     type_: types::Syntactic::_Self,
                 })
             }
@@ -198,7 +199,7 @@ impl TypeParser<'_, '_> {
     fn parse_primitive_type_path(
         &mut self,
     ) -> Result<ast::types::PrimitiveTypePathTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("type path")?;
+        let (_start, _span) = self.start_parsing("type path")?;
 
         let (loc, primitive) = match self.peek_token()? {
             Token::U8 => (self.expect_token(Token::U8)?, types::Syntactic::U8),
@@ -222,7 +223,7 @@ impl TypeParser<'_, '_> {
         };
 
         let primitive_path = ast::types::PrimitiveTypePathTree {
-            loc,
+            span: loc,
             type_: primitive,
         };
         self.finish_parsing(primitive_path)
@@ -231,7 +232,7 @@ impl TypeParser<'_, '_> {
     fn try_parse_type_item_path_segment_data(
         parser: &mut Parser,
     ) -> Result<Option<ast::types::TypePathSegmentData>, ParseError> {
-        let (_start_loc, _span) = parser.start_parsing("optional path segment data")?;
+        let (_start, _span) = parser.start_parsing("optional path segment data")?;
 
         let maybe_data = match parser.peek_token()? {
             Token::PathSep => match parser.lookahead_token(1)? {
@@ -253,7 +254,7 @@ impl TypeParser<'_, '_> {
     }
 
     fn parse_item_type_path_tree(&mut self) -> Result<ast::types::TypeItemPathTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("path to type item")?;
+        let (_start, _span) = self.start_parsing("path to type item")?;
         let underlying_path = self
             .path_parser()
             .parse_path(Self::try_parse_type_item_path_segment_data)?;
@@ -263,19 +264,19 @@ impl TypeParser<'_, '_> {
     }
 
     fn parse_array_type(&mut self) -> Result<ast::types::ArrayTypeTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("array type")?;
+        let (_start, _span) = self.start_parsing("array type")?;
 
-        let open_bracket_loc = self.expect_token(Token::LBracket)?;
+        let open_bracket = self.expect_token(Token::LBracket)?;
         let inner_type = Box::new(self.parse_type()?);
         self.expect_token(Token::Semicolon)?;
         let array_size = self.expression_parser().parse_expression()?;
-        let close_bracket_loc = self.expect_token(Token::RBracket)?;
+        let close_bracket = self.expect_token(Token::RBracket)?;
 
         let array_tree = ast::types::ArrayTypeTree {
-            open_bracket_loc,
+            open_bracket,
             inner_type,
             array_size,
-            close_bracket_loc,
+            close_bracket,
         };
         self.finish_parsing(array_tree)
     }
@@ -303,14 +304,14 @@ mod tests {
         assert_eq!(
             p.type_parser().parse_parenthesized_type_or_tuple(),
             Ok(TypeNoBoundsTree::ParenthesizedType(ParenthesizedTypeTree {
-                open_paren_loc: builder::test_span(1, 1, 1, 2).into(),
+                open_paren: builder::test_span(1, 1, 1, 2).into(),
                 inner_type: Box::new(TypeTree::TypeNoBounds(TypeNoBoundsTree::TypePath(
                     TypePath::Primitive(PrimitiveTypePathTree {
                         loc: builder::test_span(1, 2, 1, 5),
                         type_: Syntactic::U64
                     })
                 ))),
-                close_paren_loc: builder::test_span(1, 5, 1, 6).into(),
+                close_paren: builder::test_span(1, 5, 1, 6).into(),
             }))
         );
     }
@@ -321,13 +322,13 @@ mod tests {
         assert_eq!(
             p.type_parser().parse_parenthesized_type_or_tuple(),
             Ok(TypeNoBoundsTree::TupleType(TupleTypeTree {
-                open_paren_loc: builder::test_span(1, 1, 1, 2),
+                open_paren: builder::test_span(1, 1, 1, 2),
                 members: vec![
                     TypeTree::TypeNoBounds(builder::primitive_type(1, 2, Syntactic::U64)),
                     builder::named_type(1, 7, "MyStruct"),
                     TypeTree::TypeNoBounds(builder::primitive_type(1, 17, Syntactic::I8))
                 ],
-                close_paren_loc: builder::test_span(1, 19, 1, 20),
+                close_paren: builder::test_span(1, 19, 1, 20),
             }))
         );
     }
@@ -338,13 +339,13 @@ mod tests {
         assert_eq!(
             p.type_parser().parse_parenthesized_type_or_tuple(),
             Ok(TypeNoBoundsTree::TupleType(TupleTypeTree {
-                open_paren_loc: builder::test_span(1, 1, 1, 2),
+                open_paren: builder::test_span(1, 1, 1, 2),
                 members: vec![TypeTree::TypeNoBounds(builder::primitive_type(
                     1,
                     2,
                     Syntactic::U64
                 )),],
-                close_paren_loc: builder::test_span(1, 7, 1, 8),
+                close_paren: builder::test_span(1, 7, 1, 8),
             }))
         );
     }
@@ -369,14 +370,14 @@ mod tests {
         assert_eq!(
             p.type_parser().parse_array_type(),
             Ok(ArrayTypeTree {
-                open_bracket_loc: builder::test_span(1, 1, 1, 2),
+                open_bracket: builder::test_span(1, 1, 1, 2),
                 inner_type: Box::new(TypeTree::TypeNoBounds(builder::primitive_type(
                     1,
                     2,
                     Syntactic::U8
                 ))),
                 array_size: builder::unsigned_decimal_constant(1, 6, 45),
-                close_bracket_loc: builder::test_span(1, 8, 1, 9),
+                close_bracket: builder::test_span(1, 8, 1, 9),
             })
         );
     }

@@ -114,7 +114,7 @@ where
 {
     type Data = types::Syntactic;
     fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, UnpathedLinearizeCtx> {
-        let loc = self.loc();
+        let loc = self.span();
         let (type_, ctx) = match self {
             Self::ParenthesizedType(p) => p.linearize(ctx)?,
             Self::TypePath(tp) => {

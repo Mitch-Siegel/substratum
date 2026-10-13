@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt};
 
 use frontend::{
     ast::{self, Ast},
-    sourceloc,
+    loc,
 };
 
 use crate::{
@@ -77,7 +77,7 @@ where
 }
 
 mod path_walk {
-    use frontend::sourceloc;
+    use frontend::loc;
 
     use super::{FinishedPathWalk, symtab};
     use std::collections::HashMap;
@@ -152,7 +152,7 @@ mod path_walk {
 
         pub(crate) fn finish(
             self,
-            loc: &sourceloc::SourceSpan,
+            span: &loc::Span,
             symtab: &impl symtab::Symtab,
             segment_name: String,
             maybe_data: Option<T>,
@@ -206,7 +206,7 @@ mod path_walk {
             let macro_path: Option<symtab::MacroPath> = None;
 
             FinishedPathWalk {
-                loc: loc.clone(),
+                span: span.clone(),
                 prefix_segments: context_path.into(),
                 pathed_data,
                 last_ident: segment_name,
@@ -248,7 +248,7 @@ where
                 self.prefix_segments,
                 symtab::PathSegment::Type(self.last_ident)
             ),
-            self.loc,
+            self.span,
         ))?;
         let data = Self::handle_last_segment_data(self.pathed_data, &path, self.last_segment_data);
 
@@ -262,7 +262,7 @@ where
                 self.prefix_segments,
                 symtab::PathSegment::Value(self.last_ident)
             ),
-            self.loc,
+            self.span,
         ))?;
         let data = Self::handle_last_segment_data(self.pathed_data, &path, self.last_segment_data);
         Ok(PathWithSegmentData { path, data })
@@ -275,7 +275,7 @@ where
                 self.prefix_segments,
                 symtab::PathSegment::Macro(self.last_ident)
             ),
-            self.loc,
+            self.span,
         ))?;
         let data = Self::handle_last_segment_data(self.pathed_data, &path, self.last_segment_data);
 
@@ -299,7 +299,7 @@ impl<T> PathWalkState<T>
 where
     T: ast::Ast + fmt::Display + fmt::Debug,
 {
-    fn error(action: &PathSegmentAction<T>, loc: &sourceloc::SourceSpan) -> ! {
+    fn error(action: &PathSegmentAction<T>, loc: &loc::Span) -> ! {
         panic!("path segment {action} is not allowed in this position ({loc})");
     }
 
@@ -315,7 +315,7 @@ where
     /// loc: the span of the entire path including the identifier being handled
     fn do_ident(
         mut ctx: PathWalkCtx<T>,
-        loc: &sourceloc::SourceSpan,
+        loc: &loc::Span,
         ident: String,
         maybe_data: Option<T>,
         size_hint: usize,
@@ -332,10 +332,10 @@ where
 
     fn transition(
         self,
-        path_span: &sourceloc::SourceSpan,
+        path_span: &loc::Span,
         action: PathSegmentAction<T>,
         size_hint: usize,
-        loc: &sourceloc::SourceSpan,
+        loc: &loc::Span,
         symtab: &impl symtab::Symtab,
     ) -> Result<Self, String> {
         match self {
@@ -400,12 +400,12 @@ where
             PathWalkState::<T>::start(ctx_segments)
         };
 
-        let mut path_span: sourceloc::SourceSpan = self.loc().start().into();
+        let mut path_span: loc::Span = self.span().start().into();
         let mut segments = self.segments.into_iter();
 
         while let Some(segment) = segments.next() {
             trace::trace!("{:?}", &walk_state);
-            let segment_loc = segment.loc();
+            let segment_loc = segment.span();
             path_span = path_span.merge(&segment_loc).unwrap();
             let action: PathSegmentAction<T>;
             (action, ctx) = segment.linearize(ctx)?;
@@ -431,7 +431,7 @@ pub(crate) struct FinishedPathWalk<T>
 where
     T: std::fmt::Debug,
 {
-    loc: sourceloc::SourceSpan,
+    span: loc::Span,
     prefix_segments: Vec<symtab::PathSegment>,
     pathed_data: HashMap<symtab::RawPath, T>,
     last_ident: String,

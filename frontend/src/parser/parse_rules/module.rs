@@ -1,9 +1,8 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    ast,
+    ast, loc,
     parser::parse_rules::{ModuleParser, ParseError, Token, WorklistItem},
-    sourceloc,
 };
 
 #[derive(Debug)]
@@ -15,7 +14,7 @@ pub(crate) struct ModuleResult {
 impl ModuleParser<'_, '_> {
     pub(crate) fn parse_module_contents(
         &mut self,
-        maybe_mod_keyword_and_name: Option<(sourceloc::SourceSpan, ast::IdentifierTree)>,
+        maybe_mod_keyword_and_name: Option<(loc::Span, ast::IdentifierTree)>,
         name: String,
         module_path: &std::path::Path,
         crate_name: Option<&String>,

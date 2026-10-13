@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ast::{Ast, IdentifierTree, TypeTree, generics::OptionalGenericParamsListTree},
-    sourceloc,
+    loc,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -14,8 +14,8 @@ pub struct StructFieldTree {
 }
 
 impl Ast for StructFieldTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.name.loc().merge(&self.type_.loc()).unwrap()
+    fn span(&self) -> loc::Span {
+        self.name.span().merge(&self.type_.span()).unwrap()
     }
 }
 
@@ -27,18 +27,18 @@ impl fmt::Display for StructFieldTree {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StructDefinitionTree {
-    pub struct_keyword_loc: sourceloc::SourceSpan,
+    pub struct_keyword: loc::Span,
     pub name: IdentifierTree,
     pub generic_params: OptionalGenericParamsListTree,
     pub fields: Vec<StructFieldTree>,
-    pub(crate) close_brace_loc: sourceloc::SourceSpan,
+    pub(crate) close_brace: loc::Span,
 }
 
 impl Ast for StructDefinitionTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.struct_keyword_loc
+    fn span(&self) -> loc::Span {
+        self.struct_keyword
             .clone()
-            .merge(&self.close_brace_loc)
+            .merge(&self.close_brace)
             .unwrap()
     }
 }

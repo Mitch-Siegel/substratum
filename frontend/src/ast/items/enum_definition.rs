@@ -4,22 +4,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ast::{Ast, IdentifierTree, TypeTree, generics::OptionalGenericParamsListTree},
-    sourceloc,
+    loc,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TupleDataTree {
-    pub(crate) open_paren_loc: sourceloc::SourceSpan,
+    pub(crate) open_paren: loc::Span,
     pub element_types: Vec<TypeTree>,
-    pub(crate) close_paren_loc: sourceloc::SourceSpan,
+    pub(crate) close_paren: loc::Span,
 }
 
 impl Ast for TupleDataTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.open_paren_loc
-            .clone()
-            .merge(&self.close_paren_loc)
-            .unwrap()
+    fn span(&self) -> loc::Span {
+        self.open_paren.clone().merge(&self.close_paren).unwrap()
     }
 }
 
@@ -29,9 +26,9 @@ pub enum EnumVariantDataTree {
 }
 
 impl Ast for EnumVariantDataTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         match self {
-            Self::TupleData(tuple) => tuple.loc(),
+            Self::TupleData(tuple) => tuple.span(),
         }
     }
 }
@@ -43,10 +40,10 @@ pub struct EnumVariantTree {
 }
 
 impl Ast for EnumVariantTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         match &self.data {
-            Some(data) => self.name.loc().merge(&data.loc()).unwrap(),
-            None => self.name.loc(),
+            Some(data) => self.name.span().merge(&data.span()).unwrap(),
+            None => self.name.span(),
         }
     }
 }
@@ -62,24 +59,20 @@ impl fmt::Display for EnumVariantTree {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EnumDefinitionTree {
-    pub(crate) enum_keyword_loc: sourceloc::SourceSpan,
+    pub(crate) enum_keyword: loc::Span,
     pub name: IdentifierTree,
     pub generic_params: OptionalGenericParamsListTree,
     pub variants: Vec<EnumVariantTree>,
 }
 
 impl Ast for EnumDefinitionTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        let mut loc = self
-            .enum_keyword_loc
-            .clone()
-            .merge(&self.name.loc())
-            .unwrap();
+    fn span(&self) -> loc::Span {
+        let mut loc = self.enum_keyword.clone().merge(&self.name.span()).unwrap();
 
-        loc = loc.merge(&self.generic_params.loc()).unwrap();
+        loc = loc.merge(&self.generic_params.span()).unwrap();
 
         for variant in &self.variants {
-            loc = loc.merge(&variant.loc()).unwrap();
+            loc = loc.merge(&variant.span()).unwrap();
         }
 
         loc

@@ -2,29 +2,29 @@ use std::fmt;
 
 use crate::{
     ast::{Ast, Expression, expressions::BlockExpressionTree},
-    sourceloc,
+    loc,
 };
 
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IfExpressionTree {
-    pub if_keyword_loc: sourceloc::SourceSpan,
+    pub if_keyword: loc::Span,
     pub condition: Expression,
     pub true_block: BlockExpressionTree,
     pub false_block: Option<BlockExpressionTree>,
 }
 
 impl Ast for IfExpressionTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         let mut loc_span = self
-            .if_keyword_loc
+            .if_keyword
             .clone()
-            .merge(&self.true_block.loc())
+            .merge(&self.true_block.span())
             .unwrap();
 
         if let Some(false_block) = &self.false_block {
-            loc_span = loc_span.merge(&false_block.loc()).unwrap();
+            loc_span = loc_span.merge(&false_block.span()).unwrap();
         }
 
         loc_span
