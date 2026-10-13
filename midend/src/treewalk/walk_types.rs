@@ -1,6 +1,7 @@
 use frontend::ast::{self, Ast};
 
 use crate::{
+    ir::block_manager::branch,
     symtab,
     treewalk::{
         Linearize, LinearizeError, LinearizeResult, PathedLinearizeCtxTrait,
@@ -25,15 +26,18 @@ where
     }
 }
 
-impl<P, C> Linearize<UnpathedFunctionLinearizeCtx, P, C> for ast::TypeTree
+impl<B: branch::Branch, P, C> Linearize<UnpathedFunctionLinearizeCtx<B>, P, C> for ast::TypeTree
 where
     P: symtab::Path,
-    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx, Path = P>,
+    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx<B>, Path = P>,
     ast::types::TypeNoBoundsTree:
-        Linearize<UnpathedFunctionLinearizeCtx, P, C, Data = Option<types::Syntactic>>,
+        Linearize<UnpathedFunctionLinearizeCtx<B>, P, C, Data = Option<types::Syntactic>>,
 {
     type Data = Option<types::Syntactic>;
-    fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+    fn linearize_inner(
+        self,
+        ctx: C,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         let (type_, ctx) = match self {
             Self::TypeNoBounds(tnb) => tnb.linearize(ctx)?,
         };
@@ -74,17 +78,19 @@ where
     }
 }
 
-impl<P, C> Linearize<UnpathedFunctionLinearizeCtx, P, C> for ast::types::TupleTypeTree
+impl<B: branch::Branch, P, C> Linearize<UnpathedFunctionLinearizeCtx<B>, P, C>
+    for ast::types::TupleTypeTree
 where
     P: symtab::Path,
-    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx, Path = P>,
-    ast::TypeTree: Linearize<UnpathedFunctionLinearizeCtx, P, C, Data = Option<types::Syntactic>>,
+    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx<B>, Path = P>,
+    ast::TypeTree:
+        Linearize<UnpathedFunctionLinearizeCtx<B>, P, C, Data = Option<types::Syntactic>>,
 {
-    type Data = <ast::TypeTree as Linearize<UnpathedFunctionLinearizeCtx, P, C>>::Data;
+    type Data = <ast::TypeTree as Linearize<UnpathedFunctionLinearizeCtx<B>, P, C>>::Data;
     fn linearize_inner(
         self,
         mut ctx: C,
-    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         let mut members: Vec<Option<types::Syntactic>> = Vec::new();
         for member in self.members {
             let maybe_member_type: Option<types::Syntactic>;
@@ -95,13 +101,17 @@ where
     }
 }
 
-impl<P, C> Linearize<UnpathedFunctionLinearizeCtx, P, C> for ast::types::InferredTypeTree
+impl<B: branch::Branch, P, C> Linearize<UnpathedFunctionLinearizeCtx<B>, P, C>
+    for ast::types::InferredTypeTree
 where
     P: symtab::Path,
-    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx, Path = P>,
+    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx<B>, Path = P>,
 {
     type Data = Option<types::Syntactic>;
-    fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+    fn linearize_inner(
+        self,
+        ctx: C,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         ctx.into_result(None)
     }
 }
@@ -142,13 +152,17 @@ where
     }
 }
 
-impl<P, C> Linearize<UnpathedFunctionLinearizeCtx, P, C> for ast::types::TypeNoBoundsTree
+impl<B: branch::Branch, P, C> Linearize<UnpathedFunctionLinearizeCtx<B>, P, C>
+    for ast::types::TypeNoBoundsTree
 where
     P: symtab::Path,
-    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx, Path = P>,
+    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx<B>, Path = P>,
 {
     type Data = Option<types::Syntactic>;
-    fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+    fn linearize_inner(
+        self,
+        ctx: C,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         let (type_, ctx) = match self {
             Self::ParenthesizedType(p) => p.linearize(ctx)?,
             Self::TypePath(tp) => {
@@ -239,16 +253,17 @@ where
     }
 }
 
-impl<P, C> Linearize<UnpathedFunctionLinearizeCtx, P, C> for ast::types::ReferenceTypeTree
+impl<B: branch::Branch, P, C> Linearize<UnpathedFunctionLinearizeCtx<B>, P, C>
+    for ast::types::ReferenceTypeTree
 where
     P: symtab::Path,
-    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx, Path = P>,
+    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx<B>, Path = P>,
 {
-    type Data = <ast::TypeTree as Linearize<UnpathedFunctionLinearizeCtx, P, C>>::Data;
+    type Data = <ast::TypeTree as Linearize<UnpathedFunctionLinearizeCtx<B>, P, C>>::Data;
     fn linearize_inner(
         self,
         mut ctx: C,
-    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         let maybe_type: Option<types::Syntactic>;
         (maybe_type, ctx) = self.type_.linearize(ctx)?;
         let type_ = maybe_type.expect("reference types may not be '_'");

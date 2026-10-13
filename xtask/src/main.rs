@@ -115,6 +115,8 @@ fn execute_build_example(e: Example) -> i32 {
             crate_name,
             "-bin",
             crate_name,
+            "-trace-level",
+            "info",
         ],
         true,
         true,

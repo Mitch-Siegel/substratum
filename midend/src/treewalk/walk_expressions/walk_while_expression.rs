@@ -1,10 +1,11 @@
 use frontend::ast::{self, Ast};
 
 use crate::{
-    ir, symtab,
+    ir::{self, block_manager::branch},
+    symtab,
     treewalk::{
         Collect, CollectResult, FunctionLinearizeCtx, Linearize, LinearizeResult, PathedCtxTrait,
-        UnpathedFunctionLinearizeCtx, ValueCollectCtx,
+        UnpathedFunctionLinearizeCtx, ValueCollectCtx, linearize_context::FunctionLinearizeErased,
     },
     types,
 };
@@ -16,21 +17,24 @@ impl Collect<symtab::ValuePath> for ast::expressions::WhileExpressionTree {
     }
 }
 
-impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLinearizeCtx>
-    for ast::expressions::WhileExpressionTree
-{
+impl FunctionLinearizeErased for ast::expressions::WhileExpressionTree {
     type Data = ir::ValueId;
     #[trace::instrument(skip(self), level = "trace", fields(tree_name = Self::name()))]
-    fn linearize_inner(
+    fn linearize_erased(
         self,
-        mut ctx: FunctionLinearizeCtx,
-    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+        mut ctx: FunctionLinearizeCtx<Box<dyn branch::Branch>>,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<Box<dyn branch::Branch>>> {
         let loc = self.loc();
 
         let parent_scope_def_path = ctx.path().clone();
         let loop_scope_def_path = ctx.reserve_subscope();
-        let loop_done_label = ctx.create_loop(
-            loc.start(),
+        let mut ctx: FunctionLinearizeCtx<
+            branch::NestedBranch<Box<dyn branch::Branch>, branch::LoopHeader>,
+        > = ctx.create_loop(
+            branch::BranchDesc {
+                loc: loc.start(),
+                after: loc.end(),
+            },
             self.body.loc().start(),
             self.body.loc().end(),
             self.loc().end(),
@@ -38,12 +42,14 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
             loop_scope_def_path,
         );
 
+        let after_loop_label = ctx.after_loop_label();
+
         let condition_loc = self.condition.loc();
         let condition;
         (condition, ctx) = self.condition.linearize(ctx)?;
         let loop_condition_jump = ir::IrLine::new_jump(
             condition_loc.end(),
-            loop_done_label,
+            after_loop_label,
             ir::lowered::operands::JumpCondition::Conditional(
                 ir::lowered::operands::BinaryComparisonOperands::new(
                     condition,
@@ -57,21 +63,34 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
             ),
         );
 
-        ctx.append_jump_to_current_block(loop_condition_jump);
+        ctx.append_statement_to_current_block(loop_condition_jump);
 
-        let parent_def_path = ctx.path().clone();
-        ctx.unconditional_branch_from_current(
-            loc.start(),
-            loc.end(),
-            parent_def_path.clone(),
-            parent_def_path,
-        );
-        let (_, mut ctx) = self.body.linearize(ctx)?;
+        let ctx: FunctionLinearizeCtx<
+            branch::NestedBranch<Box<dyn branch::Branch>, branch::LoopBody>,
+        > = ctx.finish_loop_header(condition_loc.end());
 
-        ctx.finish_branch(loc.end());
+        // let parent_def_path = ctx.path().clone();
+        // ctx.unconditional_branch_from_current(
+        //     loc.start(),
+        //     loc.end(),
+        //     parent_def_path.clone(),
+        //     parent_def_path,
+        // );
 
-        ctx.finish_loop(loc.end(), Vec::new());
+        let body_end = self.body.loc().end();
+        let (_, ctx) = self.body.linearize(ctx)?;
 
-        ctx.into_result(ir::ValueInterner::<Option<types::Syntactic>>::unit_value_id())
+        let ctx: FunctionLinearizeCtx<
+            branch::NestedBranch<Box<dyn branch::Branch>, branch::LoopFooter>,
+        > = ctx.finish_loop_body(body_end.clone());
+
+        ctx.finish_loop_footer(body_end)
+            .into_result(ir::ValueInterner::<Option<types::Syntactic>>::unit_value_id())
+
+        // ctx.finish_branch(loc.end());
+
+        // ctx.finish_loop(loc.end(), Vec::new());
+
+        // ctx.into_result(ir::ValueInterner::<Option<types::Syntactic>>::unit_value_id())
     }
 }

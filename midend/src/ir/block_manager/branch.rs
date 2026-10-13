@@ -1,9 +1,239 @@
+use std::fmt;
+
 use frontend::sourceloc;
 
-use crate::ir::{
-    BasicBlock,
-    block_manager::{BlockManager, Branch, BranchError, BranchKind, ConvergenceResult, ir, symtab},
+use crate::{
+    ir::{self, BasicBlock, ControlFlow, block_manager::BlockManager, lowered::JumpCondition},
+    symtab,
 };
+
+pub(crate) trait Branch: 'static {
+    fn cur_block(&self) -> usize;
+
+    fn set_cur_block(&mut self, block: usize);
+
+    fn as_any_box(self: Box<Self>) -> Box<dyn std::any::Any>;
+}
+
+impl Branch for Box<dyn Branch> {
+    fn cur_block(&self) -> usize {
+        (**self).cur_block()
+    }
+
+    fn set_cur_block(&mut self, block: usize) {
+        (**self).set_cur_block(block);
+    }
+
+    fn as_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        (*self).as_any_box()
+    }
+}
+
+pub(crate) struct NestedBranch<P: Branch, B: Branch> {
+    pub(crate) parent: P,
+    pub(crate) branch: B,
+}
+
+impl<P: Branch, B: Branch> Branch for NestedBranch<P, B> {
+    fn cur_block(&self) -> usize {
+        self.branch.cur_block()
+    }
+    fn set_cur_block(&mut self, block: usize) {
+        self.branch.set_cur_block(block);
+    }
+
+    fn as_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
+    }
+}
+
+impl<P: Branch, B: Branch> fmt::Debug for NestedBranch<P, B> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "({}, {})",
+            std::any::type_name::<P>(),
+            std::any::type_name::<B>(),
+        )
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct Unconditional {
+    pub(super) cur_block: usize,
+    pub(super) dest: BasicBlock,
+}
+
+impl Branch for Unconditional {
+    fn cur_block(&self) -> usize {
+        self.cur_block
+    }
+    fn set_cur_block(&mut self, block: usize) {
+        self.cur_block = block;
+    }
+
+    fn as_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct DoubleBranchTrue {
+    cur_block: usize,
+    false_: BasicBlock,
+    after_branch: BasicBlock,
+}
+impl Branch for DoubleBranchTrue {
+    fn cur_block(&self) -> usize {
+        self.cur_block
+    }
+    fn set_cur_block(&mut self, block: usize) {
+        self.cur_block = block;
+    }
+
+    fn as_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
+    }
+}
+
+pub(crate) struct DoubleBranchFalse {
+    cur_block: usize,
+    after_branch: BasicBlock,
+}
+impl Branch for DoubleBranchFalse {
+    fn cur_block(&self) -> usize {
+        self.cur_block
+    }
+    fn set_cur_block(&mut self, block: usize) {
+        self.cur_block = block;
+    }
+
+    fn as_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct SingleBranchTrue {
+    cur_block: usize,
+    after_branch: BasicBlock,
+}
+impl Branch for SingleBranchTrue {
+    fn cur_block(&self) -> usize {
+        self.cur_block
+    }
+    fn set_cur_block(&mut self, block: usize) {
+        self.cur_block = block;
+    }
+
+    fn as_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
+    }
+}
+
+pub(crate) struct LoopHeader {
+    cur_block: usize,
+    loop_body: BasicBlock,
+    loop_ftr: BasicBlock,
+    after_loop: BasicBlock,
+}
+
+impl LoopHeader {
+    pub(crate) fn after_loop_label(&self) -> usize {
+        self.after_loop.label
+    }
+}
+
+impl Branch for LoopHeader {
+    fn cur_block(&self) -> usize {
+        self.cur_block
+    }
+    fn set_cur_block(&mut self, block: usize) {
+        self.cur_block = block;
+    }
+
+    fn as_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
+    }
+}
+
+pub(crate) struct LoopBody {
+    cur_block: usize,
+    loop_ftr: BasicBlock,
+    after_loop: BasicBlock,
+}
+
+impl LoopBody {
+    // FUTURE: breaks will target this label
+    #[allow(unused)]
+    pub(crate) fn after_loop_label(&self) -> usize {
+        self.after_loop.label
+    }
+}
+
+impl Branch for LoopBody {
+    fn cur_block(&self) -> usize {
+        self.cur_block
+    }
+    fn set_cur_block(&mut self, block: usize) {
+        self.cur_block = block;
+    }
+
+    fn as_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
+    }
+}
+
+pub(crate) struct LoopFooter {
+    cur_block: usize,
+    after_loop: BasicBlock,
+}
+impl Branch for LoopFooter {
+    fn cur_block(&self) -> usize {
+        self.cur_block
+    }
+    fn set_cur_block(&mut self, block: usize) {
+        self.cur_block = block;
+    }
+
+    fn as_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
+    }
+}
+
+pub(crate) struct UnfinishedFunction {
+    pub(super) cur_block: usize,
+    pub(super) epilogue: BasicBlock,
+}
+
+impl Branch for UnfinishedFunction {
+    fn cur_block(&self) -> usize {
+        self.cur_block
+    }
+    fn set_cur_block(&mut self, block: usize) {
+        self.cur_block = block;
+    }
+
+    fn as_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
+    }
+}
+
+pub(crate) struct Epilogue {
+    pub(super) cur_block: usize,
+}
+impl Branch for Epilogue {
+    fn cur_block(&self) -> usize {
+        self.cur_block
+    }
+    fn set_cur_block(&mut self, block: usize) {
+        self.cur_block = block;
+    }
+
+    fn as_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
+    }
+}
 
 /// describes the source code location and scope defpath of the target of a branch
 pub(crate) struct BranchTarget {
@@ -18,38 +248,50 @@ impl BranchTarget {
 }
 
 pub(crate) struct BranchDesc {
-    /// the labe of the block being branched from
-    pub from: usize,
     /// the location of the branch itself
     pub loc: sourceloc::SourceLoc,
     /// the first source location after anything relevant to the branch
     pub after: sourceloc::SourceLoc,
 }
 
+impl BranchDesc {
+    pub(crate) fn new(loc: sourceloc::SourceLoc, after: sourceloc::SourceLoc) -> Self {
+        Self { loc, after }
+    }
+}
+
 /// Conditional and unconditional branches
-impl BlockManager {
+impl<S: Branch> BlockManager<S> {
+    fn with_nested_branch<B: Branch>(self, branch: B) -> BlockManager<NestedBranch<S, B>> {
+        BlockManager {
+            max_block: self.max_block,
+            blocks: self.blocks,
+            values: self.values,
+            branch_state: NestedBranch {
+                parent: self.branch_state,
+                branch,
+            },
+        }
+    }
+
     // returns (branch_target, after_branch)
+    // TODO: this isn't a branch it should just actually split us off to a new block
     pub(crate) fn create_unconditional_branch(
-        &mut self,
+        mut self,
         desc: BranchDesc,
         parent_def_path: symtab::ScopePath,
         true_def_path: symtab::ScopePath,
-    ) -> Result<usize, BranchError> {
+    ) -> BlockManager<NestedBranch<S, Unconditional>> {
         self.max_block += 2;
         let true_block = ir::BasicBlock::new(self.max_block - 1, true_def_path, desc.loc.clone());
         let after_branch = ir::BasicBlock::new(self.max_block, parent_def_path, desc.after);
         let after_branch_label = after_branch.label;
 
-        self.convergences
-            .rename_source(desc.from, after_branch.label);
-        self.convergences.add(&[true_block.label], after_branch)?;
-
-        self.open_branch_path
-            .push(Branch::new(desc.from, BranchKind::Unconditional));
+        let from = self.current_label();
 
         trace::trace!(
             "unconditional branch from block {} - true block: {}, after branch: {}",
-            desc.from,
+            from,
             true_block.label,
             after_branch_label
         );
@@ -59,23 +301,25 @@ impl BlockManager {
             true_block.label,
             ir::lowered::operands::JumpCondition::Unconditional,
         );
-        let from_block = self.get_mut(desc.from).unwrap();
-        from_block.push(unconditional_jump);
+        self.current_block_mut().push(unconditional_jump);
 
         let true_block_label = true_block.label;
         self.blocks.insert(true_block_label, true_block);
-        Ok(true_block_label)
+        self.with_nested_branch(Unconditional {
+            cur_block: true_block_label,
+            dest: after_branch,
+        })
     }
 
     // returns the label of the true branch or BranchError
-    pub(crate) fn create_conditional_branch(
-        &mut self,
+    pub(crate) fn create_double_branch(
+        mut self,
         desc: BranchDesc,
         jump_condition: ir::lowered::operands::JumpCondition,
         true_data: BranchTarget,
         false_data: BranchTarget, // TODO: make this an option to support true-only branch conditioning
         parent_def_path: symtab::ScopePath,
-    ) -> Result<usize, BranchError> {
+    ) -> BlockManager<NestedBranch<S, DoubleBranchTrue>> {
         self.max_block += 3;
 
         let BranchTarget {
@@ -89,19 +333,22 @@ impl BlockManager {
 
         let true_block = ir::BasicBlock::new(self.max_block - 2, true_path, true_loc);
         let false_block = ir::BasicBlock::new(self.max_block - 1, false_path, false_loc);
-        let convergence_block = ir::BasicBlock::new(self.max_block, parent_def_path, desc.after);
+        let after_branch_block = ir::BasicBlock::new(self.max_block, parent_def_path, desc.after);
+
+        let from = self.current_label();
 
         trace::trace!(
             "create conditional branch from block {} - true block: {}, false block: {}, after branch: {}",
-            desc.from,
+            from,
             true_block.label,
             false_block.label,
-            convergence_block.label
+            after_branch_block.label
         );
+
+        let from_block = self.current_block_mut();
 
         let conditional_jump =
             ir::IrLine::new_jump(desc.loc.clone(), true_block.label, jump_condition);
-        let from_block = self.get_mut(desc.from).unwrap();
         from_block.push(conditional_jump);
         let unconditional_jump = ir::IrLine::new_jump(
             desc.loc,
@@ -110,368 +357,327 @@ impl BlockManager {
         );
         from_block.push(unconditional_jump);
 
-        self.convergences
-            .rename_source(desc.from, convergence_block.label);
-        self.convergences
-            .add(&[true_block.label, false_block.label], convergence_block)?;
+        let true_label = true_block.label;
+        self.blocks.insert(true_label, true_block);
+        self.with_nested_branch(DoubleBranchTrue {
+            cur_block: true_label,
+            false_: false_block,
+            after_branch: after_branch_block,
+        })
+    }
 
-        self.open_branch_path.push(Branch::new(
-            desc.from,
-            BranchKind::ConditionalTrue(Box::new(false_block)),
-        ));
+    pub(crate) fn create_single_branch(
+        mut self,
+        desc: BranchDesc,
+        jump_condition: ir::lowered::operands::JumpCondition,
+        true_data: BranchTarget,
+        parent_def_path: symtab::ScopePath,
+    ) -> BlockManager<NestedBranch<S, SingleBranchTrue>> {
+        self.max_block += 2;
+        let BranchTarget {
+            loc: true_loc,
+            path: true_path,
+        } = true_data;
+
+        let true_block = ir::BasicBlock::new(self.max_block - 1, true_path, true_loc);
+        let after_block = ir::BasicBlock::new(self.max_block, parent_def_path, desc.after);
+
+        let from = self.current_label();
+
+        trace::trace!(
+            "create conditional single branch from block {} - true block: {}, after branch: {}",
+            from,
+            true_block.label,
+            after_block.label
+        );
+
+        let from_block = self.current_block_mut();
+
+        let conditional_jump =
+            ir::IrLine::new_jump(desc.loc.clone(), true_block.label, jump_condition);
+        from_block.push(conditional_jump);
+        let unconditional_jump = ir::IrLine::new_jump(
+            desc.loc,
+            after_block.label,
+            ir::lowered::operands::JumpCondition::Unconditional,
+        );
+        from_block.push(unconditional_jump);
 
         let true_label = true_block.label;
         self.blocks.insert(true_label, true_block);
-        Ok(true_label)
+        self.with_nested_branch(SingleBranchTrue {
+            cur_block: true_label,
+            after_branch: after_block,
+        })
     }
+}
 
+impl<P: Branch, C: Branch> BlockManager<NestedBranch<P, C>> {
+    fn without_nested_branch(self) -> (BlockManager<P>, C) {
+        let NestedBranch { parent, branch } = self.branch_state;
+
+        (
+            BlockManager {
+                max_block: self.max_block,
+                blocks: self.blocks,
+                values: self.values,
+                branch_state: parent,
+            },
+            branch,
+        )
+    }
+}
+
+impl<P: Branch> BlockManager<NestedBranch<P, DoubleBranchTrue>> {
     // returns the label of the false branch or BranchError
     pub(crate) fn finish_true_branch_switch_to_false(
-        &mut self,
-        true_end_label: usize,
+        mut self,
         loc: sourceloc::SourceLoc,
-        def_path: &symtab::ScopePath,
-    ) -> Result<usize, BranchError> {
-        let finished_branch = self.pop_last_branch()?;
-        let branched_from = finished_branch.from_label;
-        let false_block = match finished_branch.kind {
-            BranchKind::ConditionalTrue(false_block) => Ok(false_block),
-            kind => Err(BranchError::WrongKind(
-                kind,
-                vec![BranchKind::ConditionalTrue(Box::new(BasicBlock::new(
-                    0,
-                    def_path.clone(),
-                    loc.clone(),
-                )))],
-            )),
-        }?;
+    ) -> BlockManager<NestedBranch<P, DoubleBranchFalse>> {
+        let exit_jmp = ir::IrLine::new_jump(
+            loc,
+            self.branch_state.branch.after_branch.label,
+            JumpCondition::Unconditional,
+        );
+        self.current_block_mut().push(exit_jmp);
 
-        match self.converge_with_jump(true_end_label, loc)? {
-            ConvergenceResult::NotDone(_) => Ok(()),
-            ConvergenceResult::Done(_) => Err(BranchError::MissingFalseBlock(branched_from)),
-        }?;
+        let (mut ret, condition): (BlockManager<P>, DoubleBranchTrue) =
+            self.without_nested_branch();
 
-        self.open_branch_path
-            .push(Branch::new(branched_from, BranchKind::ConditionalFalse));
-        let false_label = false_block.label;
-        self.blocks.insert(false_label, *false_block);
-        Ok(false_label)
+        let DoubleBranchTrue {
+            cur_block: _,
+            false_,
+            after_branch,
+        } = condition;
+
+        let false_label = false_.label;
+        ret.blocks.insert(false_label, false_);
+
+        ret.with_nested_branch(DoubleBranchFalse {
+            cur_block: false_label,
+            after_branch,
+        })
     }
+}
 
-    pub(crate) fn finish_branch(
-        &mut self,
-        branch_end_label: usize,
+impl<P: Branch> BlockManager<NestedBranch<P, DoubleBranchFalse>> {
+    pub(crate) fn finish_branch(mut self, loc: sourceloc::SourceLoc) -> BlockManager<P> {
+        let exit_jmp = ir::IrLine::new_jump(
+            loc,
+            self.branch_state.branch.after_branch.label,
+            JumpCondition::Unconditional,
+        );
+        self.current_block_mut().push(exit_jmp);
+
+        let (mut ret, false_) = self.without_nested_branch();
+
+        #[allow(unused)]
+        let DoubleBranchFalse {
+            cur_block,
+            after_branch,
+        } = false_;
+
+        let after_label = after_branch.label;
+        ret.blocks.insert(after_label, after_branch);
+        ret.branch_state.set_cur_block(after_label);
+
+        ret
+    }
+}
+
+impl<P: Branch> BlockManager<NestedBranch<P, SingleBranchTrue>> {
+    pub(crate) fn finish_branch(mut self, loc: sourceloc::SourceLoc) -> BlockManager<P> {
+        let exit_jmp = ir::IrLine::new_jump(
+            loc,
+            self.branch_state.branch.after_branch.label,
+            JumpCondition::Unconditional,
+        );
+        self.current_block_mut().push(exit_jmp);
+        let (mut ret, false_) = self.without_nested_branch();
+
+        let SingleBranchTrue {
+            cur_block: _,
+            after_branch,
+        } = false_;
+
+        let after_label = after_branch.label;
+        ret.blocks.insert(after_label, after_branch);
+        ret.branch_state.set_cur_block(after_label);
+
+        ret
+    }
+}
+
+impl<P: Branch> BlockManager<NestedBranch<P, Unconditional>> {
+    pub(crate) fn finish_unconditional_branch(
+        mut self,
         loc: sourceloc::SourceLoc,
-    ) -> Result<usize, BranchError> {
-        let branched_from = self.last_branch()?.from_label;
-        trace::debug!("finish branch from block {}", branched_from);
+    ) -> BlockManager<P> {
+        let exit_jmp = ir::IrLine::new_jump(
+            loc,
+            self.branch_state.branch.dest.label,
+            JumpCondition::Unconditional,
+        );
+        self.current_block_mut().push(exit_jmp);
+        let (mut ret, unconditional) = self.without_nested_branch();
 
-        match self.open_branch_path.pop() {
-            Some(branch) => match branch.kind {
-                BranchKind::Unconditional | BranchKind::ConditionalFalse => Ok(()),
-                kind => Err(BranchError::WrongKind(
-                    kind,
-                    vec![BranchKind::Unconditional, BranchKind::ConditionalFalse],
-                )),
-            },
-            None => Err(BranchError::NotBranched),
-        }?;
+        let Unconditional { dest, .. } = unconditional;
 
-        match self.converge_with_jump(branch_end_label, loc)? {
-            ConvergenceResult::Done(converge_to_block) => {
-                let converge_to_label = converge_to_block.label;
-                self.blocks.insert(converge_to_label, converge_to_block);
-                Ok(converge_to_label)
-            }
-            ConvergenceResult::NotDone(label) => Err(BranchError::NotDone(label)),
-        }
+        let dest_label = dest.label;
+        ret.blocks.insert(dest_label, dest);
+        ret.branch_state.set_cur_block(dest_label);
+
+        ret
     }
 }
 
 /// Loops
-impl BlockManager {
+impl<B: Branch> BlockManager<B> {
     // returns (loop_top, loop_bottom, after_loop)
     pub(crate) fn create_loop(
-        &mut self,
+        mut self,
         desc: BranchDesc,
-        top_loc: sourceloc::SourceLoc,
-        bottom_loc: sourceloc::SourceLoc,
+        hdr_loc: sourceloc::SourceLoc,
+        body_loc: sourceloc::SourceLoc,
+        ftr_loc: sourceloc::SourceLoc,
         parent_def_path: symtab::ScopePath,
         loop_def_path: symtab::ScopePath,
-    ) -> Result<(usize, usize), BranchError> {
-        self.max_block += 3;
-        let loop_top = ir::BasicBlock::new(self.max_block - 2, loop_def_path.clone(), top_loc);
-        let mut loop_bottom =
-            ir::BasicBlock::new(self.max_block - 1, loop_def_path, bottom_loc.clone());
+    ) -> BlockManager<NestedBranch<B, LoopHeader>> {
+        self.max_block += 4;
+        let loop_hdr = ir::BasicBlock::new(self.max_block - 3, loop_def_path.clone(), hdr_loc);
+        let loop_body = ir::BasicBlock::new(self.max_block - 2, loop_def_path.clone(), body_loc);
+        let loop_ftr = ir::BasicBlock::new(self.max_block - 1, loop_def_path, ftr_loc);
         let after_loop = ir::BasicBlock::new(self.max_block, parent_def_path, desc.after);
+
+        let from = self.current_label();
 
         trace::trace!(
             "create loop from block {} - loop top: {}, loop bottom: {}, after loop: {}",
-            desc.from,
-            loop_top.label,
-            loop_bottom.label,
+            from,
+            loop_hdr.label,
+            loop_ftr.label,
             after_loop.label,
         );
 
-        // track the top of the loop we are opening
-        self.open_branch_path.push(Branch {
-            from_label: loop_top.label,
-            kind: BranchKind::Loop,
-        });
-
         // transfer control flow unconditionally to the top of the loop
-        let loop_entry = ir::IrLine::new_jump(
-            desc.loc.clone(),
-            loop_top.label,
+        let enter_header = ir::IrLine::new_jump(
+            desc.loc,
+            loop_hdr.label,
             ir::lowered::operands::JumpCondition::Unconditional,
         );
-        let before_loop_block = self.get_mut(desc.from).unwrap();
-        before_loop_block.push(loop_entry);
-
-        let loop_jump = ir::IrLine::new_jump(
-            bottom_loc,
-            loop_top.label,
-            ir::lowered::operands::JumpCondition::Unconditional,
-        );
-
-        loop_bottom.push(loop_jump);
+        self.current_block_mut().push(enter_header);
 
         // now the current block should be the loop's top
-        self.convergences.rename_source(desc.from, after_loop.label);
-
-        let after_loop_label = after_loop.label;
-
-        // NB the convergence here is handled a bit differently for loops, since we might want a
-        // condition check either at the top or at the bottom of the loop. In any case, the
-        // finish_loop() handling of the convergence mirrors this scheme so the handling is valid.
-        // the bottom of the loop should converge to after the loop
-        self.convergences.add(&[loop_bottom.label], after_loop)?;
-
-        // the top of the loop should converge to the bottom of the loop
-        self.convergences.add(&[loop_top.label], loop_bottom)?;
-
-        let loop_top_label = loop_top.label;
-        self.blocks.insert(loop_top_label, loop_top);
-        Ok((loop_top_label, after_loop_label))
+        let loop_hdr_label = loop_hdr.label;
+        self.blocks.insert(loop_hdr_label, loop_hdr);
+        self.with_nested_branch(LoopHeader {
+            cur_block: loop_hdr_label,
+            loop_body,
+            loop_ftr,
+            after_loop,
+        })
     }
+}
 
-    pub(crate) fn finish_loop_1(
-        &mut self,
-        loop_end_pre_bottom: usize,
-        loc: sourceloc::SourceLoc,
-    ) -> Result<usize, BranchError> {
-        match &self.last_branch()?.kind {
-            BranchKind::Loop => Ok(()),
-            b => Err(BranchError::WrongKind(b.clone(), vec![BranchKind::Loop])),
-        }?;
+impl<P: Branch> BlockManager<NestedBranch<P, LoopHeader>> {
+    pub(crate) fn finish_loop_header(
+        self,
+        _loc: sourceloc::SourceLoc,
+    ) -> BlockManager<NestedBranch<P, LoopBody>> {
+        let (mut ret, hdr) = self.without_nested_branch();
 
-        // wherever the current block ends up, it should have convergence as Done to loop_bottom
-        // per create_loop() as each loop convergence is singly-associated
-        match self.converge_with_jump(loop_end_pre_bottom, loc)? {
-            ConvergenceResult::Done(loop_bottom) => {
-                // transfer control flow from the current block to loop_bottom
-                let loop_bottom_label = loop_bottom.label;
-                self.blocks.insert(loop_bottom_label, loop_bottom);
-                Ok(loop_bottom_label)
-            }
+        let LoopHeader {
+            cur_block: _,
+            loop_body,
+            loop_ftr,
+            after_loop,
+        } = hdr;
 
-            ConvergenceResult::NotDone(label) => Err(BranchError::LoopInsideNotDone(label)),
-        }
+        let body_label = loop_body.label;
+        ret.blocks.insert(body_label, loop_body);
+
+        ret.with_nested_branch(LoopBody {
+            cur_block: body_label,
+            loop_ftr,
+            after_loop,
+        })
     }
+}
 
-    pub(crate) fn finish_loop_2(
-        &mut self,
-        loop_bottom: usize,
+impl<P: Branch> BlockManager<NestedBranch<P, LoopBody>> {
+    pub(crate) fn finish_loop_body(
+        self,
+        _loc: sourceloc::SourceLoc,
+    ) -> BlockManager<NestedBranch<P, LoopFooter>> {
+        let (mut ret, body) = self.without_nested_branch();
+
+        let LoopBody {
+            cur_block: _,
+            loop_ftr,
+            after_loop,
+        } = body;
+
+        let ftr_label = loop_ftr.label;
+        ret.blocks.insert(ftr_label, loop_ftr);
+
+        ret.with_nested_branch(LoopFooter {
+            cur_block: ftr_label,
+            after_loop,
+        })
+    }
+}
+
+impl<P: Branch> BlockManager<NestedBranch<P, LoopFooter>> {
+    pub(crate) fn finish_loop_footer(self, _loc: sourceloc::SourceLoc) -> BlockManager<P> {
+        let (mut ret, ftr) = self.without_nested_branch();
+
+        let LoopFooter {
+            cur_block: _,
+            after_loop,
+        } = ftr;
+
+        let after_label = after_loop.label;
+        ret.blocks.insert(after_label, after_loop);
+
+        ret.branch_state.set_cur_block(after_label);
+        ret
+    }
+}
+
+impl BlockManager<UnfinishedFunction> {
+    pub(crate) fn finish_to_epilogue(
+        mut self,
         loc: sourceloc::SourceLoc,
-        loop_bottom_actions: Vec<ir::IrLine>,
-    ) -> Result<usize, BranchError> {
-        let loop_bottom_block = self.get_mut(loop_bottom).unwrap();
-        // insert any IRs that need to be at the bottom of the loop but before the looping jump itself
-        for loop_bottom_ir in loop_bottom_actions {
-            loop_bottom_block.push(loop_bottom_ir);
-        }
+    ) -> BlockManager<Epilogue> {
+        let epilogue_label = self.branch_state.epilogue.label;
 
-        // figure out where the top of our loop is to jump back to
-        let loop_top = match self.open_branch_path.pop() {
-            Some(branch) => match branch.kind {
-                BranchKind::Loop => Ok(branch.from_label),
-                kind => Err(BranchError::WrongKind(kind, vec![BranchKind::Loop])),
-            },
-            None => return Err(BranchError::NotBranched),
-        }?;
-
-        let loop_jump = ir::IrLine::new_jump(
-            loc.clone(),
-            loop_top,
-            ir::lowered::operands::JumpCondition::Unconditional,
+        let to_epilogue_block = ir::IrLine::new_jump(
+            loc,
+            epilogue_label,
+            ir::lowered::JumpCondition::Unconditional,
         );
+        self.current_block_mut().push(to_epilogue_block);
 
-        let loop_bottom_block = self.get_mut(loop_bottom).unwrap();
-        loop_bottom_block.push(loop_jump);
+        let UnfinishedFunction {
+            cur_block: _,
+            epilogue,
+        } = self.branch_state;
 
-        // now that we are in loop_bottom, create_loop() should have a convergence for us
-        // which will give us the after_loop block
-        match self.converge_with_jump(loop_bottom, loc)? {
-            ConvergenceResult::Done(after_loop) => {
-                // transition to after_loop, assuming that the correct IR was inserted to
-                // break out of the loop at some point within the loop or by
-                // loop_bottom_actions
+        self.blocks.insert(epilogue_label, epilogue);
 
-                let after_loop_label = after_loop.label;
-                self.blocks.insert(after_loop_label, after_loop);
-                Ok(after_loop_label)
-            }
-            ConvergenceResult::NotDone(label) => Err(BranchError::ConvergenceNotDone(label)),
+        BlockManager {
+            max_block: self.max_block,
+            blocks: self.blocks,
+            values: self.values,
+            branch_state: Epilogue {
+                cur_block: epilogue_label,
+            },
         }
     }
 }
 
-/// Switch cases
-impl BlockManager {
-    /// Create a switch, returning the label of the block in which the logic for which case to take
-    /// will be evaluated
-    pub(crate) fn create_switch(
-        &mut self,
-        desc: BranchDesc,
-        parent_def_path: symtab::ScopePath,
-        switch_def_path: symtab::ScopePath,
-    ) -> Result<usize, BranchError> {
-        self.max_block += 2;
-        let switch_block =
-            ir::BasicBlock::new(self.max_block - 1, switch_def_path, desc.loc.clone());
-        let convergence_block = ir::BasicBlock::new(self.max_block, parent_def_path, desc.after);
-
-        trace::trace!(
-            "create switch block {} - after switch: {}",
-            switch_block.label,
-            convergence_block.label,
-        );
-
-        let unconditional_jump = ir::IrLine::new_jump(
-            desc.loc,
-            switch_block.label,
-            ir::lowered::operands::JumpCondition::Unconditional,
-        );
-        let before_switch_block = self.get_mut(desc.from).unwrap();
-        before_switch_block.push(unconditional_jump);
-
-        self.convergences
-            .rename_source(desc.from, convergence_block.label);
-        self.convergences
-            .add(&[switch_block.label], convergence_block)?;
-
-        self.open_branch_path.push(Branch::new(
-            desc.from,
-            BranchKind::Switch(switch_block.label),
-        ));
-
-        let switch_label = switch_block.label;
-        self.blocks.insert(switch_label, switch_block);
-        Ok(switch_label)
-    }
-
-    /// Create a switch case (must be within the switch base label itself), returning the label of
-    /// the first block in that case
-    pub(crate) fn create_switch_case(
-        &mut self,
-        switch_label: usize,
-        case_def_path: symtab::ScopePath,
-        case_loc: sourceloc::SourceLoc,
-    ) -> Result<usize, BranchError> {
-        // verify that we are in the correct state to create a new arm
-        match &self.last_branch()?.kind {
-            BranchKind::Switch(expected_label) => {
-                if switch_label == *expected_label {
-                    Ok(()) // branched AND branch kind is a switch AND labels match
-                } else {
-                    // branched AND branch kind is a switch BUT not with correct label
-                    Err(BranchError::SwitchBlockMismatch(
-                        *expected_label,
-                        switch_label,
-                    ))
-                }
-            }
-            kind => Err(BranchError::WrongKind(
-                kind.clone(),
-                vec![BranchKind::Switch(0)],
-            )),
-        }?;
-
-        self.max_block += 1;
-        let case_block = BasicBlock::new(self.max_block, case_def_path, case_loc);
-        let after_switch_label = self
-            .convergences
-            .convergence_label_of_block(switch_label)
-            .unwrap();
-        self.convergences
-            .supplement(&[case_block.label], *after_switch_label)?;
-
-        self.open_branch_path.push(Branch::new(
-            switch_label,
-            BranchKind::SwitchCase(switch_label),
-        ));
-
-        let case_label = case_block.label;
-        self.blocks.insert(case_label, case_block);
-        Ok(case_label)
-    }
-
-    /// Finish a case of a switch, taking the label of the last block within that case and
-    /// returning the label of the switch's base label.
-    pub(crate) fn finish_switch_case(
-        &mut self,
-        last_block_label_in_case: usize,
-        loc: sourceloc::SourceLoc,
-    ) -> Result<usize, BranchError> {
-        let switch_label = match self.pop_last_branch()?.kind {
-            BranchKind::SwitchCase(label) => Ok(label),
-            kind => Err(BranchError::WrongKind(
-                kind,
-                vec![BranchKind::SwitchCase(0)],
-            )),
-        }?;
-
-        match self.converge_with_jump(last_block_label_in_case, loc)? {
-            ConvergenceResult::NotDone(_) => Ok(()),
-            ConvergenceResult::Done(block) => Err(BranchError::ConvergenceDone(Box::new(block))),
-        }?;
-
-        Ok(switch_label)
-    }
-
-    /// Finish an entire switch, taking the base label of the switch itself and returning the label
-    /// of the first block after the switch
-    pub(crate) fn finish_switch(
-        &mut self,
-        switch_label: usize,
-        loc: sourceloc::SourceLoc,
-    ) -> Result<usize, BranchError> {
-        let last_branch = self.pop_last_branch()?;
-
-        match last_branch.kind {
-            BranchKind::Switch(expected_label) => {
-                if switch_label == expected_label {
-                    Ok(())
-                } else {
-                    Err(BranchError::SwitchBlockMismatch(
-                        expected_label,
-                        switch_label,
-                    ))
-                }
-            }
-            kind => Err(BranchError::WrongKind(kind, vec![BranchKind::Switch(0)])),
-        }?;
-
-        match self.converge_with_jump(switch_label, loc)? {
-            ConvergenceResult::Done(after_switch_block) => {
-                let after_switch_label = after_switch_block.label;
-
-                self.blocks.insert(after_switch_label, after_switch_block);
-                Ok(after_switch_label)
-            }
-            ConvergenceResult::NotDone(after_switch_label) => {
-                Err(BranchError::ConvergenceNotDone(after_switch_label))
-            }
-        }
+impl From<BlockManager<Epilogue>> for ControlFlow {
+    fn from(value: BlockManager<Epilogue>) -> Self {
+        Self::new(value.blocks, value.values)
     }
 }

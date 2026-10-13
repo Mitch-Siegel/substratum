@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use frontend::{ast, sourceloc};
 
 use crate::{
+    ir::block_manager::branch,
     symtab,
     treewalk::{
         Collect, CollectResult, Linearize, LinearizeResult, PathedCtxTrait,
@@ -145,19 +146,20 @@ where
     }
 }
 
-impl<P, C> Linearize<UnpathedFunctionLinearizeCtx, P, C> for ast::GenericArgsListTree
+impl<P, C, B: branch::Branch> Linearize<UnpathedFunctionLinearizeCtx<B>, P, C>
+    for ast::GenericArgsListTree
 where
     P: symtab::Path,
-    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx, Path = P>,
+    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx<B>, Path = P>,
     ast::types::TypeNoBoundsTree:
-        Linearize<UnpathedFunctionLinearizeCtx, P, C, Data = Option<types::Syntactic>>,
+        Linearize<UnpathedFunctionLinearizeCtx<B>, P, C, Data = Option<types::Syntactic>>,
 {
     type Data = Vec<types::ParamSubst>;
     #[trace::instrument(skip(self), level = "trace")]
     fn linearize_inner(
         self,
         mut ctx: C,
-    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         let mut generic_args = Vec::<types::ParamSubst>::new();
         for arg in self.args {
             let maybe_param_type: Option<types::Syntactic>;

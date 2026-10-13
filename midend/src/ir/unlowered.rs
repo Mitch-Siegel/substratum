@@ -1,13 +1,20 @@
 use frontend::sourceloc;
 
-use crate::{ir::ValueId, treewalk, types};
+use crate::{
+    ir::{ValueId, block_manager::branch},
+    treewalk, types,
+};
 
 pub(crate) mod operands;
 use operands::{DiscriminantOperands, FieldPointerOperands, MatchArm, MatchOperands};
 
 #[allow(unused)]
 pub(crate) trait Lowerable {
-    fn lower(self, context: &mut treewalk::FunctionLinearizeCtx, loc: sourceloc::SourceLoc);
+    fn lower(
+        self,
+        context: &mut treewalk::FunctionLinearizeCtx<impl branch::Branch>,
+        loc: sourceloc::SourceLoc,
+    );
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -18,7 +25,11 @@ pub(crate) enum Operation {
 }
 
 impl Lowerable for Operation {
-    fn lower(self, context: &mut treewalk::FunctionLinearizeCtx, loc: sourceloc::SourceLoc) {
+    fn lower(
+        self,
+        context: &mut treewalk::FunctionLinearizeCtx<impl branch::Branch>,
+        loc: sourceloc::SourceLoc,
+    ) {
         match self {
             Self::Match(m) => m.lower(context, loc),
             Self::Discriminant(d) => d.lower(context, loc),

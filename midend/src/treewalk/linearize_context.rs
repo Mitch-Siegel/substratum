@@ -1,8 +1,9 @@
 use frontend::{ast, sourceloc};
 
 use crate::{
-    ir, symtab,
-    treewalk::{self, PathedCtx, PathedCtxTrait, UnpathedCtxTrait},
+    ir::{self, block_manager::branch},
+    symtab::{self},
+    treewalk::{PathedCtx, PathedCtxTrait, UnpathedCtxTrait},
     types,
 };
 
@@ -46,95 +47,7 @@ impl UnpathedLinearizeCtx {
     }
 }
 
-impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
-    // pub(crate) fn create_function(
-    //     &mut self,
-    //     _prototype: symtab::values::function::FunctionPrototype,
-    // ) -> Result<(), symtab::SymbolError> {
-    //     unimplemented!();
-    /*
-    let unit_type_id = self
-        .symtab()
-        .semantic_type_for_syntactic(
-            &self.definition_path,
-            types::ParamSubstMap::empty(),
-            &types::Syntactic::Unit,
-        )
-        .unwrap();
-
-    self.define_at::<symtab::Function>(
-        self.def_path().clone(),
-        symtab::Function::new(prototype.clone(), None),
-    )?;
-
-    let function_path_component = symtab::DefPathComponent::Function(prototype.name.clone());
-    self.push_def_path(function_path_component, &prototype.generic_params);
-
-    let arg_def_paths = prototype
-        .arguments
-        .iter()
-        .map(|arg| {
-            println!("Handle argument {:?}", arg);
-            self.define::<symtab::Variable>(arg.clone()).unwrap()
-        })
-        .collect();
-
-    match self.functions.insert(
-        self.def_path().clone(),
-        FunctionLinearizeCtx::new(
-            prototype,
-            self.def_path().clone(),
-            unit_type_id,
-            arg_def_paths,
-        ),
-    ) {
-        Some(_) => panic!(
-            "Function {} has already been inserted to symtab",
-            self.def_path()
-        ),
-        None => Ok(()),
-    }
-    */
-    // }
-
-    // pub(crate) fn finish_function(
-    //     &mut self,
-    //     _expected_name: String,
-    //     _return_value: ir::ValueId,
-    // ) -> Result<symtab::values::Function, LinearizeError> {
-    //     unimplemented!();
-    /*
-        let def_path = self.def_path().clone();
-        self.function_mut().resolve_final_convergence();
-        self.function_mut().ensure_finished().unwrap();
-        let function_context = self.functions.remove(&def_path).unwrap();
-        let function = self.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
-        match function.control_flow.replace(function_context.take()) {
-            Some(_) => return Err(()),
-            None => (),
-        }
-        self.pop_def_path(DefPathComponent::Function(expected_name))
-            .unwrap();
-        Ok(())
-    }
-
-    // finish a function which has already had the finish() called once, assert that no branches
-    // are open
-    pub(crate) fn refinish_function(&mut self, expected_name: FunctionName) -> Result<(), ()> {
-        let def_path = self.def_path().clone();
-        self.function_mut().ensure_finished().unwrap();
-        let function_context = self.functions.remove(&def_path).unwrap();
-        let function = self.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
-        match function.control_flow.replace(function_context.take()) {
-            Some(_) => return Err(()),
-            None => (),
-        }
-        self.pop_def_path(DefPathComponent::Function(expected_name))
-            .unwrap();
-        Ok(())
-    */
-    // }
-
+impl<B: branch::Branch> PathedCtx<UnpathedFunctionLinearizeCtx<B>, symtab::ScopePath> {
     // reserves a subscope, returning its defpath
     pub(crate) fn reserve_subscope(&mut self) -> symtab::ScopePath {
         let path = self.path().clone();
@@ -224,9 +137,9 @@ impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
         */
     }
 
-    pub(crate) fn finish_branch(&mut self, loc: sourceloc::SourceLoc) {
-        self.unpathed.function_mut().finish_branch(loc).unwrap();
-    }
+    // pub(crate) fn finish_branch(&mut self, loc: sourceloc::SourceLoc) {
+    //     self.unpathed.function_mut().finish_branch(loc).unwrap();
+    // }
 }
 
 #[derive(Debug)]
@@ -247,14 +160,11 @@ impl UnpathedLinearizeCtxTrait for UnpathedLinearizeCtx {}
 
 pub(crate) type LinearizeCtx<P> = PathedCtx<UnpathedLinearizeCtx, P>;
 // TODO: remove P from this
-pub(crate) type FunctionLinearizeCtx = PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath>;
-impl FunctionLinearizeCtx {
-    pub(crate) fn finalize(
-        self,
-        loc: sourceloc::SourceLoc,
-        return_value_id: ir::ValueId,
-    ) -> treewalk::LinearizeResult<symtab::values::Function, UnpathedLinearizeCtx> {
-        self.unpathed.finalize(&self.path, loc, return_value_id)
+pub(crate) type FunctionLinearizeCtx<B> =
+    PathedCtx<UnpathedFunctionLinearizeCtx<B>, symtab::ScopePath>;
+impl FunctionLinearizeCtx<branch::Epilogue> {
+    pub(crate) fn take(self) -> (symtab::values::Function, UnpathedLinearizeCtx) {
+        self.unpathed.take(&self.path)
     }
 }
 
@@ -275,152 +185,250 @@ where
         Ok((result_data, self.unpathed))
     }
 }
-impl PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath> {
+impl<B: branch::Branch> PathedCtx<UnpathedFunctionLinearizeCtx<B>, symtab::ScopePath> {
     // allow for ergonomics: just stick this at the bottom of functions that return results
     #[allow(clippy::unnecessary_wraps)]
     pub(crate) fn into_result<T>(
         self,
         result_data: T,
-    ) -> LinearizeResult<T, UnpathedFunctionLinearizeCtx> {
+    ) -> LinearizeResult<T, UnpathedFunctionLinearizeCtx<B>> {
         Ok((result_data, self.unpathed))
     }
 
     pub(crate) fn append_statement_to_current_block(&mut self, statement: ir::IrLine) {
-        self.unpathed
-            .function_mut()
-            .append_statement_to_current_block(statement)
-            .unwrap();
+        self.unpathed.append_statement_to_current_block(statement);
     }
+}
 
-    pub(crate) fn append_jump_to_current_block(&mut self, jump: ir::IrLine) {
-        self.unpathed
-            .function_mut()
-            .append_jump_to_current_block(jump)
-            .unwrap();
-    }
-
-    pub(crate) fn conditional_branch_from_current(
-        &mut self,
+impl<B: branch::Branch> PathedCtx<UnpathedFunctionLinearizeCtx<B>, symtab::ScopePath> {
+    pub(crate) fn create_double_conditional_branch(
+        self,
         branch_loc: sourceloc::SourceLoc,
-        true_data: ir::block_manager::BranchTarget,
-        false_data: ir::block_manager::BranchTarget, // TODO: make this an option to support true-only branch conditioning
         after_loc: sourceloc::SourceLoc,
+        true_data: branch::BranchTarget,
+        false_data: branch::BranchTarget,
         condition: ir::lowered::JumpCondition,
         parent_scope_def_path: symtab::ScopePath,
-    ) {
-        self.unpathed
-            .function_mut()
-            .conditional_branch_from_current(
+    ) -> PathedCtx<
+        UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::DoubleBranchTrue>>,
+        symtab::ScopePath,
+    > {
+        PathedCtx {
+            unpathed: self.unpathed.create_double_conditional_branch(
                 branch_loc,
-                true_data,
-                false_data,
                 after_loc,
                 condition,
+                true_data,
+                false_data,
                 parent_scope_def_path,
-            );
+            ),
+            path: self.path,
+        }
     }
 
-    pub(crate) fn unconditional_branch_from_current(
-        &mut self,
+    pub(crate) fn create_single_conditional_branch(
+        self,
+        branch_loc: sourceloc::SourceLoc,
+        after_loc: sourceloc::SourceLoc,
+        true_data: branch::BranchTarget,
+        condition: ir::lowered::JumpCondition,
+        parent_scope_def_path: symtab::ScopePath,
+    ) -> FunctionLinearizeCtx<branch::NestedBranch<B, branch::SingleBranchTrue>> {
+        FunctionLinearizeCtx {
+            unpathed: self.unpathed.create_single_conditional_branch(
+                branch_loc,
+                after_loc,
+                condition,
+                true_data,
+                parent_scope_def_path,
+            ),
+            path: self.path,
+        }
+    }
+
+    pub(crate) fn create_unconditional_branch(
+        self,
         branch_loc: sourceloc::SourceLoc,
         after_loc: sourceloc::SourceLoc,
         parent_def_path: symtab::ScopePath,
         true_scope_def_path: symtab::ScopePath,
-    ) {
-        // TODO: implicitly handle path here
-        self.unpathed
-            .function_mut()
-            .unconditional_branch_from_current(
-                branch_loc,
-                after_loc,
+    ) -> PathedCtx<
+        UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::Unconditional>>,
+        symtab::ScopePath,
+    > {
+        PathedCtx {
+            unpathed: self.unpathed.create_unconditional_branch(
+                ir::block_manager::branch::BranchDesc::new(branch_loc, after_loc),
                 parent_def_path,
                 true_scope_def_path,
-            );
-    }
-
-    pub(crate) fn finish_true_branch_switch_to_false(&mut self, loc: sourceloc::SourceLoc) {
-        let path = self.path.clone();
-        // TODO: implicitly handle path here
-        self.unpathed
-            .function_mut()
-            .finish_true_branch_switch_to_false(loc, &path);
+            ),
+            path: self.path,
+        }
     }
 
     #[allow(unused)]
     pub(crate) fn values(&self) -> &ir::ValueInterner<Option<types::Syntactic>> {
-        self.unpathed.function().values()
+        self.unpathed.values()
     }
 
     pub(crate) fn values_mut(&mut self) -> &mut ir::ValueInterner<Option<types::Syntactic>> {
-        self.unpathed.function_mut().values_mut()
+        self.unpathed.values_mut()
     }
 
-    pub(crate) fn create_switch(
-        &mut self,
-        loc: sourceloc::SourceLoc,
-        after_loc: sourceloc::SourceLoc,
-        parent_scope_def_path: symtab::ScopePath,
-        switch_scope_def_path: symtab::ScopePath,
-    ) {
-        self.unpathed
-            .function_mut()
-            .create_switch(loc, after_loc, parent_scope_def_path, switch_scope_def_path)
-            .unwrap();
-    }
+    // pub(crate) fn create_switch(
+    //     &mut self,
+    //     loc: sourceloc::SourceLoc,
+    //     after_loc: sourceloc::SourceLoc,
+    //     parent_scope_def_path: symtab::ScopePath,
+    //     switch_scope_def_path: symtab::ScopePath,
+    // ) {
+    //     self.unpathed
+    //         .create_switch(loc, after_loc, parent_scope_def_path, switch_scope_def_path)
+    //         .unwrap();
+    // }
 
-    pub(crate) fn finish_switch(&mut self, loc: sourceloc::SourceLoc) {
-        self.unpathed.function_mut().finish_switch(loc).unwrap();
-    }
+    // pub(crate) fn finish_switch(&mut self, loc: sourceloc::SourceLoc) {
+    //     self.unpathed.finish_switch(loc).unwrap();
+    // }
 
-    pub(crate) fn create_switch_case(
-        &mut self,
-        case_scope_def_path: symtab::ScopePath,
-        loc: sourceloc::SourceLoc,
-    ) -> usize {
-        self.unpathed
-            .function_mut()
-            .create_switch_case(case_scope_def_path, loc)
-            .unwrap()
-    }
+    // pub(crate) fn create_switch_case(
+    //     &mut self,
+    //     case_scope_def_path: symtab::ScopePath,
+    //     loc: sourceloc::SourceLoc,
+    // ) -> usize {
+    //     self.unpathed
+    //         .create_switch_case(case_scope_def_path, loc)
+    //         .unwrap()
+    // }
 
-    pub(crate) fn finish_switch_case(&mut self, loc: sourceloc::SourceLoc) {
-        self.unpathed
-            .function_mut()
-            .finish_switch_case(loc)
-            .unwrap();
-    }
+    // pub(crate) fn finish_switch_case(&mut self, loc: sourceloc::SourceLoc) {
+    //     self.unpathed
+    //         .finish_switch_case(loc)
+    //         .unwrap();
+    // }
 
     pub(crate) fn create_loop(
-        &mut self,
-        loc: sourceloc::SourceLoc,
+        self,
+        desc: branch::BranchDesc,
         top_loc: sourceloc::SourceLoc,
         bottom_loc: sourceloc::SourceLoc,
         after_loc: sourceloc::SourceLoc,
         parent_scope_def_path: symtab::ScopePath,
         loop_scope_def_path: symtab::ScopePath,
-    ) -> usize {
-        self.unpathed
-            .function_mut()
-            .create_loop(
-                loc,
+    ) -> PathedCtx<
+        UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::LoopHeader>>,
+        symtab::ScopePath,
+    > {
+        PathedCtx {
+            unpathed: self.unpathed.create_loop(
+                desc,
                 top_loc,
                 bottom_loc,
                 after_loc,
                 parent_scope_def_path,
                 loop_scope_def_path,
-            )
-            .unwrap()
+            ),
+            path: self.path,
+        }
+    }
+}
+
+impl<B: ir::block_manager::branch::Branch>
+    FunctionLinearizeCtx<branch::NestedBranch<B, branch::Unconditional>>
+{
+    pub(crate) fn finish_unconditional_branch(
+        self,
+        loc: sourceloc::SourceLoc,
+    ) -> FunctionLinearizeCtx<B> {
+        FunctionLinearizeCtx {
+            unpathed: self.unpathed.finish_unconditional_branch(loc),
+            path: self.path,
+        }
+    }
+}
+
+impl<B: branch::Branch> FunctionLinearizeCtx<branch::NestedBranch<B, branch::LoopHeader>> {
+    pub(crate) fn finish_loop_header(
+        self,
+        loc: sourceloc::SourceLoc,
+    ) -> FunctionLinearizeCtx<branch::NestedBranch<B, branch::LoopBody>> {
+        PathedCtx {
+            unpathed: self.unpathed.finish_loop_header(loc),
+            path: self.path,
+        }
     }
 
-    pub(crate) fn finish_loop(
-        &mut self,
+    pub(crate) fn after_loop_label(&self) -> usize {
+        self.unpathed.after_loop_label()
+    }
+}
+
+impl<B: branch::Branch> FunctionLinearizeCtx<branch::NestedBranch<B, branch::LoopBody>> {
+    pub(crate) fn finish_loop_body(
+        self,
         loc: sourceloc::SourceLoc,
-        loop_bottom_actions: Vec<ir::IrLine>,
-    ) {
-        self.unpathed
-            .function_mut()
-            .finish_loop(loc, loop_bottom_actions)
-            .unwrap();
+    ) -> FunctionLinearizeCtx<branch::NestedBranch<B, branch::LoopFooter>> {
+        PathedCtx {
+            unpathed: self.unpathed.finish_loop_body(loc),
+            path: self.path,
+        }
+    }
+}
+
+impl<B: branch::Branch> FunctionLinearizeCtx<branch::NestedBranch<B, branch::LoopFooter>> {
+    pub(crate) fn finish_loop_footer(self, loc: sourceloc::SourceLoc) -> FunctionLinearizeCtx<B> {
+        PathedCtx {
+            unpathed: self.unpathed.finish_loop_footer(loc),
+            path: self.path,
+        }
+    }
+}
+
+impl<B: ir::block_manager::branch::Branch>
+    FunctionLinearizeCtx<branch::NestedBranch<B, branch::DoubleBranchTrue>>
+{
+    pub(crate) fn finish_true_branch_switch_to_false(
+        self,
+        loc: sourceloc::SourceLoc,
+    ) -> FunctionLinearizeCtx<branch::NestedBranch<B, branch::DoubleBranchFalse>> {
+        FunctionLinearizeCtx {
+            unpathed: self.unpathed.finish_true_branch_switch_to_false(loc),
+            path: self.path,
+        }
+    }
+}
+
+impl<B: ir::block_manager::branch::Branch>
+    FunctionLinearizeCtx<branch::NestedBranch<B, branch::DoubleBranchFalse>>
+{
+    pub(crate) fn finish_false_branch(self, loc: sourceloc::SourceLoc) -> FunctionLinearizeCtx<B> {
+        FunctionLinearizeCtx {
+            unpathed: self.unpathed.finish_false_branch(loc),
+            path: self.path,
+        }
+    }
+}
+
+impl<B: ir::block_manager::branch::Branch>
+    FunctionLinearizeCtx<branch::NestedBranch<B, branch::SingleBranchTrue>>
+{
+    pub(crate) fn finish_true_branch(self, loc: sourceloc::SourceLoc) -> FunctionLinearizeCtx<B> {
+        FunctionLinearizeCtx {
+            unpathed: self.unpathed.finish_true_branch(loc),
+            path: self.path,
+        }
+    }
+}
+
+impl FunctionLinearizeCtx<branch::UnfinishedFunction> {
+    pub(crate) fn finish_to_epilogue(
+        self,
+        loc: sourceloc::SourceLoc,
+    ) -> FunctionLinearizeCtx<branch::Epilogue> {
+        FunctionLinearizeCtx {
+            unpathed: self.unpathed.finish_to_epilogue(&self.path, loc),
+            path: self.path,
+        }
     }
 }
 
@@ -468,5 +476,56 @@ where
         let old_path = ctx.path().clone();
         let (data, unpathed) = self.linearize_inner(ctx)?;
         Ok((data, C::new(unpathed, old_path)))
+    }
+}
+
+pub(crate) trait FunctionLinearizeErased: Sized + ast::Ast {
+    type Data;
+    fn linearize_erased(
+        self,
+        ctx: FunctionLinearizeCtx<Box<dyn branch::Branch>>,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<Box<dyn branch::Branch>>>;
+}
+
+impl<B: branch::Branch> FunctionLinearizeCtx<B> {
+    fn into_erased(self) -> FunctionLinearizeCtx<Box<dyn branch::Branch>> {
+        FunctionLinearizeCtx {
+            unpathed: self.unpathed.into_erased(),
+            path: self.path,
+        }
+    }
+}
+
+impl<B, T> Linearize<UnpathedFunctionLinearizeCtx<B>, symtab::ScopePath, FunctionLinearizeCtx<B>>
+    for T
+where
+    B: branch::Branch,
+    T: FunctionLinearizeErased,
+{
+    type Data = <T as FunctionLinearizeErased>::Data;
+
+    fn linearize_inner(
+        self,
+        ctx: FunctionLinearizeCtx<B>,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
+        let erased_ctx = ctx.into_erased();
+
+        let (data, erased_ctx) = self.linearize_erased(erased_ctx)?;
+
+        let UnpathedFunctionLinearizeCtx {
+            base,
+            function_path,
+            prototype,
+            block_manager,
+        } = erased_ctx;
+
+        let original_ctx = UnpathedFunctionLinearizeCtx {
+            base,
+            function_path,
+            prototype,
+            block_manager: block_manager.downcast::<B>(),
+        };
+
+        Ok((data, original_ctx))
     }
 }

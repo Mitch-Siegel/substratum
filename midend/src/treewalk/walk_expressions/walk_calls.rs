@@ -1,20 +1,22 @@
 use frontend::ast::{self, Ast};
 
 use crate::{
+    ir::block_manager::branch,
     symtab,
     treewalk::{
         FunctionLinearizeCtx, Linearize, LinearizeResult, UnpathedFunctionLinearizeCtx, ir,
     },
 };
 
-impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLinearizeCtx>
+impl<B: branch::Branch>
+    Linearize<UnpathedFunctionLinearizeCtx<B>, symtab::ScopePath, FunctionLinearizeCtx<B>>
     for ast::expressions::calls::CallParamsTree
 {
     type Data = Vec<ir::ValueId>;
     fn linearize_inner(
         self,
-        mut ctx: FunctionLinearizeCtx,
-    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+        mut ctx: FunctionLinearizeCtx<B>,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         let mut param_values = Vec::new();
 
         for param in self.params {
@@ -27,14 +29,15 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
     }
 }
 
-impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLinearizeCtx>
+impl<B: branch::Branch>
+    Linearize<UnpathedFunctionLinearizeCtx<B>, symtab::ScopePath, FunctionLinearizeCtx<B>>
     for ast::expressions::calls::CallExpressionTree
 {
     type Data = ir::ValueId;
     fn linearize_inner(
         self,
-        mut ctx: FunctionLinearizeCtx,
-    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+        mut ctx: FunctionLinearizeCtx<B>,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         let call_start = self.loc().start();
 
         let function_operand;

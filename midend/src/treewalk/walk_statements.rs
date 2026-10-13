@@ -1,7 +1,8 @@
 use frontend::ast::{self, Ast};
 
 use crate::{
-    ir, symtab,
+    ir::{self, block_manager::branch},
+    symtab,
     treewalk::{
         Collect, CollectResult, FunctionLinearizeCtx, Linearize, LinearizeResult,
         UnpathedFunctionLinearizeCtx, ValueCollectCtx,
@@ -23,15 +24,16 @@ impl Collect<symtab::ValuePath> for ast::StatementTree {
     }
 }
 
-impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLinearizeCtx>
+impl<B: branch::Branch>
+    Linearize<UnpathedFunctionLinearizeCtx<B>, symtab::ScopePath, FunctionLinearizeCtx<B>>
     for ast::StatementTree
 {
     type Data = Option<ir::ValueId>;
     #[trace::instrument(skip(self), level = "trace", fields(tree_name = Self::name()))]
     fn linearize_inner(
         self,
-        ctx: FunctionLinearizeCtx,
-    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+        ctx: FunctionLinearizeCtx<B>,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         let (maybe_value, ctx) = match self {
             Self::Item(_) => unimplemented!(),
             Self::Let(let_tree) => {

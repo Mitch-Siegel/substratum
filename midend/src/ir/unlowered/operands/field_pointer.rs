@@ -3,7 +3,10 @@ use serde::Serialize;
 use frontend::sourceloc;
 
 use crate::{
-    ir::unlowered::{Lowerable, ValueId, treewalk},
+    ir::{
+        block_manager::branch,
+        unlowered::{Lowerable, ValueId, treewalk},
+    },
     types,
 };
 
@@ -15,7 +18,11 @@ pub(crate) struct FieldPointerOperands {
 }
 
 impl Lowerable for FieldPointerOperands {
-    fn lower(self, _ctx: &mut treewalk::FunctionLinearizeCtx, _loc: sourceloc::SourceLoc) {
+    fn lower(
+        self,
+        _ctx: &mut treewalk::FunctionLinearizeCtx<impl branch::Branch>,
+        _loc: sourceloc::SourceLoc,
+    ) {
         unimplemented!();
     }
 }

@@ -31,6 +31,7 @@ impl BasicBlock {
         }
     }
 
+    #[allow(unused)]
     pub(crate) fn def_path(&self) -> &symtab::ScopePath {
         &self.def_path
     }

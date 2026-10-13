@@ -1,7 +1,8 @@
 use frontend::ast::{self, Ast};
 
 use crate::{
-    ir, symtab,
+    ir::{self, block_manager::branch},
+    symtab,
     treewalk::{
         Collect, CollectResult, FunctionLinearizeCtx, Linearize, LinearizeResult,
         UnpathedFunctionLinearizeCtx, ValueCollectCtx,
@@ -15,14 +16,15 @@ impl Collect<symtab::ValuePath> for ast::expressions::AssignmentTree {
     }
 }
 
-impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLinearizeCtx>
+impl<B: branch::Branch>
+    Linearize<UnpathedFunctionLinearizeCtx<B>, symtab::ScopePath, FunctionLinearizeCtx<B>>
     for ast::expressions::AssignmentTree
 {
     type Data = ir::ValueId;
     fn linearize_inner(
         self,
-        mut ctx: FunctionLinearizeCtx,
-    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+        mut ctx: FunctionLinearizeCtx<B>,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         let assignment_start = self.loc().start();
 
         let (assignment_ir, mut ctx) =

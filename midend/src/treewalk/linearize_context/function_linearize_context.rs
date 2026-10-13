@@ -1,9 +1,8 @@
 use frontend::sourceloc;
 
 use crate::{
-    ir, symtab,
-    symtab::{Path, Symtab, SymtabBase},
-    treewalk,
+    ir::{self, block_manager::branch},
+    symtab::{self, Path, Symtab, SymtabBase},
     treewalk::{
         PathedCtx, PathedCtxTrait, UnpathedCtxTrait, UnpathedLinearizeCtx,
         UnpathedLinearizeCtxTrait,
@@ -11,31 +10,42 @@ use crate::{
     types,
 };
 
-pub(crate) struct UnpathedFunctionLinearizeCtx {
-    base: UnpathedLinearizeCtx,
-    function_path: symtab::ValuePath,
-    function: WipFunction,
+pub(crate) struct UnpathedFunctionLinearizeCtx<B: branch::Branch> {
+    pub(super) base: UnpathedLinearizeCtx,
+    pub(super) function_path: symtab::ValuePath,
+    pub(super) prototype: symtab::values::FunctionPrototype,
+    pub(super) block_manager: ir::BlockManager<B>,
 }
 
-impl UnpathedFunctionLinearizeCtx {
+impl<B: branch::Branch> UnpathedFunctionLinearizeCtx<B> {
     #[trace::instrument(level = "debug")]
     pub(crate) fn new(
         ctx: PathedCtx<UnpathedLinearizeCtx, impl symtab::ValueOwner>,
-        // symtab: symtab::SymbolTable,
-        // function_path: symtab::ValuePath,
         prototype: symtab::values::function::FunctionPrototype,
-        // def_path: symtab::ValuePath,
         arg_def_paths: &Vec<symtab::ValuePath>,
         start_loc: sourceloc::SourceLoc,
         end_loc: sourceloc::SourceLoc,
-    ) -> Self {
+    ) -> UnpathedFunctionLinearizeCtx<branch::UnfinishedFunction> {
         let function_path = ctx.path().clone().with_child_value(prototype.name.clone());
         let base = ctx.into_result(()).unwrap().1;
 
-        Self {
+        let block_manager: ir::BlockManager<branch::UnfinishedFunction> =
+            ir::BlockManager::<branch::UnfinishedFunction>::new(&function_path, start_loc, end_loc);
+
+        UnpathedFunctionLinearizeCtx {
             base,
-            function_path: function_path.clone(),
-            function: WipFunction::new(prototype, function_path, arg_def_paths, start_loc, end_loc),
+            function_path,
+            prototype,
+            block_manager,
+        }
+    }
+
+    pub(crate) fn into_erased(self) -> UnpathedFunctionLinearizeCtx<Box<dyn branch::Branch>> {
+        UnpathedFunctionLinearizeCtx {
+            base: self.base,
+            function_path: self.function_path,
+            prototype: self.prototype,
+            block_manager: self.block_manager.erase(),
         }
     }
 
@@ -65,38 +75,20 @@ impl UnpathedFunctionLinearizeCtx {
         self.with_path(main_scope)
     }
 
-    // use LinearizeResult for ergonomics
-    #[allow(clippy::unnecessary_wraps)]
-    pub(crate) fn finalize<P>(
-        self,
-        path: &P,
-        loc: sourceloc::SourceLoc,
-        _return_value_id: ir::ValueId,
-    ) -> treewalk::LinearizeResult<symtab::values::Function, UnpathedLinearizeCtx>
-    where
-        P: symtab::Path,
-    {
-        // fact-check that we are finalizing from subscope 0 and nowhere else
-        assert_eq!(
-            Into::<symtab::RawPath>::into(self.function_path),
-            Into::<symtab::RawPath>::into(path.clone().split_last().0.unwrap())
-        );
-
-        let function = self.function.finish(loc).unwrap();
-
-        Ok((function, self.base))
+    pub(crate) fn values(&self) -> &ir::ValueInterner<Option<types::Syntactic>> {
+        self.block_manager.values()
     }
 
-    pub(crate) fn function(&self) -> &WipFunction {
-        &self.function
+    pub(crate) fn values_mut(&mut self) -> &mut ir::ValueInterner<Option<types::Syntactic>> {
+        self.block_manager.values_mut()
     }
 
-    pub(crate) fn function_mut(&mut self) -> &mut WipFunction {
-        &mut self.function
+    pub(crate) fn append_statement_to_current_block(&mut self, line: ir::IrLine) {
+        self.block_manager.current_block_mut().push(line);
     }
 }
 
-impl UnpathedCtxTrait for UnpathedFunctionLinearizeCtx {
+impl<B: branch::Branch> UnpathedCtxTrait for UnpathedFunctionLinearizeCtx<B> {
     fn with_path<P: symtab::Path>(self, path: P) -> PathedCtx<Self, P> {
         assert!(
             self.function_path.is_prefix_of(&path),
@@ -122,306 +114,241 @@ impl UnpathedCtxTrait for UnpathedFunctionLinearizeCtx {
     }
 }
 
-impl UnpathedLinearizeCtxTrait for UnpathedFunctionLinearizeCtx {}
+impl<B: branch::Branch> UnpathedLinearizeCtxTrait for UnpathedFunctionLinearizeCtx<B> {}
 
-pub(crate) struct WipFunction {
-    prototype: symtab::values::FunctionPrototype,
-    block_manager: ir::BlockManager,
-    current_block: usize,
-    def_path: symtab::ValuePath,
-    // subscope_hierarchy: Vec<usize>,
-}
-
-impl WipFunction {
-    #[trace::instrument(level = "debug")]
-    pub(crate) fn new(
-        prototype: symtab::values::FunctionPrototype,
-        def_path: symtab::ValuePath,
-        arg_def_paths: &Vec<symtab::ValuePath>,
-        start_loc: sourceloc::SourceLoc,
-        end_loc: sourceloc::SourceLoc,
-    ) -> Self {
-        let (block_manager, start_block_label) =
-            ir::BlockManager::new(&def_path, start_loc, end_loc);
-
-        Self {
-            prototype,
-            block_manager,
-            current_block: start_block_label,
-            def_path,
+impl<B: branch::Branch> UnpathedFunctionLinearizeCtx<B> {
+    pub(crate) fn create_unconditional_branch(
+        self,
+        desc: branch::BranchDesc,
+        parent_def_path: symtab::ScopePath,
+        true_def_path: symtab::ScopePath,
+    ) -> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::Unconditional>> {
+        UnpathedFunctionLinearizeCtx {
+            base: self.base,
+            function_path: self.function_path,
+            prototype: self.prototype,
+            block_manager: self.block_manager.create_unconditional_branch(
+                desc,
+                parent_def_path,
+                true_def_path,
+            ),
         }
     }
 
-    pub(crate) fn values(&self) -> &ir::ValueInterner<Option<types::Syntactic>> {
-        self.block_manager.values()
-    }
-
-    pub(crate) fn values_mut(&mut self) -> &mut ir::ValueInterner<Option<types::Syntactic>> {
-        self.block_manager.values_mut()
-    }
-
-    // takes the label of the block to be made 'current'
-    // returns mutable reference to the block which was previously current
-    fn replace_current_block(&mut self, new_current: usize) -> &mut ir::BasicBlock {
-        let old_current = self.current_block;
-
-        trace::trace!(
-            "replace current block ({}) with block {}",
-            old_current,
-            new_current,
-        );
-
-        self.current_block = new_current;
-        self.block_manager.get_mut(old_current).unwrap()
-    }
-
-    fn set_current_block(&mut self, label: usize) -> &symtab::ScopePath {
-        // sanity check - look up the block to ensure it exists
-        self.block_manager.get_mut(label).unwrap();
-
-        trace::trace!("set current block from {} to {}", self.current_block, label);
-
-        self.current_block = label;
-        self.block_manager
-            .get(self.current_block)
-            .unwrap()
-            .def_path()
-    }
-
-    fn current_block_mut(&mut self) -> &mut ir::BasicBlock {
-        self.block_manager.get_mut(self.current_block).unwrap()
-    }
-
-    pub(crate) fn finish_true_branch_switch_to_false(
-        &mut self,
-        loc: sourceloc::SourceLoc,
-        def_path: &symtab::ScopePath,
-    ) {
-        assert!(self.def_path.is_prefix_of(def_path));
-
-        trace::debug!("finish true branch, switch to false");
-
-        let false_block = self
-            .block_manager
-            .finish_true_branch_switch_to_false(self.current_block, loc, def_path)
-            .unwrap();
-        self.replace_current_block(false_block);
-    }
-
-    pub(crate) fn finish_branch(
-        &mut self,
-        loc: sourceloc::SourceLoc,
-    ) -> Result<(), ir::block_manager::BranchError> {
-        let after_branch = self.block_manager.finish_branch(self.current_block, loc)?;
-        self.replace_current_block(after_branch);
-        Ok(())
-    }
-
-    // create an unconditional branch from the current block, transparently setting the current
-    // block to the target. Inserts the current block (before call) into the current scope
-    pub(crate) fn unconditional_branch_from_current(
-        &mut self,
-        branch_loc: sourceloc::SourceLoc,
-        after_loc: sourceloc::SourceLoc,
-        parent_scope_def_path: symtab::ScopePath,
-        true_scope_def_path: symtab::ScopePath,
-    ) {
-        trace::debug!("create unconditional branch from current block");
-
-        let desc = ir::block_manager::BranchDesc {
-            from: self.current_block,
-            loc: branch_loc,
-            after: after_loc,
-        };
-
-        let branched_to_block = self
-            .block_manager
-            .create_unconditional_branch(desc, parent_scope_def_path, true_scope_def_path)
-            .unwrap();
-
-        self.replace_current_block(branched_to_block);
-    }
-
-    // create a conditional branch from the current block, transparently setting the current block
-    // to the true branch. Inserts the current block (before call) into the current scope, and
-    // creates a new subscope for the true branch
-    pub(crate) fn conditional_branch_from_current(
-        &mut self,
-        // TODO: this is getting a bit out of hand
-        branch_loc: sourceloc::SourceLoc,
-        true_data: ir::block_manager::BranchTarget,
-        false_data: ir::block_manager::BranchTarget, // TODO: make this an option to support true-only branch conditioning
-        after_loc: sourceloc::SourceLoc,
-        condition: ir::lowered::operands::JumpCondition,
-        parent_scope_def_path: symtab::ScopePath,
-    ) {
-        trace::debug!("create conditional branch from current block");
-
-        let desc = ir::block_manager::BranchDesc {
-            from: self.current_block,
-            loc: branch_loc,
-            after: after_loc,
-        };
-
-        let true_block = self
-            .block_manager
-            .create_conditional_branch(
-                desc,
-                condition,
+    pub(crate) fn create_double_conditional_branch(
+        self,
+        loc: frontend::sourceloc::SourceLoc,
+        after: frontend::sourceloc::SourceLoc,
+        jump_condition: ir::lowered::operands::JumpCondition,
+        true_data: branch::BranchTarget,
+        false_data: branch::BranchTarget,
+        parent_def_path: symtab::ScopePath,
+    ) -> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::DoubleBranchTrue>> {
+        UnpathedFunctionLinearizeCtx {
+            base: self.base,
+            function_path: self.function_path,
+            prototype: self.prototype,
+            block_manager: self.block_manager.create_double_branch(
+                branch::BranchDesc { loc, after },
+                jump_condition,
                 true_data,
                 false_data,
-                parent_scope_def_path,
-            )
-            .unwrap();
-
-        self.replace_current_block(true_block);
+                parent_def_path,
+            ),
+        }
     }
 
-    /// # Arguments
-    /// * `loc` - the source location at which the entire loop starts
-    /// * `top_loc` - the source location at which the top of the body of the loop starts
-    /// * `bottom_loc` - the source location at which the body of the loop ends
-    /// * `after_loc` - the first source location after the loop
-    /// * `parent_scope_def_path` - defpath of the scope which owns the loop (narrowest declaration scope which the condition check may reference)
-    /// * `loop_scope_def_path` - defpath of the scope which owns the body of the loop, the widest into which body declarations will be made
+    pub(crate) fn create_single_conditional_branch(
+        self,
+        loc: frontend::sourceloc::SourceLoc,
+        after: frontend::sourceloc::SourceLoc,
+        jump_condition: ir::lowered::operands::JumpCondition,
+        true_data: branch::BranchTarget,
+        parent_def_path: symtab::ScopePath,
+    ) -> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::SingleBranchTrue>> {
+        UnpathedFunctionLinearizeCtx {
+            base: self.base,
+            function_path: self.function_path,
+            prototype: self.prototype,
+            block_manager: self.block_manager.create_single_branch(
+                branch::BranchDesc { loc, after },
+                jump_condition,
+                true_data,
+                parent_def_path,
+            ),
+        }
+    }
+
     pub(crate) fn create_loop(
-        &mut self,
-        loc: sourceloc::SourceLoc,
-        top_loc: sourceloc::SourceLoc,
-        bottom_loc: sourceloc::SourceLoc,
-        after_loc: sourceloc::SourceLoc,
-        parent_scope_def_path: symtab::ScopePath,
-        loop_scope_def_path: symtab::ScopePath,
-    ) -> Result<usize, ir::block_manager::BranchError> {
-        trace::debug!("create loop");
-
-        let desc = ir::block_manager::BranchDesc {
-            from: self.current_block,
-            loc,
-            after: after_loc,
-        };
-
-        let (loop_top_block, after_loop_label) = self.block_manager.create_loop(
-            desc,
-            top_loc,
-            bottom_loc,
-            parent_scope_def_path,
-            loop_scope_def_path,
-        )?;
-        self.replace_current_block(loop_top_block);
-
-        Ok(after_loop_label)
-    }
-
-    pub(crate) fn finish_loop(
-        &mut self,
-        loc: sourceloc::SourceLoc,
-        loop_bottom_actions: Vec<ir::IrLine>,
-    ) -> Result<(), ir::block_manager::BranchError> {
-        let loop_bottom = self
-            .block_manager
-            .finish_loop_1(self.current_block, loc.clone())?;
-        // make our current block loop_bottom
-        self.replace_current_block(loop_bottom);
-
-        let after_loop =
-            self.block_manager
-                .finish_loop_2(self.current_block, loc, loop_bottom_actions)?;
-
-        self.replace_current_block(after_loop);
-        Ok(())
-    }
-
-    pub(crate) fn create_switch(
-        &mut self,
-        loc: sourceloc::SourceLoc,
-        after_loc: sourceloc::SourceLoc,
-        parent_scope_def_path: symtab::ScopePath,
-        switch_scope_def_path: symtab::ScopePath,
-    ) -> Result<(), ir::block_manager::BranchError> {
-        let desc = ir::block_manager::BranchDesc {
-            from: self.current_block,
-            loc,
-            after: after_loc,
-        };
-
-        let switch_block =
-            self.block_manager
-                .create_switch(desc, parent_scope_def_path, switch_scope_def_path)?;
-
-        self.replace_current_block(switch_block);
-
-        Ok(())
-    }
-
-    // returns the label of the first block in the case
-    pub(crate) fn create_switch_case(
-        &mut self,
-        case_scope_def_path: symtab::ScopePath,
-        loc: sourceloc::SourceLoc,
-    ) -> Result<usize, ir::block_manager::BranchError> {
-        let case_label =
-            self.block_manager
-                .create_switch_case(self.current_block, case_scope_def_path, loc)?;
-
-        let _ = self.replace_current_block(case_label);
-
-        Ok(case_label)
-    }
-
-    pub(crate) fn finish_switch_case(
-        &mut self,
-        loc: sourceloc::SourceLoc,
-    ) -> Result<(), ir::block_manager::BranchError> {
-        let switch_label = self
-            .block_manager
-            .finish_switch_case(self.current_block, loc)?;
-
-        self.set_current_block(switch_label);
-        Ok(())
-    }
-
-    pub(crate) fn finish_switch(
-        &mut self,
-        loc: sourceloc::SourceLoc,
-    ) -> Result<(), ir::block_manager::BranchError> {
-        let after_switch = self.block_manager.finish_switch(self.current_block, loc)?;
-
-        self.replace_current_block(after_switch);
-
-        Ok(())
-    }
-
-    pub(crate) fn append_jump_to_current_block(&mut self, statement: ir::IrLine) -> Result<(), ()> {
-        match &statement.operation {
-            ir::Operation::Lowered(ir::lowered::Operation::Jump(_)) => {
-                self.current_block_mut().push(statement);
-                Ok(())
-            }
-            _ => Err(()),
+        self,
+        desc: branch::BranchDesc,
+        hdr_loc: sourceloc::SourceLoc,
+        body_loc: sourceloc::SourceLoc,
+        ftr_loc: sourceloc::SourceLoc,
+        parent_def_path: symtab::ScopePath,
+        loop_def_path: symtab::ScopePath,
+    ) -> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::LoopHeader>> {
+        UnpathedFunctionLinearizeCtx {
+            base: self.base,
+            function_path: self.function_path,
+            prototype: self.prototype,
+            block_manager: self.block_manager.create_loop(
+                desc,
+                hdr_loc,
+                body_loc,
+                ftr_loc,
+                parent_def_path,
+                loop_def_path,
+            ),
         }
     }
+}
 
-    pub(crate) fn append_statement_to_current_block(
-        &mut self,
-        statement: ir::IrLine,
-    ) -> Result<(), ()> {
-        if let ir::Operation::Lowered(ir::lowered::Operation::Jump(_)) = &statement.operation {
-            Err(())
-        } else {
-            self.current_block_mut().push(statement);
-            Ok(())
-        }
-    }
-
-    pub(crate) fn finish(
+impl<B: ir::block_manager::branch::Branch>
+    UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::Unconditional>>
+{
+    pub(crate) fn finish_unconditional_branch(
         self,
         loc: sourceloc::SourceLoc,
-    ) -> Result<symtab::values::Function, ir::block_manager::BranchError> {
-        self.block_manager.ensure_finished()?;
+    ) -> UnpathedFunctionLinearizeCtx<B> {
+        UnpathedFunctionLinearizeCtx {
+            base: self.base,
+            function_path: self.function_path,
+            prototype: self.prototype,
+            block_manager: self.block_manager.finish_unconditional_branch(loc),
+        }
+    }
+}
 
-        let cf = self.block_manager.take(self.current_block, loc);
+impl<B: branch::Branch>
+    UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::DoubleBranchTrue>>
+{
+    pub(crate) fn finish_true_branch_switch_to_false(
+        self,
+        loc: sourceloc::SourceLoc,
+    ) -> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::DoubleBranchFalse>> {
+        UnpathedFunctionLinearizeCtx {
+            base: self.base,
+            function_path: self.function_path,
+            prototype: self.prototype,
+            block_manager: self.block_manager.finish_true_branch_switch_to_false(loc),
+        }
+    }
+}
 
-        Ok(symtab::values::Function::new(self.prototype, Some(cf)))
+impl<B: branch::Branch>
+    UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::DoubleBranchFalse>>
+{
+    pub(crate) fn finish_false_branch(
+        self,
+        loc: sourceloc::SourceLoc,
+    ) -> UnpathedFunctionLinearizeCtx<B> {
+        UnpathedFunctionLinearizeCtx {
+            base: self.base,
+            function_path: self.function_path,
+            prototype: self.prototype,
+            block_manager: self.block_manager.finish_branch(loc),
+        }
+    }
+}
+
+impl<B: branch::Branch>
+    UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::SingleBranchTrue>>
+{
+    pub(crate) fn finish_true_branch(
+        self,
+        loc: sourceloc::SourceLoc,
+    ) -> UnpathedFunctionLinearizeCtx<B> {
+        UnpathedFunctionLinearizeCtx {
+            base: self.base,
+            function_path: self.function_path,
+            prototype: self.prototype,
+            block_manager: self.block_manager.finish_branch(loc),
+        }
+    }
+}
+
+impl<B: branch::Branch> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::LoopHeader>> {
+    pub(crate) fn finish_loop_header(
+        self,
+        loc: sourceloc::SourceLoc,
+    ) -> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::LoopBody>> {
+        UnpathedFunctionLinearizeCtx {
+            base: self.base,
+            function_path: self.function_path,
+            prototype: self.prototype,
+            block_manager: self.block_manager.finish_loop_header(loc),
+        }
+    }
+
+    pub(crate) fn after_loop_label(&self) -> usize {
+        self.block_manager.branch_state().branch.after_loop_label()
+    }
+}
+
+impl<B: branch::Branch> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::LoopBody>> {
+    pub(crate) fn finish_loop_body(
+        self,
+        loc: sourceloc::SourceLoc,
+    ) -> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::LoopFooter>> {
+        UnpathedFunctionLinearizeCtx {
+            base: self.base,
+            function_path: self.function_path,
+            prototype: self.prototype,
+            block_manager: self.block_manager.finish_loop_body(loc),
+        }
+    }
+}
+
+impl<B: branch::Branch> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::LoopFooter>> {
+    pub(crate) fn finish_loop_footer(
+        self,
+        loc: sourceloc::SourceLoc,
+    ) -> UnpathedFunctionLinearizeCtx<B> {
+        UnpathedFunctionLinearizeCtx {
+            base: self.base,
+            function_path: self.function_path,
+            prototype: self.prototype,
+            block_manager: self.block_manager.finish_loop_footer(loc),
+        }
+    }
+}
+
+impl UnpathedFunctionLinearizeCtx<branch::UnfinishedFunction> {
+    pub(crate) fn finish_to_epilogue(
+        self,
+        path: &symtab::ScopePath,
+        loc: sourceloc::SourceLoc,
+    ) -> UnpathedFunctionLinearizeCtx<branch::Epilogue> {
+        // fact-check that we are finalizing from subscope 0 and nowhere else
+        assert_eq!(
+            Into::<symtab::RawPath>::into(self.function_path.clone()),
+            Into::<symtab::RawPath>::into(path.clone().split_last().0.unwrap())
+        );
+
+        UnpathedFunctionLinearizeCtx {
+            base: self.base,
+            function_path: self.function_path,
+            prototype: self.prototype,
+            block_manager: self.block_manager.finish_to_epilogue(loc),
+        }
+    }
+}
+
+impl UnpathedFunctionLinearizeCtx<branch::Epilogue> {
+    pub(crate) fn take(
+        self,
+        path: &symtab::ScopePath,
+    ) -> (symtab::values::Function, UnpathedLinearizeCtx) {
+        // fact-check that we are finalizing from subscope 0 and nowhere else
+        assert_eq!(
+            Into::<symtab::RawPath>::into(self.function_path),
+            Into::<symtab::RawPath>::into(path.clone().split_last().0.unwrap())
+        );
+
+        let cf = self.block_manager.into();
+
+        let f = symtab::values::Function::new(self.prototype, Some(cf));
+        (f, self.base)
     }
 }

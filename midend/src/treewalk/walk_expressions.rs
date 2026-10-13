@@ -1,7 +1,8 @@
 use frontend::ast::{self, Ast};
 
 use crate::{
-    ir, symtab,
+    ir::{self, block_manager::branch},
+    symtab,
     treewalk::{
         Collect, CollectCtx, CollectResult, FunctionLinearizeCtx, Linearize, LinearizeResult,
         UnpathedFunctionLinearizeCtx, ValueCollectCtx,
@@ -34,15 +35,16 @@ impl Collect<symtab::ValuePath> for ast::Expression {
     }
 }
 
-impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLinearizeCtx>
+impl<B: branch::Branch>
+    Linearize<UnpathedFunctionLinearizeCtx<B>, symtab::ScopePath, FunctionLinearizeCtx<B>>
     for ast::Expression
 {
     type Data = ir::ValueId;
     // #[trace::instrument(skip(self), level = "trace", fields(tree_name = Self::name()))]
     fn linearize_inner(
         self,
-        mut ctx: FunctionLinearizeCtx,
-    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+        mut ctx: FunctionLinearizeCtx<B>,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         let (value, ctx) = match self {
             Self::PathIn(path) => path.linearize(ctx)?,
             Self::UnsignedDecimalConstant(_, constant) => (
@@ -124,15 +126,16 @@ impl Collect<symtab::ValuePath> for ast::expressions::ComparisonExpressionTree {
     }
 }
 
-impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLinearizeCtx>
+impl<B: branch::Branch>
+    Linearize<UnpathedFunctionLinearizeCtx<B>, symtab::ScopePath, FunctionLinearizeCtx<B>>
     for ast::expressions::ComparisonExpressionTree
 {
     type Data = ir::lowered::operands::BinaryComparisonOperands;
     #[trace::instrument(skip(self, ctx), level = "trace", fields(tree_name = Self::name()))]
     fn linearize_inner(
         self,
-        ctx: FunctionLinearizeCtx,
-    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+        ctx: FunctionLinearizeCtx<B>,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         match self {
             Self::LThan(operands) => {
                 let (lhs, ctx) = operands.e1.linearize(ctx)?;
@@ -202,15 +205,16 @@ impl Collect<symtab::ValuePath> for ast::expressions::ArithmeticExpressionTree {
         }
     }
 }
-impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLinearizeCtx>
+impl<B: branch::Branch>
+    Linearize<UnpathedFunctionLinearizeCtx<B>, symtab::ScopePath, FunctionLinearizeCtx<B>>
     for ast::expressions::ArithmeticExpressionTree
 {
     type Data = ir::lowered::operands::BinaryArithmeticOperands;
     #[trace::instrument(skip(self), level = "trace", fields(tree_name = Self::name()))]
     fn linearize_inner(
         self,
-        ctx: FunctionLinearizeCtx,
-    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+        ctx: FunctionLinearizeCtx<B>,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         match self {
             Self::Add(operands) => {
                 let (lhs, ctx) = operands.e1.linearize(ctx)?;

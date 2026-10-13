@@ -4,7 +4,7 @@ use frontend::{
 };
 
 use crate::{
-    ir,
+    ir::{self, block_manager::branch},
     symtab::{self, ValueOwner},
     treewalk::{
         Collect, CollectResult, ImplLinearizeCtx, Linearize, LinearizeResult, PathedCtx,
@@ -34,19 +34,19 @@ where
     }
 }
 
-impl<P, C> Linearize<UnpathedFunctionLinearizeCtx, P, C>
+impl<B: branch::Branch, P, C> Linearize<UnpathedFunctionLinearizeCtx<B>, P, C>
     for ast::items::enum_definition::TupleDataTree
 where
     P: symtab::Path,
-    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx, Path = P>,
+    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx<B>, Path = P>,
     ast::types::TypeNoBoundsTree:
-        Linearize<UnpathedFunctionLinearizeCtx, P, C, Data = Option<types::Syntactic>>,
+        Linearize<UnpathedFunctionLinearizeCtx<B>, P, C, Data = Option<types::Syntactic>>,
 {
     type Data = symtab::types::EnumVariantRepr;
     fn linearize_inner(
         self,
         mut ctx: C,
-    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         let mut element_types = Vec::new();
         for element in self.element_types {
             let maybe_element_type: Option<types::Syntactic>;
@@ -76,16 +76,19 @@ where
     }
 }
 
-impl<P, C> Linearize<UnpathedFunctionLinearizeCtx, P, C>
+impl<B: branch::Branch, P, C> Linearize<UnpathedFunctionLinearizeCtx<B>, P, C>
     for ast::items::enum_definition::EnumVariantDataTree
 where
     P: symtab::Path,
-    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx, Path = P>,
+    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx<B>, Path = P>,
     ast::types::TypeNoBoundsTree:
-        Linearize<UnpathedFunctionLinearizeCtx, P, C, Data = Option<types::Syntactic>>,
+        Linearize<UnpathedFunctionLinearizeCtx<B>, P, C, Data = Option<types::Syntactic>>,
 {
     type Data = symtab::types::EnumVariantRepr;
-    fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+    fn linearize_inner(
+        self,
+        ctx: C,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         let (variant, ctx) = match self {
             Self::TupleData(elements) => elements.linearize(ctx)?,
         };
@@ -125,8 +128,8 @@ fn _create_enum_variant_constructor(
     ctx.declare_value(String::from(variant_name))
         .expect("Duplicate enum variant constructor");
 
-    let (mut block_mgr, current_block) =
-        ir::BlockManager::new(&ctor_function_path, loc.clone(), loc.clone());
+    let mut block_mgr =
+        ir::BlockManager::<branch::Epilogue>::new(&ctor_function_path, loc.clone(), loc.clone());
 
     // define a variable for the object we are building
     let constructed_object =
@@ -173,13 +176,13 @@ fn _create_enum_variant_constructor(
         let field_store_line = ir::IrLine::new_store(loc.clone(), arg_value, field_temp);
 
         block_mgr
-            .get_mut(current_block)
-            .unwrap()
+            .current_block_mut()
             .append(&mut vec![field_get_line, field_store_line]);
     }
 
-    let ctor_function =
-        symtab::values::Function::new(prototype, Some(block_mgr.take(current_block, loc.clone())));
+    let block_mgr = block_mgr.finish_to_epilogue(loc.clone());
+
+    let ctor_function = symtab::values::Function::new(prototype, Some(block_mgr.into()));
 
     ctx.define_value(symtab::Value::Function(Box::new(ctor_function)))
         .unwrap();
@@ -213,12 +216,12 @@ where
     }
 }
 
-impl<C> Linearize<UnpathedFunctionLinearizeCtx, symtab::TypePath, C>
+impl<B: branch::Branch, C> Linearize<UnpathedFunctionLinearizeCtx<B>, symtab::TypePath, C>
     for ast::items::enum_definition::EnumVariantTree
 where
-    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx, Path = symtab::TypePath>,
+    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx<B>, Path = symtab::TypePath>,
     ast::types::TypeNoBoundsTree: Linearize<
-            UnpathedFunctionLinearizeCtx,
+            UnpathedFunctionLinearizeCtx<B>,
             symtab::TypePath,
             C,
             Data = Option<types::Syntactic>,
@@ -228,7 +231,7 @@ where
     fn linearize_inner(
         self,
         mut ctx: C,
-    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         let variant_data_type;
         (variant_data_type, ctx) = match self.data {
             Some(variant_item) => variant_item.linearize(ctx)?,

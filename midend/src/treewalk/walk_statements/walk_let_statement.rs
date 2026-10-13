@@ -1,6 +1,7 @@
 use frontend::ast::{self, Ast};
 
 use crate::{
+    ir::block_manager::branch,
     symtab,
     treewalk::{
         Collect, CollectResult, Linearize, LinearizeResult, PathedCtxTrait,
@@ -15,14 +16,18 @@ impl Collect<symtab::ValuePath> for ast::statements::LetTree {
     }
 }
 
-impl<P, C> Linearize<UnpathedFunctionLinearizeCtx, P, C> for ast::statements::LetTree
+impl<B: branch::Branch, P, C> Linearize<UnpathedFunctionLinearizeCtx<B>, P, C>
+    for ast::statements::LetTree
 where
     P: symtab::Path,
-    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx, Path = P>,
+    C: PathedLinearizeCtxTrait<Unpathed = UnpathedFunctionLinearizeCtx<B>, Path = P>,
 {
     type Data = ();
     #[trace::instrument(skip(self), level = "trace", fields(tree_name = Self::name()))]
-    fn linearize_inner(self, ctx: C) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+    fn linearize_inner(
+        self,
+        ctx: C,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         unimplemented!();
         /*
         let variable_type = match self.type_ {

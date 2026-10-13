@@ -3,13 +3,16 @@ use serde::Serialize;
 use frontend::sourceloc;
 
 use crate::{
-    ir::unlowered::{Lowerable, ValueId},
+    ir::{
+        block_manager::branch,
+        unlowered::{Lowerable, ValueId},
+    },
     treewalk::{self, Linearize},
     types,
 };
 
-struct _MatchArmContext {
-    pub ctx: treewalk::FunctionLinearizeCtx,
+struct _MatchArmContext<B: branch::Branch> {
+    pub ctx: treewalk::FunctionLinearizeCtx<B>,
     pub scrutinee: ValueId,
 }
 
@@ -20,10 +23,10 @@ pub(crate) struct MatchArm {
     pub result_value: ValueId,
 }
 
-fn _lower_pattern(
+fn _lower_pattern<B: branch::Branch>(
     pattern: frontend::ast::expressions::match_expression::PatternTree,
-    arm_ctx: _MatchArmContext,
-) -> treewalk::LinearizeResult<LoweredPattern, treewalk::UnpathedFunctionLinearizeCtx> {
+    arm_ctx: _MatchArmContext<B>,
+) -> treewalk::LinearizeResult<LoweredPattern, treewalk::UnpathedFunctionLinearizeCtx<B>> {
     use frontend::ast::expressions::match_expression::PatternTree;
     let lowered_pattern;
     let ctx;
@@ -158,7 +161,11 @@ pub(crate) struct MatchOperands {
 }
 
 impl Lowerable for MatchOperands {
-    fn lower(self, _ctx: &mut treewalk::FunctionLinearizeCtx, _loc: sourceloc::SourceLoc) {
+    fn lower(
+        self,
+        _ctx: &mut treewalk::FunctionLinearizeCtx<impl branch::Branch>,
+        _loc: sourceloc::SourceLoc,
+    ) {
         // TODO: implement actual match decision tree logic
         unimplemented!();
 

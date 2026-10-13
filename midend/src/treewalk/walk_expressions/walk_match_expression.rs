@@ -1,21 +1,23 @@
 use frontend::ast::{self, Ast};
 
 use crate::{
-    ir, symtab,
+    ir::{self, block_manager::branch},
+    symtab,
     treewalk::{
         Collect, CollectResult, FunctionLinearizeCtx, Linearize, LinearizeResult, PathedCtxTrait,
         UnpathedFunctionLinearizeCtx, ValueCollectCtx,
     },
 };
 
-impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLinearizeCtx>
+impl<B: branch::Branch>
+    Linearize<UnpathedFunctionLinearizeCtx<B>, symtab::ScopePath, FunctionLinearizeCtx<B>>
     for ast::expressions::match_expression::TupleStructTree
 {
     type Data = ast::expressions::match_expression::PatternTree;
     fn linearize_inner(
         self,
-        _ctx: FunctionLinearizeCtx,
-    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+        _ctx: FunctionLinearizeCtx<B>,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         unimplemented!();
         /*
         PatternTree::TupleStruct(self)
@@ -44,15 +46,16 @@ impl Collect<symtab::ValuePath> for ast::expressions::match_expression::PatternT
     }
 }
 
-impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLinearizeCtx>
+impl<B: branch::Branch>
+    Linearize<UnpathedFunctionLinearizeCtx<B>, symtab::ScopePath, FunctionLinearizeCtx<B>>
     for ast::expressions::match_expression::PatternTree
 {
     type Data = Self;
     #[trace::instrument(skip(self), level = "trace", fields(tree_name = Self::name()))]
     fn linearize_inner(
         self,
-        ctx: FunctionLinearizeCtx,
-    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+        ctx: FunctionLinearizeCtx<B>,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         unimplemented!("patterns");
         // match self.clone() {
         //     Self::Literal(_) => (),
@@ -81,15 +84,16 @@ impl Collect<symtab::ValuePath> for ast::expressions::match_expression::MatchArm
     }
 }
 
-impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLinearizeCtx>
+impl<B: branch::Branch>
+    Linearize<UnpathedFunctionLinearizeCtx<B>, symtab::ScopePath, FunctionLinearizeCtx<B>>
     for ast::expressions::match_expression::MatchArmTree
 {
     type Data = (ast::expressions::match_expression::PatternTree, ir::ValueId);
     #[trace::instrument(skip(self), level = "trace", fields(tree_name = Self::name()))]
     fn linearize_inner(
         self,
-        mut ctx: FunctionLinearizeCtx,
-    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+        mut ctx: FunctionLinearizeCtx<B>,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         let pattern;
         let _arm_value: ir::ValueId;
         (pattern, ctx) = self.pattern.linearize(ctx)?;
@@ -109,15 +113,18 @@ impl Collect<symtab::ValuePath> for ast::expressions::match_expression::MatchExp
     }
 }
 
-impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLinearizeCtx>
+impl<B: branch::Branch>
+    Linearize<UnpathedFunctionLinearizeCtx<B>, symtab::ScopePath, FunctionLinearizeCtx<B>>
     for ast::expressions::match_expression::MatchExpressionTree
 {
     type Data = ir::ValueId;
     #[trace::instrument(skip(self), level = "trace", fields(tree_name = Self::name()))]
     fn linearize_inner(
         self,
-        mut ctx: FunctionLinearizeCtx,
-    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+        ctx: FunctionLinearizeCtx<B>,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
+        unimplemented!();
+        /*
         let match_loc = self.loc();
 
         let parent_scope_def_path = ctx.path().clone();
@@ -172,5 +179,6 @@ impl Linearize<UnpathedFunctionLinearizeCtx, symtab::ScopePath, FunctionLineariz
         // block, resulting in an unreachable jump instruction after the unlowered match IR.
         ctx.finish_switch(match_loc.end());
         ctx.into_result(result_value)
+        */
     }
 }

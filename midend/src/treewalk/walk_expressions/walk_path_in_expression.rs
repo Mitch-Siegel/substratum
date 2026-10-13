@@ -1,7 +1,8 @@
 use frontend::ast;
 
 use crate::{
-    ir, symtab,
+    ir::{self, block_manager::branch},
+    symtab,
     treewalk::{
         Collect, CollectResult, Linearize, LinearizeResult, PathedCtx,
         UnpathedFunctionLinearizeCtx, ValueCollectCtx, walk_path,
@@ -14,18 +15,18 @@ impl Collect<symtab::ValuePath> for ast::expressions::PathInExpressionTree {
     }
 }
 
-impl
+impl<B: branch::Branch>
     Linearize<
-        UnpathedFunctionLinearizeCtx,
+        UnpathedFunctionLinearizeCtx<B>,
         symtab::ScopePath,
-        PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath>,
+        PathedCtx<UnpathedFunctionLinearizeCtx<B>, symtab::ScopePath>,
     > for ast::expressions::PathInExpressionTree
 {
     type Data = ir::ValueId;
     fn linearize_inner(
         self,
-        ctx: PathedCtx<UnpathedFunctionLinearizeCtx, symtab::ScopePath>,
-    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx> {
+        ctx: PathedCtx<UnpathedFunctionLinearizeCtx<B>, symtab::ScopePath>,
+    ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
         let (finished_walk, mut ctx) = self.underlying_path.linearize(ctx)?;
         // TODO: record monomorphization
         // let path = linearized_path

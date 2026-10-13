@@ -3,6 +3,7 @@ use frontend::sourceloc;
 use crate::{
     ir::{
         self,
+        block_manager::branch,
         unlowered::{Lowerable, ValueId},
     },
     treewalk, types,
@@ -16,7 +17,11 @@ pub(crate) struct DiscriminantOperands {
 }
 
 impl Lowerable for DiscriminantOperands {
-    fn lower(self, ctx: &mut treewalk::FunctionLinearizeCtx, loc: sourceloc::SourceLoc) {
+    fn lower(
+        self,
+        ctx: &mut treewalk::FunctionLinearizeCtx<impl branch::Branch>,
+        loc: sourceloc::SourceLoc,
+    ) {
         // sanity check
         let _receiver_type = ctx.values_mut().value_for_id(self.enum_receiver).unwrap();
         // TODO: type propagation and checking to verify this thing is actually an enum

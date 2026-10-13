@@ -1,11 +1,12 @@
 use frontend::ast::{self, Ast};
 
 use crate::{
+    ir::{self, block_manager::branch},
     symtab::{self, ValueOwner},
     treewalk::{
-        Collect, CollectResult, Linearize, LinearizeCtx, LinearizeResult, PathedCtx,
-        PathedCtxTrait, PathedLinearizeCtxTrait, TypeCollectCtx, UnpathedFunctionLinearizeCtx,
-        UnpathedLinearizeCtx,
+        Collect, CollectResult, FunctionLinearizeCtx, Linearize, LinearizeCtx, LinearizeResult,
+        PathedCtx, PathedCtxTrait, PathedLinearizeCtxTrait, TypeCollectCtx,
+        UnpathedFunctionLinearizeCtx, UnpathedLinearizeCtx,
     },
     types,
 };
@@ -130,26 +131,24 @@ where
             .map(|arg| function_path.clone().with_child_value(arg.name.clone()))
             .collect();
 
-        let unpathed_function_ctx = UnpathedFunctionLinearizeCtx::new(
-            ctx,
-            declared_prototype,
-            &arg_def_paths,
-            span.start(),
-            span.end(),
-        );
+        let unpathed_function_ctx =
+            UnpathedFunctionLinearizeCtx::<ir::block_manager::branch::UnfinishedFunction>::new(
+                ctx,
+                declared_prototype,
+                &arg_def_paths,
+                span.start(),
+                span.end(),
+            );
 
-        let function_ctx = unpathed_function_ctx.into_pathed_ctx(function_path);
-        let (return_value_id, function_ctx) = self.body.linearize(function_ctx)?;
+        let function_ctx: FunctionLinearizeCtx<branch::UnfinishedFunction> =
+            unpathed_function_ctx.into_pathed_ctx(function_path);
+        let (_return_value_id, function_ctx) = self.body.linearize(function_ctx)?;
 
-        function_ctx.finalize(span.end(), return_value_id)
+        let function_ctx: FunctionLinearizeCtx<branch::Epilogue> =
+            function_ctx.finish_to_epilogue(span.end());
 
-        // let function_ctx = FunctionLinearizeCtx::new()
-        // ctx.create_function(declared_prototype).unwrap();
+        let (f, ctx) = function_ctx.take();
 
-        // let ctx = ctx
-        // .with_child_value(function_name.clone());
-        // let (return_value, mut ctx) = self.body.linearize(ctx)?;
-        // let function = ctx.finish_function(function_name, return_value)?;
-        // ctx.into_result(function)
+        Ok((f, ctx))
     }
 }
