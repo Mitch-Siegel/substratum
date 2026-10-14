@@ -56,7 +56,7 @@ impl<B: branch::Branch>
                 ctx,
             ),
             Self::Arithmetic(arith) => {
-                let loc = arith.loc();
+                let loc = arith.span();
                 let (operands, mut ctx) = arith.linearize(ctx)?;
                 let destination = ctx.values_mut().next_temp(
                     #[cfg(feature = "value_locs")]
@@ -71,7 +71,7 @@ impl<B: branch::Branch>
                 (destination, ctx)
             }
             Self::Comparison(cmp) => {
-                let loc = cmp.loc();
+                let loc = cmp.span();
                 let (operands, mut ctx) = cmp.linearize(ctx)?;
                 let destination = ctx.values_mut().next_temp(
                     #[cfg(feature = "value_locs")]
@@ -91,7 +91,7 @@ impl<B: branch::Branch>
 
             Self::While(while_expression) => while_expression.linearize(ctx)?,
             Self::Field(field_expression) => {
-                let field_loc = field_expression.loc();
+                let field_loc = field_expression.span();
                 let ((receiver, field), mut ctx) = field_expression.linearize(ctx)?;
                 let field_pointer_temp = ctx.values_mut().next_temp(
                     #[cfg(feature = "value_locs")]

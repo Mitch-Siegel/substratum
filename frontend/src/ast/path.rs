@@ -4,21 +4,21 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ast::{Ast, IdentifierTree},
-    sourceloc,
+    loc,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum IdentSegment {
     Ident(IdentifierTree),
-    Super(sourceloc::SourceSpan),
-    SelfLower(sourceloc::SourceSpan),
-    SelfUpper(sourceloc::SourceSpan),
+    Super(loc::Span),
+    SelfLower(loc::Span),
+    SelfUpper(loc::Span),
 }
 
 impl Ast for IdentSegment {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         match self {
-            Self::Ident(ident) => ident.loc(),
+            Self::Ident(ident) => ident.span(),
             Self::Super(loc) | Self::SelfUpper(loc) | Self::SelfLower(loc) => loc.clone(),
         }
     }
@@ -48,10 +48,10 @@ impl<T> Ast for PathSegmentTree<T>
 where
     T: Ast,
 {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         match &self.data {
-            Some(data) => self.ident.loc().merge(&data.loc()).unwrap(),
-            None => self.ident.loc(),
+            Some(data) => self.ident.span().merge(&data.span()).unwrap(),
+            None => self.ident.span(),
         }
     }
 }
@@ -74,7 +74,7 @@ pub struct PathTree<T>
 where
     T: Ast,
 {
-    pub starts_global: Option<sourceloc::SourceSpan>,
+    pub starts_global: Option<loc::Span>,
     pub segments: Vec<PathSegmentTree<T>>,
 }
 
@@ -82,15 +82,15 @@ impl<T> Ast for PathTree<T>
 where
     T: Ast,
 {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         let mut seg_iter = self.segments.iter();
         let mut loc_span = seg_iter
             .next()
             .expect("PathTree must have at least one segment")
-            .loc();
+            .span();
 
         for segment in seg_iter {
-            loc_span = loc_span.merge(&segment.loc()).unwrap();
+            loc_span = loc_span.merge(&segment.span()).unwrap();
         }
 
         loc_span

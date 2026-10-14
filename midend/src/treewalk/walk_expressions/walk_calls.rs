@@ -38,7 +38,7 @@ impl<B: branch::Branch>
         self,
         mut ctx: FunctionLinearizeCtx<B>,
     ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
-        let call_start = self.loc().start();
+        let call_start = self.span().start();
 
         let function_operand;
         (function_operand, ctx) = self.function_operand.linearize(ctx)?;

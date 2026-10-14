@@ -1,6 +1,6 @@
 use std::fmt;
 
-use frontend::sourceloc;
+use frontend::loc;
 
 use crate::{
     ir::{self, BasicBlock, ControlFlow, block_manager::BlockManager, lowered::JumpCondition},
@@ -237,25 +237,25 @@ impl Branch for Epilogue {
 
 /// describes the source code location and scope defpath of the target of a branch
 pub(crate) struct BranchTarget {
-    pub loc: sourceloc::SourceLoc,
+    pub loc: loc::Loc,
     pub path: symtab::ScopePath,
 }
 
 impl BranchTarget {
-    pub(crate) fn new(loc: sourceloc::SourceLoc, path: symtab::ScopePath) -> Self {
+    pub(crate) fn new(loc: loc::Loc, path: symtab::ScopePath) -> Self {
         Self { loc, path }
     }
 }
 
 pub(crate) struct BranchDesc {
     /// the location of the branch itself
-    pub loc: sourceloc::SourceLoc,
+    pub loc: loc::Loc,
     /// the first source location after anything relevant to the branch
-    pub after: sourceloc::SourceLoc,
+    pub after: loc::Loc,
 }
 
 impl BranchDesc {
-    pub(crate) fn new(loc: sourceloc::SourceLoc, after: sourceloc::SourceLoc) -> Self {
+    pub(crate) fn new(loc: loc::Loc, after: loc::Loc) -> Self {
         Self { loc, after }
     }
 }
@@ -432,7 +432,7 @@ impl<P: Branch> BlockManager<NestedBranch<P, DoubleBranchTrue>> {
     // returns the label of the false branch or BranchError
     pub(crate) fn finish_true_branch_switch_to_false(
         mut self,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
     ) -> BlockManager<NestedBranch<P, DoubleBranchFalse>> {
         let exit_jmp = ir::IrLine::new_jump(
             loc,
@@ -461,7 +461,7 @@ impl<P: Branch> BlockManager<NestedBranch<P, DoubleBranchTrue>> {
 }
 
 impl<P: Branch> BlockManager<NestedBranch<P, DoubleBranchFalse>> {
-    pub(crate) fn finish_branch(mut self, loc: sourceloc::SourceLoc) -> BlockManager<P> {
+    pub(crate) fn finish_branch(mut self, loc: loc::Loc) -> BlockManager<P> {
         let exit_jmp = ir::IrLine::new_jump(
             loc,
             self.branch_state.branch.after_branch.label,
@@ -486,7 +486,7 @@ impl<P: Branch> BlockManager<NestedBranch<P, DoubleBranchFalse>> {
 }
 
 impl<P: Branch> BlockManager<NestedBranch<P, SingleBranchTrue>> {
-    pub(crate) fn finish_branch(mut self, loc: sourceloc::SourceLoc) -> BlockManager<P> {
+    pub(crate) fn finish_branch(mut self, loc: loc::Loc) -> BlockManager<P> {
         let exit_jmp = ir::IrLine::new_jump(
             loc,
             self.branch_state.branch.after_branch.label,
@@ -509,10 +509,7 @@ impl<P: Branch> BlockManager<NestedBranch<P, SingleBranchTrue>> {
 }
 
 impl<P: Branch> BlockManager<NestedBranch<P, Unconditional>> {
-    pub(crate) fn finish_unconditional_branch(
-        mut self,
-        loc: sourceloc::SourceLoc,
-    ) -> BlockManager<P> {
+    pub(crate) fn finish_unconditional_branch(mut self, loc: loc::Loc) -> BlockManager<P> {
         let exit_jmp = ir::IrLine::new_jump(
             loc,
             self.branch_state.branch.dest.label,
@@ -537,9 +534,9 @@ impl<B: Branch> BlockManager<B> {
     pub(crate) fn create_loop(
         mut self,
         desc: BranchDesc,
-        hdr_loc: sourceloc::SourceLoc,
-        body_loc: sourceloc::SourceLoc,
-        ftr_loc: sourceloc::SourceLoc,
+        hdr_loc: loc::Loc,
+        body_loc: loc::Loc,
+        ftr_loc: loc::Loc,
         parent_def_path: symtab::ScopePath,
         loop_def_path: symtab::ScopePath,
     ) -> BlockManager<NestedBranch<B, LoopHeader>> {
@@ -582,7 +579,7 @@ impl<B: Branch> BlockManager<B> {
 impl<P: Branch> BlockManager<NestedBranch<P, LoopHeader>> {
     pub(crate) fn finish_loop_header(
         self,
-        _loc: sourceloc::SourceLoc,
+        _loc: loc::Loc,
     ) -> BlockManager<NestedBranch<P, LoopBody>> {
         let (mut ret, hdr) = self.without_nested_branch();
 
@@ -607,7 +604,7 @@ impl<P: Branch> BlockManager<NestedBranch<P, LoopHeader>> {
 impl<P: Branch> BlockManager<NestedBranch<P, LoopBody>> {
     pub(crate) fn finish_loop_body(
         self,
-        _loc: sourceloc::SourceLoc,
+        _loc: loc::Loc,
     ) -> BlockManager<NestedBranch<P, LoopFooter>> {
         let (mut ret, body) = self.without_nested_branch();
 
@@ -628,7 +625,7 @@ impl<P: Branch> BlockManager<NestedBranch<P, LoopBody>> {
 }
 
 impl<P: Branch> BlockManager<NestedBranch<P, LoopFooter>> {
-    pub(crate) fn finish_loop_footer(self, _loc: sourceloc::SourceLoc) -> BlockManager<P> {
+    pub(crate) fn finish_loop_footer(self, _loc: loc::Loc) -> BlockManager<P> {
         let (mut ret, ftr) = self.without_nested_branch();
 
         let LoopFooter {
@@ -645,10 +642,7 @@ impl<P: Branch> BlockManager<NestedBranch<P, LoopFooter>> {
 }
 
 impl BlockManager<UnfinishedFunction> {
-    pub(crate) fn finish_to_epilogue(
-        mut self,
-        loc: sourceloc::SourceLoc,
-    ) -> BlockManager<Epilogue> {
+    pub(crate) fn finish_to_epilogue(mut self, loc: loc::Loc) -> BlockManager<Epilogue> {
         let epilogue_label = self.branch_state.epilogue.label;
 
         let to_epilogue_block = ir::IrLine::new_jump(

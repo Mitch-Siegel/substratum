@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-use crate::sourceloc;
+use crate::loc;
 
 pub mod expressions;
 pub mod generics;
@@ -24,7 +24,7 @@ pub use types::TypeTree;
 pub(crate) mod builder;
 
 pub trait Ast {
-    fn loc(&self) -> sourceloc::SourceSpan;
+    fn span(&self) -> loc::Span;
 
     #[must_use]
     fn name() -> &'static str {
@@ -37,13 +37,13 @@ pub trait Ast {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IdentifierTree {
-    pub loc: sourceloc::SourceSpan,
+    pub span: loc::Span,
     pub value: String,
 }
 
 impl Ast for IdentifierTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.loc.clone()
+    fn span(&self) -> loc::Span {
+        self.span.clone()
     }
 }
 

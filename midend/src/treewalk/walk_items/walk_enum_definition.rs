@@ -1,6 +1,6 @@
 use frontend::{
     ast::{self, Ast},
-    sourceloc,
+    loc,
 };
 
 use crate::{
@@ -102,7 +102,7 @@ fn _create_enum_variant_constructor(
     _enum_name: &str,
     variant_name: &str,
     arg_types: Vec<types::Syntactic>,
-    loc: &sourceloc::SourceLoc, // TODO: should be a span? to get start/end for blockmanager stuff?
+    loc: &loc::Loc, // TODO: should be a span? to get start/end for blockmanager stuff?
 ) {
     // create variables for each argument, named by index
     let args: Vec<symtab::values::Variable> = arg_types
@@ -294,7 +294,7 @@ where
 
         // unimplemented!("enum variant constructor");
         for variant in self.variants {
-            let _variant_loc = variant.loc();
+            let _variant_loc = variant.span();
             let (variant_name, variant_repr): (String, symtab::types::EnumVariantRepr);
             ((variant_name, variant_repr), ctx) = variant.linearize(ctx)?;
             let _arg_types = match &variant_repr {

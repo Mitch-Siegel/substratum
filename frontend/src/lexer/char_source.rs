@@ -81,7 +81,7 @@ impl ReadLine for FileLineReader {
             None => None,
         };
 
-        line_option.map(|string| string.chars().rev().chain(std::iter::once('\n')).collect())
+        line_option.map(|string| string.chars().chain(std::iter::once('\n')).rev().collect())
     }
 }
 

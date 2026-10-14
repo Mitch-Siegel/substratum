@@ -29,7 +29,7 @@ pub(crate) struct SsaValue<T> {
     pub ty: T,
     #[cfg(feature = "value_locs")]
     #[allow(unused)]
-    pub loc: frontend::sourceloc::StaticSourceLoc,
+    pub loc: frontend::loc::StaticLoc,
 }
 
 impl<T> SsaValue<T> {
@@ -37,7 +37,7 @@ impl<T> SsaValue<T> {
         kind: SsaValueKind,
         ty: T,
 
-        #[cfg(feature = "value_locs")] loc: frontend::sourceloc::StaticSourceLoc,
+        #[cfg(feature = "value_locs")] loc: frontend::loc::StaticLoc,
     ) -> Self {
         Self { kind, ty, loc }
     }

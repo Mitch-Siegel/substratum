@@ -24,7 +24,7 @@ impl FunctionLinearizeErased for ast::expressions::WhileExpressionTree {
         self,
         mut ctx: FunctionLinearizeCtx<Box<dyn branch::Branch>>,
     ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<Box<dyn branch::Branch>>> {
-        let loc = self.loc();
+        let span = self.span();
 
         let parent_scope_def_path = ctx.path().clone();
         let loop_scope_def_path = ctx.reserve_subscope();
@@ -32,23 +32,23 @@ impl FunctionLinearizeErased for ast::expressions::WhileExpressionTree {
             branch::NestedBranch<Box<dyn branch::Branch>, branch::LoopHeader>,
         > = ctx.create_loop(
             branch::BranchDesc {
-                loc: loc.start(),
-                after: loc.end(),
+                loc: span.clone().start(),
+                after: span.end(),
             },
-            self.body.loc().start(),
-            self.body.loc().end(),
-            self.loc().end(),
+            self.body.span().start(),
+            self.body.span().end(),
+            self.span().end(),
             parent_scope_def_path,
             loop_scope_def_path,
         );
 
         let after_loop_label = ctx.after_loop_label();
 
-        let condition_loc = self.condition.loc();
+        let condition_loc = self.condition.span();
         let condition;
         (condition, ctx) = self.condition.linearize(ctx)?;
         let loop_condition_jump = ir::IrLine::new_jump(
-            condition_loc.end(),
+            condition_loc.clone().end(),
             after_loop_label,
             ir::lowered::operands::JumpCondition::Conditional(
                 ir::lowered::operands::BinaryComparisonOperands::new(
@@ -69,15 +69,7 @@ impl FunctionLinearizeErased for ast::expressions::WhileExpressionTree {
             branch::NestedBranch<Box<dyn branch::Branch>, branch::LoopBody>,
         > = ctx.finish_loop_header(condition_loc.end());
 
-        // let parent_def_path = ctx.path().clone();
-        // ctx.unconditional_branch_from_current(
-        //     loc.start(),
-        //     loc.end(),
-        //     parent_def_path.clone(),
-        //     parent_def_path,
-        // );
-
-        let body_end = self.body.loc().end();
+        let body_end = self.body.span().end();
         let (_, ctx) = self.body.linearize(ctx)?;
 
         let ctx: FunctionLinearizeCtx<
@@ -86,11 +78,5 @@ impl FunctionLinearizeErased for ast::expressions::WhileExpressionTree {
 
         ctx.finish_loop_footer(body_end)
             .into_result(ir::ValueInterner::<Option<types::Syntactic>>::unit_value_id())
-
-        // ctx.finish_branch(loc.end());
-
-        // ctx.finish_loop(loc.end(), Vec::new());
-
-        // ctx.into_result(ir::ValueInterner::<Option<types::Syntactic>>::unit_value_id())
     }
 }

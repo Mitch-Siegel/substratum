@@ -13,7 +13,7 @@ fn assert_single_tokenization(input_str: &str, expected_token: Token) {
         vec![
             (
                 expected_token,
-                SourceSpan::new(
+                Span::new(
                     String::new(),
                     SourcePoint { line: 1, col: 1 },
                     SourcePoint {
@@ -24,7 +24,7 @@ fn assert_single_tokenization(input_str: &str, expected_token: Token) {
             ),
             (
                 Token::Eof,
-                SourceLoc::new(
+                Loc::new(
                     String::new(),
                     SourcePoint {
                         line: 1,

@@ -1,4 +1,4 @@
-use frontend::sourceloc;
+use frontend::loc;
 
 use crate::{
     ir::{
@@ -17,11 +17,7 @@ pub(crate) struct DiscriminantOperands {
 }
 
 impl Lowerable for DiscriminantOperands {
-    fn lower(
-        self,
-        ctx: &mut treewalk::FunctionLinearizeCtx<impl branch::Branch>,
-        loc: sourceloc::SourceLoc,
-    ) {
+    fn lower(self, ctx: &mut treewalk::FunctionLinearizeCtx<impl branch::Branch>, loc: loc::Loc) {
         // sanity check
         let _receiver_type = ctx.values_mut().value_for_id(self.enum_receiver).unwrap();
         // TODO: type propagation and checking to verify this thing is actually an enum

@@ -1,4 +1,4 @@
-use frontend::sourceloc;
+use frontend::loc;
 
 use crate::{
     ir::{self, block_manager::branch},
@@ -23,8 +23,8 @@ impl<B: branch::Branch> UnpathedFunctionLinearizeCtx<B> {
         ctx: PathedCtx<UnpathedLinearizeCtx, impl symtab::ValueOwner>,
         prototype: symtab::values::function::FunctionPrototype,
         arg_def_paths: &Vec<symtab::ValuePath>,
-        start_loc: sourceloc::SourceLoc,
-        end_loc: sourceloc::SourceLoc,
+        start_loc: loc::Loc,
+        end_loc: loc::Loc,
     ) -> UnpathedFunctionLinearizeCtx<branch::UnfinishedFunction> {
         let function_path = ctx.path().clone().with_child_value(prototype.name.clone());
         let base = ctx.into_result(()).unwrap().1;
@@ -137,8 +137,8 @@ impl<B: branch::Branch> UnpathedFunctionLinearizeCtx<B> {
 
     pub(crate) fn create_double_conditional_branch(
         self,
-        loc: frontend::sourceloc::SourceLoc,
-        after: frontend::sourceloc::SourceLoc,
+        loc: frontend::loc::Loc,
+        after: frontend::loc::Loc,
         jump_condition: ir::lowered::operands::JumpCondition,
         true_data: branch::BranchTarget,
         false_data: branch::BranchTarget,
@@ -160,8 +160,8 @@ impl<B: branch::Branch> UnpathedFunctionLinearizeCtx<B> {
 
     pub(crate) fn create_single_conditional_branch(
         self,
-        loc: frontend::sourceloc::SourceLoc,
-        after: frontend::sourceloc::SourceLoc,
+        loc: frontend::loc::Loc,
+        after: frontend::loc::Loc,
         jump_condition: ir::lowered::operands::JumpCondition,
         true_data: branch::BranchTarget,
         parent_def_path: symtab::ScopePath,
@@ -182,9 +182,9 @@ impl<B: branch::Branch> UnpathedFunctionLinearizeCtx<B> {
     pub(crate) fn create_loop(
         self,
         desc: branch::BranchDesc,
-        hdr_loc: sourceloc::SourceLoc,
-        body_loc: sourceloc::SourceLoc,
-        ftr_loc: sourceloc::SourceLoc,
+        hdr_loc: loc::Loc,
+        body_loc: loc::Loc,
+        ftr_loc: loc::Loc,
         parent_def_path: symtab::ScopePath,
         loop_def_path: symtab::ScopePath,
     ) -> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::LoopHeader>> {
@@ -209,7 +209,7 @@ impl<B: ir::block_manager::branch::Branch>
 {
     pub(crate) fn finish_unconditional_branch(
         self,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
     ) -> UnpathedFunctionLinearizeCtx<B> {
         UnpathedFunctionLinearizeCtx {
             base: self.base,
@@ -225,7 +225,7 @@ impl<B: branch::Branch>
 {
     pub(crate) fn finish_true_branch_switch_to_false(
         self,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
     ) -> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::DoubleBranchFalse>> {
         UnpathedFunctionLinearizeCtx {
             base: self.base,
@@ -239,10 +239,7 @@ impl<B: branch::Branch>
 impl<B: branch::Branch>
     UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::DoubleBranchFalse>>
 {
-    pub(crate) fn finish_false_branch(
-        self,
-        loc: sourceloc::SourceLoc,
-    ) -> UnpathedFunctionLinearizeCtx<B> {
+    pub(crate) fn finish_false_branch(self, loc: loc::Loc) -> UnpathedFunctionLinearizeCtx<B> {
         UnpathedFunctionLinearizeCtx {
             base: self.base,
             function_path: self.function_path,
@@ -255,10 +252,7 @@ impl<B: branch::Branch>
 impl<B: branch::Branch>
     UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::SingleBranchTrue>>
 {
-    pub(crate) fn finish_true_branch(
-        self,
-        loc: sourceloc::SourceLoc,
-    ) -> UnpathedFunctionLinearizeCtx<B> {
+    pub(crate) fn finish_true_branch(self, loc: loc::Loc) -> UnpathedFunctionLinearizeCtx<B> {
         UnpathedFunctionLinearizeCtx {
             base: self.base,
             function_path: self.function_path,
@@ -271,7 +265,7 @@ impl<B: branch::Branch>
 impl<B: branch::Branch> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::LoopHeader>> {
     pub(crate) fn finish_loop_header(
         self,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
     ) -> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::LoopBody>> {
         UnpathedFunctionLinearizeCtx {
             base: self.base,
@@ -289,7 +283,7 @@ impl<B: branch::Branch> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, bra
 impl<B: branch::Branch> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::LoopBody>> {
     pub(crate) fn finish_loop_body(
         self,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
     ) -> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::LoopFooter>> {
         UnpathedFunctionLinearizeCtx {
             base: self.base,
@@ -301,10 +295,7 @@ impl<B: branch::Branch> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, bra
 }
 
 impl<B: branch::Branch> UnpathedFunctionLinearizeCtx<branch::NestedBranch<B, branch::LoopFooter>> {
-    pub(crate) fn finish_loop_footer(
-        self,
-        loc: sourceloc::SourceLoc,
-    ) -> UnpathedFunctionLinearizeCtx<B> {
+    pub(crate) fn finish_loop_footer(self, loc: loc::Loc) -> UnpathedFunctionLinearizeCtx<B> {
         UnpathedFunctionLinearizeCtx {
             base: self.base,
             function_path: self.function_path,
@@ -318,7 +309,7 @@ impl UnpathedFunctionLinearizeCtx<branch::UnfinishedFunction> {
     pub(crate) fn finish_to_epilogue(
         self,
         path: &symtab::ScopePath,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
     ) -> UnpathedFunctionLinearizeCtx<branch::Epilogue> {
         // fact-check that we are finalizing from subscope 0 and nowhere else
         assert_eq!(

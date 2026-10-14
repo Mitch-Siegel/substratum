@@ -1,6 +1,6 @@
 use crate::frontend::ast::*;
 use crate::frontend::lexer::{token::Token, *};
-use crate::frontend::sourceloc::SourceLoc;
+use crate::frontend::loc::Loc;
 use crate::midend::types::Type;
 use crate::Parser;
 
@@ -136,22 +136,22 @@ fn struct_definition() {
     assert_eq!(
         p.parse_struct_definition().expect(""),
         TranslationUnit::StructDefinition(StructDefinitionTree {
-            loc: SourceLoc::new(1, 1),
+            loc: Loc::new(1, 1),
             name: "money".into(),
             fields: vec![
                 VariableDeclarationTree {
-                    loc: SourceLoc::new(2, 1),
+                    loc: Loc::new(2, 1),
                     name: "dollars".into(),
                     typename: TypenameTree {
-                        loc: SourceLoc::new(2, 10),
+                        loc: Loc::new(2, 10),
                         type_: Type::U64
                     }
                 },
                 VariableDeclarationTree {
-                    loc: SourceLoc::new(3, 1),
+                    loc: Loc::new(3, 1),
                     name: "cents".into(),
                     typename: TypenameTree {
-                        loc: SourceLoc::new(3, 8),
+                        loc: Loc::new(3, 8),
                         type_: Type::U8
                     }
                 }

@@ -1,7 +1,7 @@
 use crate::frontend::{
     lexer::{token::Token, Lexer},
     parser::{ParseError, Parser},
-    sourceloc::SourceLoc,
+    loc::Loc,
 };
 
 #[test]
@@ -18,11 +18,11 @@ fn expect_token_fail() {
     assert_eq!(
         result,
         Err(ParseError::unexpected_token(
-            SourceLoc::new(1, 1),
+            Loc::new(1, 1),
             Token::Identifier("abcd".into()),
             &[Token::U8],
             "UNKNOWN".into(),
-            SourceLoc::none(),
+            Loc::none(),
         ))
     )
 }

@@ -4,19 +4,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ast::{Ast, Expression, IdentifierTree, expressions},
-    sourceloc,
+    loc,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TupleStructTree {
     pub name: IdentifierTree,
     pub subpatterns: Vec<PatternTree>,
-    pub(crate) close_paren_loc: sourceloc::SourceSpan,
+    pub(crate) close_paren: loc::Span,
 }
 
 impl Ast for TupleStructTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.name.loc().merge(&self.close_paren_loc).unwrap()
+    fn span(&self) -> loc::Span {
+        self.name.span().merge(&self.close_paren).unwrap()
     }
 }
 
@@ -46,11 +46,11 @@ pub enum PatternTree {
 }
 
 impl Ast for PatternTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         match self {
-            Self::Literal(e) => e.loc(),
-            Self::Identifier(i) => i.loc(),
-            Self::TupleStruct(t) => t.loc(),
+            Self::Literal(e) => e.span(),
+            Self::Identifier(i) => i.span(),
+            Self::TupleStruct(t) => t.span(),
         }
     }
 }
@@ -72,8 +72,8 @@ pub struct MatchArmTree {
 }
 
 impl Ast for MatchArmTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.pattern.loc().merge(&self.expression.loc()).unwrap()
+    fn span(&self) -> loc::Span {
+        self.pattern.span().merge(&self.expression.span()).unwrap()
     }
 }
 
@@ -85,21 +85,21 @@ impl fmt::Display for MatchArmTree {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MatchExpressionTree {
-    pub(crate) match_keyword_loc: sourceloc::SourceSpan,
+    pub(crate) match_keyword: loc::Span,
     pub scrutinee_expression: Expression,
     pub arms: Vec<MatchArmTree>,
 }
 
 impl Ast for MatchExpressionTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         let mut loc = self
-            .match_keyword_loc
+            .match_keyword
             .clone()
-            .merge(&self.scrutinee_expression.loc())
+            .merge(&self.scrutinee_expression.span())
             .unwrap();
 
         for arm in &self.arms {
-            loc = loc.merge(&arm.loc()).unwrap();
+            loc = loc.merge(&arm.span()).unwrap();
         }
 
         loc

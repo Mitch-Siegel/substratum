@@ -1,4 +1,4 @@
-use frontend::sourceloc;
+use frontend::loc;
 
 use crate::{
     ir::{ValueId, block_manager::branch},
@@ -13,7 +13,7 @@ pub(crate) trait Lowerable {
     fn lower(
         self,
         context: &mut treewalk::FunctionLinearizeCtx<impl branch::Branch>,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
     );
 }
 
@@ -28,7 +28,7 @@ impl Lowerable for Operation {
     fn lower(
         self,
         context: &mut treewalk::FunctionLinearizeCtx<impl branch::Branch>,
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
     ) {
         match self {
             Self::Match(m) => m.lower(context, loc),

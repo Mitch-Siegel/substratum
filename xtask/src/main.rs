@@ -10,21 +10,7 @@ struct Cli {
 enum Command {
     Check,
     CheckSbc,
-    #[command(subcommand)]
-    BuildExample(Example),
-}
-
-#[derive(clap::Subcommand)]
-enum Example {
-    Fibonacci,
-}
-
-impl Example {
-    fn into_filename(self) -> &'static str {
-        match self {
-            Self::Fibonacci => "fibonacci",
-        }
-    }
+    BuildExample { name: String },
 }
 
 fn exec_command(
@@ -89,16 +75,11 @@ fn cargo_workspace_dir() -> std::path::PathBuf {
         .to_path_buf()
 }
 
-fn execute_build_example(e: Example) -> i32 {
+fn execute_build_example(name: &str) -> i32 {
     let mut path = cargo_workspace_dir();
     path.push("examples");
 
-    let crate_name = e.into_filename();
-
-    let file_path = path
-        .clone()
-        .with_file_name(crate_name)
-        .with_extension(".sb");
+    let file_path = path.clone().with_file_name(name).with_extension(".sb");
 
     let output = exec_command(
         "cargo",
@@ -112,9 +93,9 @@ fn execute_build_example(e: Example) -> i32 {
             "-crate-path",
             path.to_str().unwrap(),
             "-crate-name",
-            crate_name,
+            name,
             "-bin",
-            crate_name,
+            name,
             "-trace-level",
             "info",
         ],
@@ -131,7 +112,7 @@ fn main() {
     let result = match cli.command {
         Command::Check => execute_check(),
         Command::CheckSbc => execute_check_sbc(),
-        Command::BuildExample(e) => execute_build_example(e),
+        Command::BuildExample { name } => execute_build_example(&name),
     };
     std::process::exit(result);
 }

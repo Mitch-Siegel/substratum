@@ -1,4 +1,4 @@
-use frontend::sourceloc;
+use frontend::loc;
 
 use crate::{
     ir::{BasicBlock, ControlFlow, ValueInterner, block_manager::branch::Epilogue},
@@ -26,8 +26,8 @@ impl<B: Branch> BlockManager<B> {
     // where start_block is the first basic block in the function
     pub(crate) fn new(
         parent_def_path: &symtab::ValuePath,
-        start_loc: sourceloc::SourceLoc,
-        end_loc: sourceloc::SourceLoc,
+        start_loc: loc::Loc,
+        end_loc: loc::Loc,
     ) -> BlockManager<UnfinishedFunction> {
         // set up the initlal convergence - must always end up at the end_block
         let start_block_path = parent_def_path.clone().with_scope(symtab::ScopeId(0));

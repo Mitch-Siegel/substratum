@@ -2,19 +2,19 @@
 #[test]
 fn ir_line_new_assignment() {
     let assignment = IrLine::new_assignment(
-        SourceLoc::new(123, 456),
+        Loc::new(123, 456),
         ValueId::new_as_variable("a".into()),
         ValueId::new_as_unsigned_decimal_constant(99),
     );
 
-    assert_eq!(assignment.loc, SourceLoc::new(123, 456));
+    assert_eq!(assignment.loc, Loc::new(123, 456));
     assert!(matches!(assignment.operation, Operations::Assignment(_)));
 }
 
 #[test]
 fn ir_line_new_binary_op() {
     let binary_operation = IrLine::new_binary_op(
-        SourceLoc::new(123, 456),
+        Loc::new(123, 456),
         BinaryOperations::new_add(
             ValueId::new_as_variable("result".into()),
             ValueId::new_as_variable("a".into()),
@@ -22,7 +22,7 @@ fn ir_line_new_binary_op() {
         ),
     );
 
-    assert_eq!(binary_operation.loc, SourceLoc::new(123, 456));
+    assert_eq!(binary_operation.loc, Loc::new(123, 456));
     assert!(matches!(
         binary_operation.operation,
         Operations::BinaryOperation(_)
@@ -31,9 +31,9 @@ fn ir_line_new_binary_op() {
 
 #[test]
 fn ir_line_new_jump() {
-    let jump = IrLine::new_jump(SourceLoc::new(123, 456), 8, JumpCondition::Unconditional);
+    let jump = IrLine::new_jump(Loc::new(123, 456), 8, JumpCondition::Unconditional);
 
-    assert_eq!(jump.loc, SourceLoc::new(123, 456));
+    assert_eq!(jump.loc, Loc::new(123, 456));
     assert!(matches!(jump.operation, Operations::Jump(_)));
 }
 
@@ -44,7 +44,7 @@ fn operand_from_string(name: &str) -> ValueId {
 
 #[cfg(test)]
 fn line_from_op(operation: Operations) -> IrLine {
-    IrLine::new(SourceLoc::new(0, 0), operation)
+    IrLine::new(Loc::new(0, 0), operation)
 }
 
 #[cfg(test)]

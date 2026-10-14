@@ -8,9 +8,9 @@ impl ExpressionParser<'_, '_> {
     pub(crate) fn parse_while_expression(
         &mut self,
     ) -> Result<ast::expressions::WhileExpressionTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("while loop")?;
+        let (_start, _span) = self.start_parsing("while loop")?;
 
-        let while_keyword_loc = self.expect_token(Token::While)?;
+        let while_keyword = self.expect_token(Token::While)?;
 
         self.expect_token(Token::LParen)?;
         let condition = self.parse_expression()?;
@@ -19,7 +19,7 @@ impl ExpressionParser<'_, '_> {
         let body = self.parse_block_expression()?;
 
         let while_loop = ast::expressions::WhileExpressionTree {
-            while_keyword_loc,
+            while_keyword,
             condition,
             body,
         };

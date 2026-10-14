@@ -4,12 +4,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ast::{Ast, Expression, IdentifierTree, TypeTree},
-    sourceloc,
+    loc,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LetTree {
-    pub(crate) let_keyword_loc: sourceloc::SourceSpan,
+    pub(crate) let_keyword: loc::Span,
     pub name: IdentifierTree,
     pub(crate) type_: Option<TypeTree>,
     pub mutable: bool,
@@ -17,11 +17,8 @@ pub struct LetTree {
 }
 
 impl Ast for LetTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.let_keyword_loc
-            .clone()
-            .merge(&self.value.loc())
-            .unwrap()
+    fn span(&self) -> loc::Span {
+        self.let_keyword.clone().merge(&self.value.span()).unwrap()
     }
 }
 

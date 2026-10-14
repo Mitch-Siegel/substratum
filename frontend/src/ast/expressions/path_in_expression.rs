@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ast::{Ast, generics, path},
-    sourceloc,
+    loc,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -13,8 +13,8 @@ pub struct PathInExpressionTree {
 }
 
 impl Ast for PathInExpressionTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.underlying_path.loc()
+    fn span(&self) -> loc::Span {
+        self.underlying_path.span()
     }
 }
 

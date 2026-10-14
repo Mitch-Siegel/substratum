@@ -7,12 +7,12 @@ use crate::{
 // parsing functions which only consume a single token
 impl Parser<'_> {
     pub(crate) fn parse_identifier(&mut self) -> Result<ast::IdentifierTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("identifier")?;
+        let (_start, _span) = self.start_parsing("identifier")?;
 
         let identifier = match self.peek_token()? {
             Token::Identifier(value) => {
-                let loc = self.expect_token(Token::Identifier(String::new()))?;
-                ast::IdentifierTree { loc, value }
+                let span = self.expect_token(Token::Identifier(String::new()))?;
+                ast::IdentifierTree { span, value }
             }
             _ => self.unexpected_token(&[Token::Identifier(String::new())])?,
         };
@@ -26,8 +26,8 @@ mod tests {
     use crate::{
         ast::IdentifierTree,
         lexer::{Lexer, token::Token},
+        loc::{Loc, Point, Span},
         parser::{ParseError, Parser},
-        sourceloc::{SourceLoc, SourcePoint, SourceSpan},
     };
     use std::path::Path;
 
@@ -41,10 +41,10 @@ mod tests {
         assert_eq!(
             p.parse_identifier(),
             Ok(IdentifierTree {
-                loc: SourceSpan::new(
+                loc: Span::new(
                     String::new(),
-                    SourcePoint { line: 1, col: 1 },
-                    SourcePoint { line: 1, col: 14 }
+                    Point { line: 1, col: 1 },
+                    Point { line: 1, col: 14 }
                 ),
                 value: "my_identifier".into()
             })
@@ -57,14 +57,14 @@ mod tests {
         assert_eq!(
             p.parse_identifier(),
             Err(ParseError::unexpected_token(
-                SourceLoc::new(String::new(), SourcePoint { line: 1, col: 1 }),
+                Loc::new(String::new(), Point { line: 1, col: 1 }),
                 Token::Struct,
                 &[Token::Identifier("".into())],
                 "identifier".into(),
-                SourceLoc::new(String::new(), SourcePoint { line: 1, col: 1 }),
-                SourceLoc::new(
+                Loc::new(String::new(), Point { line: 1, col: 1 }),
+                Loc::new(
                     String::from("src/frontend/parser/parse_rules/single_token.rs"),
-                    SourcePoint { line: 15, col: 23 }
+                    Point { line: 15, col: 23 }
                 ),
             ))
         );

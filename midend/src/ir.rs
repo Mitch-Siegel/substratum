@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::fmt;
 
-use frontend::sourceloc;
+use frontend::loc;
 
 use crate::types;
 
@@ -47,7 +47,7 @@ impl fmt::Display for Operation {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub(crate) struct IrLine {
-    pub loc: sourceloc::SourceLoc,
+    pub loc: loc::Loc,
     pub operation: Operation,
 }
 
@@ -75,29 +75,25 @@ impl types::Inference for IrLine {
 // IrLine constructors
 #[allow(dead_code)]
 impl IrLine {
-    fn new_lowered(loc: sourceloc::SourceLoc, operation: lowered::Operation) -> Self {
+    fn new_lowered(loc: loc::Loc, operation: lowered::Operation) -> Self {
         Self {
             loc,
             operation: Operation::Lowered(operation),
         }
     }
-    fn new_unlowered(loc: sourceloc::SourceLoc, operation: unlowered::Operation) -> Self {
+    fn new_unlowered(loc: loc::Loc, operation: unlowered::Operation) -> Self {
         Self {
             loc,
             operation: Operation::Unlowered(operation),
         }
     }
 
-    pub(crate) fn new_assignment(
-        loc: sourceloc::SourceLoc,
-        destination: ValueId,
-        source: ValueId,
-    ) -> Self {
+    pub(crate) fn new_assignment(loc: loc::Loc, destination: ValueId, source: ValueId) -> Self {
         Self::new_lowered(loc, lowered::new_assignment(destination, source))
     }
 
     pub(crate) fn new_binary_arithmetic_expression(
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         destination: ValueId,
         operands: lowered::operands::BinaryArithmeticOperands,
     ) -> Self {
@@ -108,7 +104,7 @@ impl IrLine {
     }
 
     pub(crate) fn new_binary_comparison_expression(
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         destination: ValueId,
         operands: lowered::operands::BinaryComparisonOperands,
     ) -> Self {
@@ -119,7 +115,7 @@ impl IrLine {
     }
 
     pub(crate) fn new_jump(
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         destination_block: usize,
         condition: lowered::operands::JumpCondition,
     ) -> Self {
@@ -127,7 +123,7 @@ impl IrLine {
     }
 
     pub(crate) fn new_call(
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         function_operand: ValueId,
         arguments: lowered::operands::OrderedArgumentList,
         return_value_to: ValueId,
@@ -139,7 +135,7 @@ impl IrLine {
     }
 
     pub(crate) fn new_compute_field_address(
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         receiver: ValueId,
         field_offset: usize,
         destination: ValueId,
@@ -150,15 +146,11 @@ impl IrLine {
         )
     }
 
-    pub(crate) fn new_load(
-        loc: sourceloc::SourceLoc,
-        pointer: ValueId,
-        destination: ValueId,
-    ) -> Self {
+    pub(crate) fn new_load(loc: loc::Loc, pointer: ValueId, destination: ValueId) -> Self {
         Self::new_lowered(loc, lowered::new_load(pointer, destination))
     }
 
-    pub(crate) fn new_store(loc: sourceloc::SourceLoc, source: ValueId, pointer: ValueId) -> Self {
+    pub(crate) fn new_store(loc: loc::Loc, source: ValueId, pointer: ValueId) -> Self {
         Self::new_lowered(loc, lowered::new_store(source, pointer))
     }
 
@@ -166,7 +158,7 @@ impl IrLine {
     // unlowered IR constructors
     //
     pub(crate) fn new_match(
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         scrutinee: ValueId,
         arms: Vec<unlowered::operands::MatchArm>,
     ) -> Self {
@@ -174,7 +166,7 @@ impl IrLine {
     }
 
     pub(crate) fn new_discriminant(
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         enum_value: ValueId,
         destination: ValueId,
     ) -> Self {
@@ -182,7 +174,7 @@ impl IrLine {
     }
 
     pub(crate) fn new_get_field_pointer(
-        loc: sourceloc::SourceLoc,
+        loc: loc::Loc,
         receiver: ValueId,
         field_name: String,
         destination: ValueId,

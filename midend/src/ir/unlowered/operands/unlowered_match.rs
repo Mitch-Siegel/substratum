@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use frontend::sourceloc;
+use frontend::loc;
 
 use crate::{
     ir::{
@@ -161,11 +161,7 @@ pub(crate) struct MatchOperands {
 }
 
 impl Lowerable for MatchOperands {
-    fn lower(
-        self,
-        _ctx: &mut treewalk::FunctionLinearizeCtx<impl branch::Branch>,
-        _loc: sourceloc::SourceLoc,
-    ) {
+    fn lower(self, _ctx: &mut treewalk::FunctionLinearizeCtx<impl branch::Branch>, _loc: loc::Loc) {
         // TODO: implement actual match decision tree logic
         unimplemented!();
 

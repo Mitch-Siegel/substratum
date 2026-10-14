@@ -16,7 +16,7 @@ pub(crate) fn collect_from_parent_path(
 ) -> CollectResult {
     trace::debug!("collect for module {}", module.name);
 
-    let mut module_ctx = ctx.with_child_type(module.name.value.clone());
+    let mut module_ctx = ctx.with_child_type(module.name.clone());
 
     for item in &module.items {
         module_ctx = item.collect_symbols(module_ctx)?;
@@ -31,7 +31,7 @@ pub(crate) fn collect_from_crate_root(
 ) -> CollectResult {
     let mut module_ctx = unpathed_ctx.with_path(symtab::TypePath::new(
         None::<symtab::TypePath>,
-        module.name.value.clone(),
+        module.name.clone(),
     ));
 
     for item in &module.items {
@@ -51,7 +51,7 @@ where
     C::Unpathed: UnpathedLinearizeCtxTrait,
     C: PathedLinearizeCtxTrait<Unpathed = UnpathedLinearizeCtx>,
 {
-    let module_name: String = module.name.value;
+    let module_name: String = module.name;
 
     trace::warn!(
         "here with path {}, module name {}, ctx path ",
@@ -80,7 +80,7 @@ pub(crate) fn linearize_from_crate_root(
     unpathed_ctx: UnpathedLinearizeCtx,
     crate_name: &str,
 ) -> LinearizeResult<(), UnpathedLinearizeCtx> {
-    let module_name: String = module.name.value;
+    let module_name: String = module.name;
 
     let mut ctx = unpathed_ctx.with_path(symtab::TypePath::new(
         None::<symtab::TypePath>,

@@ -7,7 +7,7 @@ use crate::{
         Ast, IdentifierTree, TypeTree, expressions::BlockExpressionTree,
         generics::OptionalGenericParamsListTree,
     },
-    sourceloc,
+    loc,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -18,8 +18,8 @@ pub struct ArgumentDeclarationTree {
 }
 
 impl Ast for ArgumentDeclarationTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.name.loc().merge(&self.type_.loc()).unwrap()
+    fn span(&self) -> loc::Span {
+        self.name.span().merge(&self.type_.span()).unwrap()
     }
 }
 
@@ -35,19 +35,19 @@ impl fmt::Display for ArgumentDeclarationTree {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FunctionDeclarationTree {
-    pub(crate) fn_keyword_loc: sourceloc::SourceSpan,
+    pub(crate) fn_keyword: loc::Span,
     pub name: IdentifierTree,
     pub generic_params: OptionalGenericParamsListTree,
     pub arguments: Vec<ArgumentDeclarationTree>,
-    pub args_close_paren_loc: sourceloc::SourceSpan,
+    pub args_close_paren: loc::Span,
     pub return_type: Option<TypeTree>,
 }
 
 impl Ast for FunctionDeclarationTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        let mut loc = self.name.loc().merge(&self.args_close_paren_loc).unwrap();
+    fn span(&self) -> loc::Span {
+        let mut loc = self.name.span().merge(&self.args_close_paren).unwrap();
         if let Some(return_type) = &self.return_type {
-            loc = loc.merge(&return_type.loc()).unwrap();
+            loc = loc.merge(&return_type.span()).unwrap();
         }
         loc
     }
@@ -79,8 +79,8 @@ pub struct FunctionDefinitionTree {
 
 // TODO: get this returning the Function rather than inserting automatically
 impl Ast for FunctionDefinitionTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.prototype.loc().merge(&self.body.loc()).unwrap()
+    fn span(&self) -> loc::Span {
+        self.prototype.span().merge(&self.body.span()).unwrap()
     }
 }
 

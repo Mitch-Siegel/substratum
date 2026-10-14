@@ -6,35 +6,30 @@ use crate::frontend::{
         types::{PrimitiveTypePathTree, TypeItemPathTree, TypeNoBoundsTree, TypePath},
         *,
     },
-    sourceloc::{SourceLoc, SourcePoint, SourceSpan},
+    loc::{SourcePoint, Span, oc},
 };
 
 use super::types::ReferenceTypeTree;
 
-pub(crate) fn test_loc(line: u32, col: u32) -> SourceLoc {
-    SourceLoc::new(String::from(""), SourcePoint::new(line, col))
+pub(crate) fn test_loc(line: u32, col: u32) -> Loc {
+    Loc::new(String::from(""), SourcePoint::new(line, col))
 }
 
-pub(crate) fn test_span(
-    start_line: u32,
-    start_col: u32,
-    end_line: u32,
-    end_col: u32,
-) -> SourceSpan {
-    SourceSpan::new(
+pub(crate) fn test_span(start_line: u32, start_col: u32, end_line: u32, end_col: u32) -> Span {
+    Span::new(
         String::from(""),
         SourcePoint::new(start_line, start_col),
         SourcePoint::new(end_line, end_col),
     )
 }
 
-fn expand_span(span: SourceSpan, cols: u32) -> SourceSpan {
+fn expand_span(span: Span, cols: u32) -> SourceSpan {
     let mut end = span.clone().end();
     end.point.col += cols;
     span.merge(&end.into()).unwrap()
 }
 
-pub(crate) fn identifier(value: &str, start_loc: SourceLoc) -> IdentifierTree {
+pub(crate) fn identifier(value: &str, start_loc: Loc) -> IdentifierTree {
     IdentifierTree {
         value: value.into(),
         loc: expand_span(
@@ -46,7 +41,7 @@ pub(crate) fn identifier(value: &str, start_loc: SourceLoc) -> IdentifierTree {
 
 pub(crate) fn path_ident_segment<T>(
     value: &str,
-    start_point: SourceLoc,
+    start_point: Loc,
     data: Option<T>,
 ) -> PathSegmentTree<T>
 where
@@ -58,7 +53,7 @@ where
     }
 }
 
-pub(crate) fn path_super_segment<T>(start_loc: SourceLoc, data: Option<T>) -> PathSegmentTree<T>
+pub(crate) fn path_super_segment<T>(start_loc: Loc, data: Option<T>) -> PathSegmentTree<T>
 where
     T: Ast,
 {
@@ -68,10 +63,7 @@ where
     }
 }
 
-pub(crate) fn path_self_lower_segment<T>(
-    start_loc: SourceLoc,
-    data: Option<T>,
-) -> PathSegmentTree<T>
+pub(crate) fn path_self_lower_segment<T>(start_loc: Loc, data: Option<T>) -> PathSegmentTree<T>
 where
     T: Ast,
 {
@@ -81,10 +73,7 @@ where
     }
 }
 
-pub(crate) fn path_self_upper_segment<T>(
-    start_loc: SourceLoc,
-    data: Option<T>,
-) -> PathSegmentTree<T>
+pub(crate) fn path_self_upper_segment<T>(start_loc: Loc, data: Option<T>) -> PathSegmentTree<T>
 where
     T: Ast,
 {
@@ -94,10 +83,7 @@ where
     }
 }
 
-pub(crate) fn path<T>(
-    segments: Vec<PathSegmentTree<T>>,
-    starts_global: Option<SourceSpan>,
-) -> PathTree<T>
+pub(crate) fn path<T>(segments: Vec<PathSegmentTree<T>>, starts_global: Option<Span>) -> PathTree<T>
 where
     T: Ast,
 {

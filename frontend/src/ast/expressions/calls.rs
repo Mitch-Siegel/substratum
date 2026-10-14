@@ -4,22 +4,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ast::{Ast, Expression},
-    sourceloc,
+    loc,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CallParamsTree {
-    pub(crate) open_paren_loc: sourceloc::SourceSpan,
+    pub(crate) open_paren: loc::Span,
     pub params: Vec<Expression>,
-    pub(crate) close_paren_loc: sourceloc::SourceSpan,
+    pub(crate) close_paren: loc::Span,
 }
 
 impl Ast for CallParamsTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.open_paren_loc
-            .clone()
-            .merge(&self.close_paren_loc)
-            .unwrap()
+    fn span(&self) -> loc::Span {
+        self.open_paren.clone().merge(&self.close_paren).unwrap()
     }
 }
 
@@ -44,10 +41,10 @@ pub struct CallExpressionTree {
 }
 
 impl Ast for CallExpressionTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         self.function_operand
-            .loc()
-            .merge(&self.params.loc())
+            .span()
+            .merge(&self.params.span())
             .unwrap()
     }
 }

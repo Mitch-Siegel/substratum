@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use frontend::sourceloc;
+use frontend::loc;
 
 use crate::{
     ir::{self, IrLine, ValueId},
@@ -12,16 +12,12 @@ pub(crate) struct BasicBlock {
     pub label: usize,
     def_path: symtab::ScopePath,
     statements: Vec<IrLine>,
-    span: frontend::sourceloc::SourceSpan,
+    span: frontend::loc::Span,
     pub arguments: BTreeSet<ValueId>,
 }
 
 impl BasicBlock {
-    pub(crate) fn new(
-        label: usize,
-        def_path: symtab::ScopePath,
-        loc: frontend::sourceloc::SourceLoc,
-    ) -> Self {
+    pub(crate) fn new(label: usize, def_path: symtab::ScopePath, loc: frontend::loc::Loc) -> Self {
         Self {
             label,
             def_path,
@@ -41,7 +37,7 @@ impl BasicBlock {
     #[allow(unused)]
     pub(crate) fn split_at(&mut self, idx: usize) -> Vec<IrLine> {
         let removed = self.statements.split_off(idx);
-        self.span = self.span.start().into();
+        self.span = self.span.clone().start().into();
         for stmt in &self.statements {
             self.span.extend(&stmt.loc);
         }
@@ -67,7 +63,7 @@ impl BasicBlock {
         self.statements.iter_mut()
     }
 
-    pub(crate) fn span(&self) -> &sourceloc::SourceSpan {
+    pub(crate) fn span(&self) -> &loc::Span {
         &self.span
     }
 

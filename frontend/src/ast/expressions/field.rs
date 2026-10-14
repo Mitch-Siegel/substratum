@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ast::{Ast, Expression, IdentifierTree},
-    sourceloc,
+    loc,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -14,8 +14,8 @@ pub struct FieldExpressionTree {
 }
 
 impl Ast for FieldExpressionTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.receiver.loc().merge(&self.field.loc()).unwrap()
+    fn span(&self) -> loc::Span {
+        self.receiver.span().merge(&self.field.span()).unwrap()
     }
 }
 

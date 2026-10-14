@@ -42,7 +42,7 @@ where
 impl ValueInterner<Option<types::Syntactic>> {
     pub(crate) fn next_temp(
         &mut self,
-        #[cfg(feature = "value_locs")] loc: frontend::sourceloc::StaticSourceLoc,
+        #[cfg(feature = "value_locs")] loc: frontend::loc::StaticLoc,
     ) -> ValueId {
         let temp_value = SsaValue::new(
             ValueKind::Temporary(self.temp_count).into(),
@@ -60,7 +60,7 @@ impl ValueInterner<Option<types::Syntactic>> {
     pub(crate) fn id_for_path(
         &mut self,
         def_path: &symtab::ValuePath,
-        #[cfg(feature = "value_locs")] loc: frontend::sourceloc::StaticSourceLoc,
+        #[cfg(feature = "value_locs")] loc: frontend::loc::StaticLoc,
     ) -> ValueId {
         match self.pathed_ids.get(def_path) {
             Some(id) => *id,
@@ -88,7 +88,7 @@ impl ValueInterner<Option<types::Syntactic>> {
     pub(crate) fn id_for_constant(
         &mut self,
         constant: usize,
-        #[cfg(feature = "value_locs")] loc: frontend::sourceloc::StaticSourceLoc,
+        #[cfg(feature = "value_locs")] loc: frontend::loc::StaticLoc,
     ) -> ValueId {
         if !self.constant_ids.contains_key(&constant) {
             let constant_value = SsaValue::new(
@@ -110,7 +110,7 @@ where
 {
     pub(crate) fn new(
         unit_type: T,
-        #[cfg(feature = "value_locs")] loc: frontend::sourceloc::StaticSourceLoc,
+        #[cfg(feature = "value_locs")] loc: frontend::loc::StaticLoc,
     ) -> Self {
         let unit_value = SsaValue::new(
             ValueKind::Temporary(0).into(),
@@ -253,7 +253,7 @@ where
     pub(crate) fn make_unique_ssa_for(
         &mut self,
         id: ValueId,
-        #[cfg(feature = "value_locs")] loc: frontend::sourceloc::StaticSourceLoc,
+        #[cfg(feature = "value_locs")] loc: frontend::loc::StaticLoc,
     ) -> Result<ValueId, ValueError> {
         let base_id = self.ssa_base_id(id)?;
         let instance = self.ssa_instances.entry(base_id).or_default().len();

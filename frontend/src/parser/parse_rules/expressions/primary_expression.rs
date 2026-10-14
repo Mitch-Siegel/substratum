@@ -11,7 +11,7 @@ impl ExpressionParser<'_, '_> {
         let primary_expression = match self.peek_token()? {
             Token::Identifier(_) => self.parse_expression()?,
             Token::UnsignedDecimalConstant(value) => {
-                let (_, loc) = self.next_token_with_loc()?;
+                let (_, loc) = self.next_token_with_span()?;
                 ast::Expression::UnsignedDecimalConstant(loc, value)
             }
             Token::LParen => {

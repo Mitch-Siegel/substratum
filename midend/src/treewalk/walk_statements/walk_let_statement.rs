@@ -43,7 +43,7 @@ where
 
         let declared_id = ctx.function_mut().values_mut().id_for_path(variable_path);
 
-        let expr_loc = self.value.loc().clone();
+        let expr_loc = self.value.span().clone();
         let expr_value = self.value.linearize(ctx);
         let assignment_line =
             ir::IrLine::new_assignment(expr_loc.start(), declared_id, expr_value);

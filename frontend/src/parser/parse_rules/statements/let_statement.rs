@@ -8,7 +8,7 @@ impl StatementParser<'_, '_> {
     pub(crate) fn parse_let_statement(&mut self) -> Result<ast::statements::LetTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("let statement")?;
 
-        let let_keyword_loc = self.expect_token(Token::Let)?;
+        let let_keyword = self.expect_token(Token::Let)?;
 
         let mutable = match self.peek_token()? {
             Token::Mut => {
@@ -31,7 +31,7 @@ impl StatementParser<'_, '_> {
         let value = self.expression_parser().parse_expression()?;
 
         let let_tree = ast::statements::LetTree {
-            let_keyword_loc,
+            let_keyword,
             name,
             type_,
             mutable,

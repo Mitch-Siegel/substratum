@@ -8,7 +8,7 @@ impl ItemParser<'_, '_> {
     fn parse_struct_field_declaration(
         &mut self,
     ) -> Result<ast::items::struct_definition::StructFieldTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("struct field")?;
+        let (_start, _span) = self.start_parsing("struct field")?;
 
         let name = self.parse_identifier()?;
         self.expect_token(Token::Colon)?;
@@ -21,9 +21,9 @@ impl ItemParser<'_, '_> {
     pub(crate) fn parse_struct_definition(
         &mut self,
     ) -> Result<ast::items::StructDefinitionTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("struct definition")?;
+        let (_start, _span) = self.start_parsing("struct definition")?;
 
-        let struct_keyword_loc = self.expect_token(Token::Struct)?;
+        let struct_keyword = self.expect_token(Token::Struct)?;
         let name = self.parse_identifier()?;
         let generic_params = self.try_parse_generic_params_list()?;
         self.expect_token(Token::LCurly)?;
@@ -47,14 +47,14 @@ impl ItemParser<'_, '_> {
             }
         }
 
-        let close_brace_loc = self.expect_token(Token::RCurly)?;
+        let close_brace = self.expect_token(Token::RCurly)?;
 
         let struct_definition = ast::items::StructDefinitionTree {
-            struct_keyword_loc,
+            struct_keyword,
             name,
             generic_params,
             fields,
-            close_brace_loc,
+            close_brace,
         };
         self.finish_parsing(struct_definition)
     }

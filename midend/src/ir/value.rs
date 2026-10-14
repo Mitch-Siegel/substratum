@@ -53,7 +53,7 @@ where
     pub ty: &'a T,
     #[cfg(feature = "value_locs")]
     #[allow(unused)]
-    pub loc: &'a frontend::sourceloc::StaticSourceLoc,
+    pub loc: &'a frontend::loc::StaticLoc,
 }
 
 impl<'a, T> Value<'a, T>
@@ -63,7 +63,7 @@ where
     pub(crate) fn new(
         kind: &'a ValueKind,
         ty: &'a T,
-        #[cfg(feature = "value_locs")] loc: &'a frontend::sourceloc::StaticSourceLoc,
+        #[cfg(feature = "value_locs")] loc: &'a frontend::loc::StaticLoc,
     ) -> Self {
         Self { kind, ty, loc }
     }
@@ -148,7 +148,7 @@ where
     pub ty: &'a mut T,
     #[cfg(feature = "value_locs")]
     #[allow(unused)]
-    pub loc: &'a frontend::sourceloc::StaticSourceLoc,
+    pub loc: &'a frontend::loc::StaticLoc,
 }
 
 impl<'a, T> TryFrom<&'a mut value_interner::SsaValue<T>> for ValueMut<'a, T>

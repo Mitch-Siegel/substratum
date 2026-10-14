@@ -8,7 +8,7 @@ impl ItemParser<'_, '_> {
     pub(crate) fn parse_function_declaration_or_definition(
         &mut self,
     ) -> Result<ast::ItemTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("function declaration/definition")?;
+        let (_start, _span) = self.start_parsing("function declaration/definition")?;
 
         let prototype = self.parse_function_prototype(false)?;
 
@@ -24,10 +24,10 @@ impl ItemParser<'_, '_> {
         &mut self,
         allow_self_param: bool,
     ) -> Result<ast::items::FunctionDeclarationTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("function prototype")?;
+        let (_start, _span) = self.start_parsing("function prototype")?;
 
         // start with fun
-        let fn_keyword_loc = self.expect_token(Token::Fn_)?;
+        let fn_keyword = self.expect_token(Token::Fn_)?;
 
         let name = self.parse_identifier()?;
         let generic_params = self.try_parse_generic_params_list()?;
@@ -58,7 +58,7 @@ impl ItemParser<'_, '_> {
             }
         }
         // consume closing paren
-        let args_close_paren_loc = self.expect_token(Token::RParen)?;
+        let args_close_paren = self.expect_token(Token::RParen)?;
 
         let return_type = match self.peek_token()? {
             Token::Arrow => {
@@ -69,11 +69,11 @@ impl ItemParser<'_, '_> {
         };
 
         let prototype = ast::items::FunctionDeclarationTree {
-            fn_keyword_loc,
+            fn_keyword,
             name,
             generic_params,
             arguments,
-            args_close_paren_loc,
+            args_close_paren,
             return_type,
         };
         self.finish_parsing(prototype)
@@ -84,7 +84,7 @@ impl ItemParser<'_, '_> {
     ) -> Result<Option<ast::items::function::ArgumentDeclarationTree>, ParseError> {
         // TODO: fix loc tracking in this function
 
-        let (start_loc, _span) = self.start_parsing("self argument")?;
+        let (start, _span) = self.start_parsing("self argument")?;
 
         let (exists, mutable, reference) = match self.lookahead_token(0)? {
             // just 'self'
@@ -127,14 +127,14 @@ impl ItemParser<'_, '_> {
             let self_argument = if reference {
                 ast::items::function::ArgumentDeclarationTree {
                     name: ast::IdentifierTree {
-                        loc: start_loc.clone().into(),
+                        span: start.clone().into(),
                         value: "self".into(),
                     },
 
                     type_: ast::types::TypeTree::TypeNoBounds(
                         ast::types::TypeNoBoundsTree::ReferenceType(
                             ast::types::ReferenceTypeTree {
-                                reference_token_loc: start_loc.clone().into(),
+                                reference_token: start.clone().into(),
                                 mutability: mutable.into(),
                                 type_: Box::new(ast::types::TypeNoBoundsTree::TypePath(
                                     ast::types::TypePath::ItemPath(ast::types::TypeItemPathTree {
@@ -142,7 +142,7 @@ impl ItemParser<'_, '_> {
                                             starts_global: None,
                                             segments: vec![ast::path::PathSegmentTree {
                                                 ident: ast::path::IdentSegment::SelfLower(
-                                                    start_loc.into(),
+                                                    start.into(),
                                                 ),
                                                 data: None,
                                             }],
@@ -157,7 +157,7 @@ impl ItemParser<'_, '_> {
             } else {
                 ast::items::function::ArgumentDeclarationTree {
                     name: ast::IdentifierTree {
-                        loc: start_loc.clone().into(),
+                        span: start.clone().into(),
                         value: "self".into(),
                     },
                     type_: ast::types::TypeTree::TypeNoBounds(
@@ -166,7 +166,7 @@ impl ItemParser<'_, '_> {
                                 underlying_path: ast::path::PathTree {
                                     starts_global: None,
                                     segments: vec![ast::path::PathSegmentTree {
-                                        ident: ast::path::IdentSegment::SelfLower(start_loc.into()),
+                                        ident: ast::path::IdentSegment::SelfLower(start.into()),
                                         data: None,
                                     }],
                                 },
@@ -188,7 +188,7 @@ impl ItemParser<'_, '_> {
         &mut self,
         prototype: ast::items::FunctionDeclarationTree,
     ) -> Result<ast::items::FunctionDefinitionTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("function definition")?;
+        let (_start, _span) = self.start_parsing("function definition")?;
 
         let body = self.parse_block_expression()?;
 

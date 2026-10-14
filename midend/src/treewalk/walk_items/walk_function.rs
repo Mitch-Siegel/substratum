@@ -119,7 +119,7 @@ where
         self,
         mut ctx: PathedCtx<UnpathedLinearizeCtx, P>,
     ) -> LinearizeResult<Self::Data, UnpathedLinearizeCtx> {
-        let span = self.loc();
+        let span = self.span();
         let declared_prototype;
         (declared_prototype, ctx) = self.prototype.linearize(ctx)?;
         let function_name = declared_prototype.name.clone();
@@ -136,8 +136,8 @@ where
                 ctx,
                 declared_prototype,
                 &arg_def_paths,
-                span.start(),
-                span.end(),
+                span.clone().start(),
+                span.clone().end(),
             );
 
         let function_ctx: FunctionLinearizeCtx<branch::UnfinishedFunction> =

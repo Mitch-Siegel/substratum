@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use frontend::{ast, sourceloc};
+use frontend::{ast, loc};
 
 use crate::{
     ir::block_manager::branch,
@@ -15,8 +15,8 @@ use crate::{
 
 fn linearize_params_list_ctxless(
     params: ast::GenericParamsListTree,
-) -> Vec<(sourceloc::SourceSpan, types::GenericParam)> {
-    let generic_params_vec = params.into_vec_with_locs();
+) -> Vec<(loc::Span, types::GenericParam)> {
+    let generic_params_vec = params.into_vec_with_spans();
     generic_params_vec
         .into_iter()
         .map(|(param_name, loc)| {

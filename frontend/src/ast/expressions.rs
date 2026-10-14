@@ -2,7 +2,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ast::Ast, sourceloc};
+use crate::{ast::Ast, loc};
 
 pub mod arithmetic;
 pub mod assignment;
@@ -27,7 +27,7 @@ pub use while_expression::WhileExpressionTree;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Expression {
     PathIn(PathInExpressionTree),
-    UnsignedDecimalConstant(sourceloc::SourceSpan, usize),
+    UnsignedDecimalConstant(loc::Span, usize),
     Arithmetic(ArithmeticExpressionTree),
     Comparison(ComparisonExpressionTree),
     Assignment(AssignmentTree),
@@ -39,18 +39,18 @@ pub enum Expression {
 }
 
 impl Ast for Expression {
-    fn loc(&self) -> sourceloc::SourceSpan {
+    fn span(&self) -> loc::Span {
         match self {
-            Self::PathIn(e) => e.loc(),
+            Self::PathIn(e) => e.span(),
             Self::UnsignedDecimalConstant(l, _) => l.clone(),
-            Self::Arithmetic(e) => e.loc(),
-            Self::Comparison(e) => e.loc(),
-            Self::Assignment(e) => e.loc(),
-            Self::If(e) => e.loc(),
-            Self::Match(e) => e.loc(),
-            Self::While(e) => e.loc(),
-            Self::Field(e) => e.loc(),
-            Self::Call(e) => e.loc(),
+            Self::Arithmetic(e) => e.span(),
+            Self::Comparison(e) => e.span(),
+            Self::Assignment(e) => e.span(),
+            Self::If(e) => e.span(),
+            Self::Match(e) => e.span(),
+            Self::While(e) => e.span(),
+            Self::Field(e) => e.span(),
+            Self::Call(e) => e.span(),
         }
     }
 }

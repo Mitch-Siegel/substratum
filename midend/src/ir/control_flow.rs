@@ -341,7 +341,7 @@ impl<'a> IntoIterator for &'a mut ControlFlow {
 #[cfg(test)]
 mod tests {
     use crate::{
-        frontend::sourceloc::SourceLoc,
+        frontend::loc::Loc,
         midend::{
             ir::{
                 BasicBlock, ControlFlow, IrLine, ValueId, ValueInterner,
@@ -360,12 +360,12 @@ mod tests {
         let b3 = BasicBlock::new(3, RawPath::empty());
 
         // 0->1
-        let jump = IrLine::new_jump(SourceLoc::none(), 1, JumpCondition::Unconditional);
+        let jump = IrLine::new_jump(Loc::none(), 1, JumpCondition::Unconditional);
         b0.push(jump);
 
         // 1->2 (conditional)
         let jump = IrLine::new_jump(
-            SourceLoc::none(),
+            Loc::none(),
             2,
             JumpCondition::Conditional(BinaryComparisonOperands::new(
                 ValueId::new(0),
@@ -375,11 +375,11 @@ mod tests {
         );
         b1.push(jump);
         // 1->3
-        let jump = IrLine::new_jump(SourceLoc::none(), 3, JumpCondition::Unconditional);
+        let jump = IrLine::new_jump(Loc::none(), 3, JumpCondition::Unconditional);
         b1.push(jump);
 
         // 2->1
-        let jump = IrLine::new_jump(SourceLoc::none(), 1, JumpCondition::Unconditional);
+        let jump = IrLine::new_jump(Loc::none(), 1, JumpCondition::Unconditional);
         b2.push(jump);
 
         let blocks: HashMap<usize, BasicBlock> = vec![b0, b1, b2, b3]

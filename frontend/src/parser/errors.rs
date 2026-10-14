@@ -1,6 +1,6 @@
 use crate::{
     lexer::{LexError, token::Token},
-    sourceloc::SourceLoc,
+    loc::Loc,
 };
 
 #[derive(Clone)]
@@ -52,12 +52,12 @@ impl std::fmt::Debug for ParseError {
 
 #[derive(Debug, Clone, Eq)]
 pub(crate) struct UnexpectedTokenError {
-    pub loc: SourceLoc,
+    pub loc: Loc,
     pub got: Token,
     pub expected: Vec<Token>,
     pub while_parsing: String,
-    pub while_parsing_start: SourceLoc,
-    pub parser_source_location: SourceLoc,
+    pub while_parsing_start: Loc,
+    pub parser_source_location: Loc,
 }
 
 impl PartialEq for UnexpectedTokenError {
@@ -72,12 +72,12 @@ impl PartialEq for UnexpectedTokenError {
 
 impl ParseError {
     pub(crate) fn unexpected_token(
-        loc: SourceLoc,
+        loc: Loc,
         got: Token,
         expected: &[Token],
         while_parsing: String,
-        while_parsing_start: SourceLoc,
-        parser_source_location: SourceLoc,
+        while_parsing_start: Loc,
+        parser_source_location: Loc,
     ) -> Self {
         Self::UnexpectedToken(Box::new(UnexpectedTokenError {
             loc,
@@ -100,28 +100,26 @@ impl From<LexError> for ParseError {
 mod tests {
     use crate::frontend::{
         lexer::{LexError, Token},
+        loc::{SourcePoint, oc},
         parser::ParseError,
-        sourceloc::{SourceLoc, SourcePoint},
     };
 
     #[test]
     fn parse_error_fmt() {
-        let lex_error = LexError::unexpected_eof(SourceLoc::new(
-            String::new(),
-            SourcePoint { line: 1, col: 1 },
-        ));
+        let lex_error =
+            LexError::unexpected_eof(Loc::new(String::new(), SourcePoint { line: 1, col: 1 }));
         assert_eq!(
             format!("{}", lex_error),
             format!("{}", ParseError::from(lex_error))
         );
 
         let unexpected_token = ParseError::unexpected_token(
-            SourceLoc::new(String::new(), SourcePoint { line: 2, col: 3 }),
+            Loc::new(String::new(), SourcePoint { line: 2, col: 3 }),
             Token::U8,
             &[Token::U16, Token::U32],
             "something".into(),
-            SourceLoc::new(String::new(), SourcePoint { line: 1, col: 1 }),
-            SourceLoc::new(String::new(), SourcePoint { line: 1, col: 1 }),
+            Loc::new(String::new(), SourcePoint { line: 1, col: 1 }),
+            Loc::new(String::new(), SourcePoint { line: 1, col: 1 }),
         );
 
         assert_eq!(
@@ -129,11 +127,11 @@ mod tests {
             format!(
                 "Unexpected token '{}' at {}, expected one of ['{}', '{}'] (while parsing {} starting at {}) (error generated at :1:1)",
                 Token::U8,
-                SourceLoc::new(String::new(), SourcePoint { line: 2, col: 3 }),
+                Loc::new(String::new(), SourcePoint { line: 2, col: 3 }),
                 Token::U16,
                 Token::U32,
                 "something",
-                SourceLoc::new(String::new(), SourcePoint { line: 1, col: 1 })
+                Loc::new(String::new(), SourcePoint { line: 1, col: 1 })
             )
         );
     }

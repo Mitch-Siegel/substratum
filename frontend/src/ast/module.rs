@@ -4,30 +4,34 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ast::{Ast, IdentifierTree, ItemTree},
-    sourceloc,
+    loc,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModuleTree {
     pub module_path: Vec<String>,
-    pub(crate) mod_keyword_loc: sourceloc::SourceSpan,
-    pub name: IdentifierTree,
+    pub(crate) maybe_mod_keyword_and_name: Option<(loc::Span, IdentifierTree)>,
+    pub name: String,
     pub items: Vec<ItemTree>,
 }
 
 impl Ast for ModuleTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        let mut loc = self
-            .mod_keyword_loc
-            .clone()
-            .merge(&self.name.loc())
-            .unwrap();
+    fn span(&self) -> loc::Span {
+        let mut loc = None;
 
-        for item in &self.items {
-            loc = loc.merge(&item.loc()).unwrap();
+        if let Some((mod_kw_loc, name)) = &self.maybe_mod_keyword_and_name {
+            loc.replace(mod_kw_loc.clone().merge(&name.span()).unwrap());
         }
 
-        loc
+        for item in &self.items {
+            let new_loc = match &loc {
+                Some(existing) => existing.clone().merge(&item.span()).unwrap(),
+                None => item.span(),
+            };
+            loc.replace(new_loc);
+        }
+
+        loc.expect("module with no items")
     }
 }
 

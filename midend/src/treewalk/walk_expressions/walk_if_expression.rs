@@ -28,9 +28,9 @@ impl FunctionLinearizeErased for ast::expressions::IfExpressionTree {
         mut ctx: FunctionLinearizeCtx<Box<dyn branch::Branch>>,
     ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<Box<dyn branch::Branch>>> {
         // FUTURE: optimize condition walk to use different jumps
-        let condition_loc = self.condition.loc();
-        let if_loc = self.loc();
-        let after_loc = self.loc().end();
+        let condition_loc = self.condition.span();
+        let if_loc = self.span();
+        let after_loc = self.span().end();
 
         let condition_value;
         (condition_value, ctx) = self.condition.linearize(ctx)?;
@@ -49,13 +49,13 @@ impl FunctionLinearizeErased for ast::expressions::IfExpressionTree {
 
         let parent_scope_def_path = ctx.path().clone();
 
-        let true_data = branch::BranchTarget::new(if_loc.start(), ctx.reserve_subscope());
+        let true_data = branch::BranchTarget::new(if_loc.clone().start(), ctx.reserve_subscope());
 
-        let branch_loc = condition_loc.start();
+        let branch_loc = condition_loc.clone().start();
 
         // only generate false data if a false block actually exists
         if let Some(f) = self.false_block.as_ref() {
-            let false_data = branch::BranchTarget::new(f.loc().start(), ctx.reserve_subscope());
+            let false_data = branch::BranchTarget::new(f.span().start(), ctx.reserve_subscope());
 
             // TODO: create double/single branch based on presence of else
             let mut ctx = ctx.create_double_conditional_branch(
@@ -67,7 +67,7 @@ impl FunctionLinearizeErased for ast::expressions::IfExpressionTree {
                 parent_scope_def_path,
             );
 
-            let true_loc = self.true_block.loc();
+            let true_loc = self.true_block.span();
             let if_value_id;
             (if_value_id, ctx) = self.true_block.linearize(ctx)?;
 
@@ -86,7 +86,7 @@ impl FunctionLinearizeErased for ast::expressions::IfExpressionTree {
                 ctx.append_statement_to_current_block(assign_if_result_line);
                 // TODO: types here
                 let mut ctx = ctx.finish_true_branch_switch_to_false(condition_loc.start());
-                let else_loc = else_block.loc();
+                let else_loc = else_block.span();
                 let else_value_id;
                 (else_value_id, ctx) = else_block.linearize(ctx)?;
 
