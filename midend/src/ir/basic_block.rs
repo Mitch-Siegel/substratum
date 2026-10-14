@@ -37,7 +37,7 @@ impl BasicBlock {
     #[allow(unused)]
     pub(crate) fn split_at(&mut self, idx: usize) -> Vec<IrLine> {
         let removed = self.statements.split_off(idx);
-        self.span = self.span.clone().start().into();
+        self.span = self.span.start().clone().into();
         for stmt in &self.statements {
             self.span.extend(&stmt.loc);
         }

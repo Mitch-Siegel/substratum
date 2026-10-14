@@ -63,7 +63,7 @@ impl<B: branch::Branch>
                     frontend::here!(),
                 );
                 let expression_statement = ir::IrLine::new_binary_arithmetic_expression(
-                    loc.start(),
+                    loc.into_start(),
                     destination,
                     operands,
                 );
@@ -78,7 +78,7 @@ impl<B: branch::Branch>
                     frontend::here!(),
                 );
                 let comparison_statement = ir::IrLine::new_binary_comparison_expression(
-                    loc.start(),
+                    loc.into_start(),
                     destination,
                     operands,
                 );
@@ -98,7 +98,7 @@ impl<B: branch::Branch>
                     frontend::here!(),
                 );
                 let field_read_line = ir::IrLine::new_get_field_pointer(
-                    field_loc.start(),
+                    field_loc.into_start(),
                     receiver,
                     field,
                     field_pointer_temp,

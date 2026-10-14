@@ -400,7 +400,7 @@ where
             PathWalkState::<T>::start(ctx_segments)
         };
 
-        let mut path_span: loc::Span = self.span().start().into();
+        let mut path_span: loc::Span = self.span().into_start().into();
         let mut segments = self.segments.into_iter();
 
         while let Some(segment) = segments.next() {

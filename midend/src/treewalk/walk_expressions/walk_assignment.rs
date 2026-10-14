@@ -25,7 +25,7 @@ impl<B: branch::Branch>
         self,
         mut ctx: FunctionLinearizeCtx<B>,
     ) -> LinearizeResult<Self::Data, UnpathedFunctionLinearizeCtx<B>> {
-        let assignment_start = self.span().start();
+        let assignment_start = self.span().into_start();
 
         let (assignment_ir, mut ctx) =
             if let ast::Expression::Field(field_expression_tree) = *self.assignee {
@@ -38,7 +38,7 @@ impl<B: branch::Branch>
                 );
 
                 let field_pointer_line = ir::IrLine::new_get_field_pointer(
-                    field_loc.start(),
+                    field_loc.into_start(),
                     receiver,
                     field,
                     field_pointer_temp,
@@ -52,7 +52,7 @@ impl<B: branch::Branch>
                     ctx,
                 )
             } else {
-                let assignee_start = self.assignee.span().start();
+                let assignee_start = self.assignee.span().into_start();
                 let (assignee, ctx) = self.assignee.linearize(ctx)?;
                 let (stored_value, ctx) = self.value.linearize(ctx)?;
                 (

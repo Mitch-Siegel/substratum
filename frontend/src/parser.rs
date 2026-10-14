@@ -132,7 +132,7 @@ impl<'a> Parser<'a> {
             Ok(self.next_token_with_span()?.1)
         } else {
             Err(ParseError::unexpected_token(
-                upcoming_loc.start(),
+                upcoming_loc.into_start(),
                 upcoming_token,
                 &[expected],
                 current_parse_string,
@@ -156,7 +156,7 @@ impl<'a> Parser<'a> {
         };
 
         Err(ParseError::unexpected_token(
-            upcoming_loc.start(),
+            upcoming_loc.into_start(),
             upcoming_token,
             expected_tokens,
             current_parse_string,
@@ -169,7 +169,7 @@ impl<'a> Parser<'a> {
         &mut self,
         what_parsing: &str,
     ) -> Result<(Loc, trace::ExitOnDropSpan), ParseError> {
-        let start_loc = self.peek_token_with_span()?.1.start();
+        let start_loc = self.peek_token_with_span()?.1.into_start();
 
         let exit_on_drop_span = trace::span_auto!(
             trace::Level::TRACE,

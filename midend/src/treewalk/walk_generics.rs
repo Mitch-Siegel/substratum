@@ -79,7 +79,7 @@ where
                 generic_params_set.insert(param.clone()),
                 "duplicate generic parameter {} @ {}",
                 param,
-                loc.start()
+                loc.into_start()
             );
 
             params_list.push(param);

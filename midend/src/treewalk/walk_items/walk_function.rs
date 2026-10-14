@@ -136,8 +136,8 @@ where
                 ctx,
                 declared_prototype,
                 &arg_def_paths,
-                span.clone().start(),
-                span.clone().end(),
+                span.start().clone(),
+                span.end().clone(),
             );
 
         let function_ctx: FunctionLinearizeCtx<branch::UnfinishedFunction> =
@@ -145,7 +145,7 @@ where
         let (_return_value_id, function_ctx) = self.body.linearize(function_ctx)?;
 
         let function_ctx: FunctionLinearizeCtx<branch::Epilogue> =
-            function_ctx.finish_to_epilogue(span.end());
+            function_ctx.finish_to_epilogue(span.into_end());
 
         let (f, ctx) = function_ctx.take();
 

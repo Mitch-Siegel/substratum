@@ -1,4 +1,4 @@
-use crate::loc::{Point, PointSpan};
+use crate::loc::{LineCol, LineColSpan};
 
 mod char_source;
 pub(crate) mod errors;
@@ -15,18 +15,18 @@ use char_source::CharSource;
 
 mod loc_source {
     use super::char_source::CharSource;
-    use crate::loc::Point;
+    use crate::loc::LineCol;
 
     #[derive(Debug)]
     pub(super) struct CharPointSource<'a> {
         char_source: CharSource<'a>,
         // line, col at which peek() returns a char from
-        peek_char: Option<(char, Point)>,
+        peek_char: Option<(char, LineCol)>,
     }
 
     impl<'a> CharPointSource<'a> {
         pub(super) fn new(mut char_source: CharSource<'a>) -> Self {
-            let first_char = char_source.next().map(|c| (c, Point::new(1, 1)));
+            let first_char = char_source.next().map(|c| (c, LineCol::new(1, 1)));
 
             Self {
                 char_source,
@@ -34,22 +34,22 @@ mod loc_source {
             }
         }
 
-        fn calc_new_point(old: Point, c: char) -> Point {
-            let Point { mut line, mut col } = old;
+        fn calc_new_point(old: LineCol, c: char) -> LineCol {
+            let LineCol { mut line, mut col } = old;
             if c == '\n' {
                 line += 1;
                 col = 1;
             } else {
                 col += 1;
             }
-            Point::new(line, col)
+            LineCol::new(line, col)
         }
 
-        pub(super) fn peek(&self) -> Option<(char, Point)> {
+        pub(super) fn peek(&self) -> Option<(char, LineCol)> {
             self.peek_char
         }
 
-        pub(super) fn advance(&mut self) -> Option<(char, Point)> {
+        pub(super) fn advance(&mut self) -> Option<(char, LineCol)> {
             let (c, point) = self.peek_char?;
 
             self.peek_char = self
@@ -67,8 +67,8 @@ use loc_source::CharPointSource;
 #[derive(Debug)]
 pub(crate) struct Lexer<'a> {
     char_source: CharPointSource<'a>,
-    last_consumed_point: Option<Point>,
-    current_token: Option<(Token, PointSpan)>,
+    last_consumed_point: Option<LineCol>,
+    current_token: Option<(Token, LineColSpan)>,
 }
 
 // public methods:
@@ -90,7 +90,7 @@ impl<'a> Lexer<'a> {
         Self::from_char_source(CharSource::from_str(s))
     }
 
-    pub(crate) fn peek(&mut self) -> Result<(Token, PointSpan), LexError> {
+    pub(crate) fn peek(&mut self) -> Result<(Token, LineColSpan), LexError> {
         if self.current_token.is_none() {
             self.current_token = Some(self.lex()?);
         }
@@ -108,11 +108,11 @@ impl<'a> Lexer<'a> {
     }
 
     // returns the position to which the input has been read
-    pub(crate) fn last_consumed_point(&self) -> Point {
-        self.last_consumed_point.unwrap_or(Point::new(0, 0))
+    pub(crate) fn last_consumed_point(&self) -> LineCol {
+        self.last_consumed_point.unwrap_or(LineCol::new(0, 0))
     }
 
-    pub(crate) fn next(&mut self) -> Result<(Token, PointSpan), LexError> {
+    pub(crate) fn next(&mut self) -> Result<(Token, LineColSpan), LexError> {
         let _ = trace::span_auto!(trace::Level::TRACE, "");
         let next_token = self.lex()?;
         Ok(self
@@ -122,9 +122,9 @@ impl<'a> Lexer<'a> {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn lex_all(&mut self) -> Result<Vec<(Token, PointSpan)>, LexError> {
+    pub(crate) fn lex_all(&mut self) -> Result<Vec<(Token, LineColSpan)>, LexError> {
         println!("Lexer::lex_all()");
-        let mut tokens: Vec<(Token, PointSpan)> = Vec::new();
+        let mut tokens: Vec<(Token, LineColSpan)> = Vec::new();
         if self.current_token.is_none() {
             tokens.push(self.lex()?);
         }
@@ -159,7 +159,7 @@ impl Lexer<'_> {
         c.map(|(c, _)| c)
     }
 
-    fn advance_char(&mut self) -> Point {
+    fn advance_char(&mut self) -> LineCol {
         let (_, point) = self.char_source.advance().unwrap();
         self.last_consumed_point.replace(point);
         // #[cfg(feature = "loud_lexing")]
@@ -167,7 +167,7 @@ impl Lexer<'_> {
         point
     }
 
-    fn match_kw_or_ident(&mut self) -> Option<(Token, Point)> {
+    fn match_kw_or_ident(&mut self) -> Option<(Token, LineCol)> {
         #[cfg(feature = "loud_lexing")]
         println!("Lexer::match_kw_or_ident");
 
@@ -229,8 +229,8 @@ impl Lexer<'_> {
         &mut self,
         expected: char,
         tok_true: Token,
-        false_output: (Token, Point),
-    ) -> (Token, Point) {
+        false_output: (Token, LineCol),
+    ) -> (Token, LineCol) {
         #[cfg(feature = "loud_lexing")]
         println!(
             "Lexer::match_next_char_for_token_or: expected: {expected}, true: {tok_true}, false: {}@{}",
@@ -249,7 +249,7 @@ impl Lexer<'_> {
         }
     }
 
-    fn trim_whitespace(&mut self) -> Point {
+    fn trim_whitespace(&mut self) -> LineCol {
         let mut ret = self.last_consumed_point();
         while let Some(c) = self.peek_char() {
             if c.is_whitespace() {
@@ -262,7 +262,7 @@ impl Lexer<'_> {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn lex(&mut self) -> Result<(Token, PointSpan), LexError> {
+    fn lex(&mut self) -> Result<(Token, LineColSpan), LexError> {
         #[cfg(feature = "loud_lexing")]
         println!("Lexer::lex()");
 
@@ -323,7 +323,7 @@ impl Lexer<'_> {
                 }
                 '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
                     let mut constant_string = String::new();
-                    let mut end: Point = match_start.unwrap();
+                    let mut end: LineCol = match_start.unwrap();
                     while let Some(c) = self.peek_char()
                         && c.is_numeric()
                     {
@@ -359,7 +359,7 @@ impl Lexer<'_> {
         );
         Ok((
             tok,
-            PointSpan::new(match_start.unwrap_or(match_end), match_end),
+            LineColSpan::new(match_start.unwrap_or(match_end), match_end),
         ))
     }
 }

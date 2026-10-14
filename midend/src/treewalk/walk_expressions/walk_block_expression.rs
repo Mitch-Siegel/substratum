@@ -33,9 +33,9 @@ impl<B: branch::Branch>
         let true_scope_def_path = ctx.reserve_subscope();
         let mut ctx: FunctionLinearizeCtx<branch::NestedBranch<B, branch::Unconditional>> = ctx
             .create_unconditional_branch(
-                self.open_brace.start(),
+                self.open_brace.into_start(),
                 // TODO: this will artifically capture the close brace as included in the range of "after". How to cleanly mitigate?
-                self.close_brace.clone().end(),
+                self.close_brace.end().clone(),
                 parent_def_path,
                 true_scope_def_path,
             );
@@ -55,7 +55,7 @@ impl<B: branch::Branch>
             None => ir::ValueInterner::<Option<types::Syntactic>>::unit_value_id(),
         };
 
-        let ctx = ctx.finish_unconditional_branch(self.close_brace.clone().end());
+        let ctx = ctx.finish_unconditional_branch(self.close_brace.into_end());
 
         ctx.into_result(last_statement_value)
     }

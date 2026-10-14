@@ -1,4 +1,4 @@
-use crate::loc::Point;
+use crate::loc::LineCol;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum LexError {
@@ -20,11 +20,11 @@ impl std::fmt::Display for LexError {
 }
 
 impl LexError {
-    pub(crate) fn invalid_char(c: char, pos: Point) -> Self {
+    pub(crate) fn invalid_char(c: char, pos: LineCol) -> Self {
         Self::InvalidChar(InvalidCharError { c, pos })
     }
 
-    pub(crate) fn unexpected_eof(pos: Point) -> Self {
+    pub(crate) fn unexpected_eof(pos: LineCol) -> Self {
         Self::UnexpectedEof(UnexpectedEofError { pos })
     }
 }
@@ -32,10 +32,10 @@ impl LexError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct InvalidCharError {
     c: char,
-    pos: Point,
+    pos: LineCol,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct UnexpectedEofError {
-    pos: Point,
+    pos: LineCol,
 }
