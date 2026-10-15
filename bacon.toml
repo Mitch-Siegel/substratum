@@ -117,3 +117,4 @@ i = "job:lint-imports"
 [jobs.lint-imports]
 command = ["cargo", "run", "--bin", "import-linter", "frontend", "midend", "backend"]
 watch = ["frontend", "midend", "backend"]
+need_stdout = true

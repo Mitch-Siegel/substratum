@@ -1,4 +1,18 @@
-use std::{collections::VecDeque, fs, path};
+use std::{
+    collections::{HashSet, VecDeque},
+    fs, path,
+};
+
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+struct Args {
+    manifest_dirs: Vec<String>,
+    #[arg(short, long, conflicts_with = "only_crates")]
+    ignore_crates: Option<Vec<String>>,
+    #[arg(short, long, conflicts_with = "ignore_crates")]
+    only_crates: Option<Vec<String>>,
+}
 
 mod lint_from_root;
 
@@ -7,7 +21,11 @@ enum ManifestEntry {
     Lib(path::PathBuf),
 }
 
-fn lint_from_manifest_dir(manifest_dir: &path::Path) {
+fn lint_from_manifest_dir(
+    manifest_dir: &path::Path,
+    ignore_crates: &HashSet<String>,
+    only_crates: &HashSet<String>,
+) {
     let manifest_path: path::PathBuf = manifest_dir.join(String::from("Cargo.toml"));
 
     let manifest_content = fs::read_to_string(manifest_path.clone())
@@ -45,20 +63,25 @@ fn lint_from_manifest_dir(manifest_dir: &path::Path) {
     while let Some(entry) = manifest_entries.pop_front() {
         match entry {
             ManifestEntry::Bin(path) | ManifestEntry::Lib(path) => {
-                lint_from_root::lint_from_root(&path);
+                lint_from_root::lint_from_root(&path, ignore_crates, only_crates);
             }
         }
     }
 }
 
 fn main() {
-    let args = std::env::args().skip(1);
+    let args = Args::parse();
 
-    if args.size_hint().0 == 0 {
-        eprintln!("must provide at least one target directory to lint");
-    }
+    let mut ignore_crates: HashSet<String> =
+        args.ignore_crates.unwrap_or_default().into_iter().collect();
 
-    for arg in std::env::args().skip(1) {
-        lint_from_manifest_dir(&std::path::PathBuf::from(arg));
+    // by default, ignore std and core
+    ignore_crates.insert("std".into());
+    ignore_crates.insert("core".into());
+
+    let only_crates: HashSet<String> = args.only_crates.unwrap_or_default().into_iter().collect();
+
+    for dir in &args.manifest_dirs {
+        lint_from_manifest_dir(&std::path::PathBuf::from(dir), &ignore_crates, &only_crates);
     }
 }
